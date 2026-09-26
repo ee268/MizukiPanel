@@ -1,6 +1,6 @@
 # MizukiPanel
 
-Mizuki 博客的本机管理面板。当前完成阶段 4：在文章管理基础上增加公共图片与文章资源管理，并可启动或连接 Mizuki 的 Astro 真实预览。安全同步与存储见 [阶段 2 说明](docs/STAGE_2.md)，文章操作见 [阶段 3 说明](docs/STAGE_3.md)，媒体与预览见 [阶段 4 说明](docs/STAGE_4.md)。站点配置、特色页管理和发布工作流按 [设计文档](docs/DESIGN.md) 的后续阶段实现。
+Mizuki 博客的本机管理面板。界面使用 React 与 Material UI，采用顶部标题栏、左侧主导航和右侧内容区。当前完成阶段 4：文章管理、公共图片与文章资源，以及 Mizuki Astro 真实预览。安全同步与存储见 [阶段 2 说明](docs/STAGE_2.md)，文章操作见 [阶段 3 说明](docs/STAGE_3.md)，媒体与预览见 [阶段 4 说明](docs/STAGE_4.md)，界面迁移见 [React + Material UI 迁移说明](docs/REACT_MUI_MIGRATION.md)。
 
 ## 运行要求
 

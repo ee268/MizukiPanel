@@ -1,6 +1,6 @@
 # MizukiPanel 首个 Release 设计文档
 
-状态：设计稿，待确认后进入按阶段构建  
+状态：实施中，阶段 1—4 已完成；React + Material UI 界面迁移已完成
 目标版本：`v1.0.0`（首个完整可用版本）  
 设计日期：2026-09-26  
 目标运行环境：用户本机，浏览器访问本机面板  
@@ -13,7 +13,7 @@ MizukiPanel 是一个独立于 Mizuki 静态站点运行的本机管理程序。
 首版包含：
 
 - 文章的创建、列表、筛选、编辑、复制、重命名、删除、草稿切换和发布检查，覆盖 `.md` 与 `.mdx`。
-- 文章 Frontmatter 中当前 schema 的可编辑字段；未知字段原样保留并提示。正文提供源码编辑，Markdown 辅助输入；MDX 始终保留源码编辑能力。
+- 文章 Frontmatter 使用左右键值行编辑：左侧字段名和右侧 YAML 内容都可修改，也可增删字段。未知字段、正文和可关联的 YAML 注释继续保留；Markdown 与 MDX 始终提供完整源码编辑能力。
 - 图片与附件上传、浏览、引用、重命名和删除，覆盖文章同目录资源、`public/images/` 与相册目录。
 - 常用站点配置和其余可覆盖配置的分组编辑；复杂或非字面量配置提供源码视图和受控编辑，不静默重写。
 - 关于、友链、日记、追番、相册、项目、技能、设备、时间线、AI 工具等特色页的内容管理，以及页面开关与导航入口的联动提示。
@@ -52,10 +52,11 @@ Mizuki README 已声明该主题将停止更新并迁移到 Shirone。本项目�
 
 | 层 | 选择 | 原因 |
 | --- | --- | --- |
-| 本机 Web 应用 | SvelteKit 2、Svelte 5、TypeScript strict、`@sveltejs/adapter-node` | Mizuki 已使用 Svelte；SvelteKit 同时提供界面、服务端路由和表单动作，Node 适合访问本地文件与 Git。以 Node 20+ 为基线，与 Mizuki 要求一致。 |
+| 浏览器应用 | React 19、React Router、TypeScript strict、Vite 7 | React 负责单页应用和页面状态；路由按页面拆包。Vite 提供开发代理和生产静态构建。 |
+| 本机 API | Hono 4、`@hono/node-server` | API 继续运行在 Node 进程内，复用文件、Git、媒体和 Astro 预览服务；生产环境由同一回环服务提供 React 静态资源。 |
 | 包管理与构建 | pnpm、Vite | 与 Mizuki 的 pnpm 工作流接近；面板作为独立项目固定自己的依赖版本。 |
-| UI 组件库 | Skeleton（`@skeletonlabs/skeleton`、`@skeletonlabs/skeleton-svelte`）+ Tailwind CSS 4 | 以成熟组件库统一表单、弹窗、选择器、导航、反馈和主题；Tailwind 只用于布局与少量业务定制，不自行实现通用交互组件。Skeleton 官方支持 SvelteKit 2、Svelte 5 和 Tailwind 4。 |
-| 大型内容列表 | `@tanstack/svelte-table` + Skeleton 表格样式 | 文章和媒体列表需要排序、筛选、分页及选择；表格状态由 TanStack Table 管理，视觉保持 Skeleton 一致。 |
+| UI 组件库 | Material UI 9、Material Icons、Emotion | 表单、弹窗、列表、导航、反馈、响应式抽屉和主题统一使用 MUI 组件。整体框架固定为顶部标题栏、左侧导航栏和右侧内容区。 |
+| 内容列表 | Material UI List、Grid、Card、Table | 文章和媒体列表使用 MUI 原生组件实现搜索、筛选和响应式布局；数据量需要服务端分页后再引入对应分页状态。 |
 | 图标 | Iconify | 与 Mizuki 的图标体系接近，但面板图标独立安装，不依赖博客构建产物。 |
 | 内容编辑 | CodeMirror 6；`yaml` 的 Document API | 适合源码编辑与语法高亮；YAML 修改尽量保留注释、顺序和未知字段。对不能安全往返的语法拒绝结构化写入，保留源码编辑。 |
 | TS 配置/数据编辑 | TypeScript Compiler API 或 `ts-morph` 的 AST 操作 | 定位导出变量和字面量节点，最小化修改；遇到函数调用、展开、计算表达式时只读或转源码编辑并显示差异。绝不通过 `eval` 执行配置文件。 |
@@ -64,13 +65,13 @@ Mizuki README 已声明该主题将停止更新并迁移到 Shirone。本项目�
 | Git | 调用受控参数的 Git CLI（`execFile`，不拼接 shell 命令） | 只暂存面板选中的文件；让用户检查提交和推送，不执行 force push。 |
 | 数据存储 | 内容仍为文件；面板只保存本机工作区设置与会话信息 | 不引入与 Mizuki 文件并行的内容数据库，避免双份真相。 |
 
-采用官方支持的 [SvelteKit Node 适配器](https://svelte.dev/docs/kit/adapter-node) 和 [表单动作](https://svelte.dev/docs/kit/form-actions)。UI 组件选用 [Skeleton 的 SvelteKit 安装方案](https://www.skeleton.dev/docs/svelte/get-started/installation/sveltekit)；它也列在 [Svelte 生态组件库目录](https://svelte.dev/packages)中。文章编辑器和 Git 差异视图属于业务专用界面，继续使用 CodeMirror，不强塞进通用组件库。YAML 文档节点的修改能力见 [`yaml` 官方说明](https://eemeli.org/yaml/)，TS 对象字面量的 AST 操作见 [`ts-morph` 文档](https://ts-morph.com/details/object-literal-expressions)。具体依赖版本在正式开工时固定在锁文件，不在设计稿中猜测未来版本。
+浏览器端采用 [React](https://react.dev/)、[Vite React 插件](https://vite.dev/guide/) 和 [Material UI](https://mui.com/material-ui/getting-started/installation/)；本机 API 使用 [Hono Node 适配器](https://hono.dev/docs/getting-started/nodejs)。文章编辑器和 Git 差异视图属于业务专用界面，后续继续使用 CodeMirror。YAML 文档节点的修改能力见 [`yaml` 官方说明](https://eemeli.org/yaml/)，TS 对象字面量的 AST 操作见 [`ts-morph` 文档](https://ts-morph.com/details/object-literal-expressions)。具体依赖版本固定在锁文件。
 
 ## 4. 总体架构与数据来源
 
 ```mermaid
 flowchart LR
-    UI[本机浏览器] --> App[SvelteKit Node 服务]
+    UI[React + Material UI] --> App[Hono Node API]
     App --> V[校验/冲突检测/写入事务]
     V --> A[内容来源适配器]
     A --> L[本地 Mizuki 工作树]
@@ -110,7 +111,7 @@ flowchart LR
 ### 5.1 文章与编辑器
 
 - 列表按标题、日期、草稿、分类、标签、文件路径搜索和筛选；文件相对路径是稳定的编辑标识，不依赖生成后的 URL。
-- 表单按 [`CONTENT_AUTHORING.zh.md`](../../Mizuki/docs/CONTENT_AUTHORING.zh.md) 和实际 schema 管理标题、日期、摘要、封面、标签、分类、语言、置顶、排序、评论、作者、来源、许可、加密、别名及固定链接。
+- Frontmatter 使用可增删键值行。字段名和 YAML 内容均可编辑；保存时仍按 [`CONTENT_AUTHORING.zh.md`](../../Mizuki/docs/CONTENT_AUTHORING.zh.md) 和实际 schema 校验标题、日期、标签、布尔值、链接、路由及其他已知字段。
 - 日期输入保留 `YYYY-MM-DD` 或带时区 ISO 时间戳的原始形式。避免格式化造成发布时间偏移。
 - 正文编辑器支持 Markdown/MDX 源码、常用语法插入、图片引用、未保存变更提醒、快捷保存。MDX 组件导入和自定义语法不经简化渲染器往返。
 - 新建时选择单文件或 `index.md(x)` 加资源目录；移动/重命名后检查相对图片和 Wiki Link；删除先移入可恢复区。
@@ -153,9 +154,9 @@ flowchart LR
 
 | 阶段 | 交付重点 | 阶段验收 |
 | --- | --- | --- |
-| 1. 项目骨架与契约 | 初始化 SvelteKit、Skeleton 组件库与设计主题、项目连接、模式识别、文件映射、权限与路径守卫；为两种模式建立样例工作区。 | 能识别本地/独立模式及真实原始写入目录；表单、弹窗、导航和消息反馈使用统一组件；错误配置只读并明确报错。 |
+| 1. 项目骨架与契约 | 初始化 React、Material UI、Hono 与设计主题、项目连接、模式识别、文件映射、权限与路径守卫；为两种模式建立样例工作区。 | 能识别本地/独立模式及真实原始写入目录；表单、弹窗、导航和消息反馈使用统一组件；错误配置只读并明确报错。 |
 | 2. 安全同步与存储层 | 改造 Mizuki 同步脚本，覆盖 `animes/`、`data/` 完整性、Windows 联接/复制；实现事务写入、备份、冲突检测和 Git 状态适配。 | 独立仓库未提交变更不会因 dev/build 丢失；同步不自动提交无关文件；冲突会阻止写入。 |
-| 3. 文章管理 | 文章列表、Frontmatter 表单、Markdown/MDX 源码编辑、新建/重命名/删除、URL 与日期校验。 | 使用仓库真实文章做读写回归；修改后 Mizuki `check`、`type-check` 通过，未知字段与正文不丢失。 |
+| 3. 文章管理 | 文章列表、可改名 Frontmatter 键值行、Markdown/MDX 源码编辑、新建/重命名/删除、URL 与日期校验。 | 使用仓库真实文章做读写回归；修改后 Mizuki `check`、`type-check` 通过，未知字段、关联注释与正文不丢失。 |
 | 4. 媒体与真实预览 | 上传/引用/安全删除，文章资源目录、公共图片；启动/连接 Astro 预览，展示构建日志。 | Markdown 和 MDX 增强语法、相对图片、公共图片在真实 Astro 页面正确显示。 |
 | 5. 站点配置 | 18 个可覆盖配置的分组编辑、默认/覆盖/最终值、AST 写入、配置差异及恢复。 | 本地与独立模式各完成一次配置修改、类型检查与构建；复杂表达式不会被误写。 |
 | 6. 全部特色页 | 关于、友链、日记、追番双入口、相册、项目、技能、设备、时间线、AI 工具及页面开关提示。 | 每个模块在两种模式都有创建/修改/删除或清楚标记只读的真实样例；所有内容可由 Mizuki 构建读取。 |
@@ -166,7 +167,7 @@ flowchart LR
 
 ### 7.1 开发提交规范
 
-- 开始阶段 1 时，在目前尚未初始化 Git 的 `MizukiPanel/` 建立 Git 仓库；Mizuki 已有仓库继续独立使用。面板源码和 Mizuki 集成改动分别在所属仓库提交，不跨仓库混合提交。
+- `MizukiPanel/` 与 Mizuki 使用独立 Git 仓库。面板源码和 Mizuki 集成改动分别在所属仓库提交，不跨仓库混合提交。
 - 所有开发提交遵循 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/)：`<type>(<scope>): <description>`。功能用 `feat`，缺陷修复用 `fix`，纯文档用 `docs`，测试用 `test`，不改变行为的重构用 `refactor`，构建与发布事务用 `chore`。破坏性兼容变更使用 `!` 并在正文说明迁移方式。
 - 一个提交对应一项可独立审查的改动。每个阶段至少有一项与阶段重点功能对应的提交；阶段 6 这类包含多个特色页的阶段，按模块分多次提交，不把全部功能堆成一个大提交。测试和必要文档可随功能提交，或单独按类型提交。
 - 提交前运行该改动所需的检查并审阅 diff，只暂存相关文件。阶段完成报告列出两个仓库各自的提交哈希、提交说明、验证命令和结果；若某仓库本阶段无改动，明确写“无提交”。禁止以未提交的工作树宣称阶段完成。
@@ -218,6 +219,6 @@ chore(release): package and document v1.0.0
 - `MizukiPanel` 自身通过类型检查、单元测试、端到端测试；Mizuki 通过 `pnpm check`、`pnpm type-check`、`pnpm build`。
 - 8 个阶段的重点功能均有 Conventional Commits 提交记录；涉及两个仓库的改动分别提交，阶段报告可追溯到提交哈希和验证结果。
 
-## 9. 开工条件
+## 9. 当前实施状态
 
-本文件仅是设计交付，不启动阶段 1 的代码构建。确认此设计后，再按上表逐阶段实施；实施中若实际文件格式与当前契约不符，先更新设计与验收项并说明影响。
+阶段 1—4 及 React + Material UI 界面迁移已经完成。后续从阶段 5 的站点配置管理继续实施；若实际文件格式与当前契约不符，先更新设计与验收项并说明影响。

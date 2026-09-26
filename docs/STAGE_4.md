@@ -25,6 +25,6 @@
 ## 验证
 
 - `pnpm test`：18 项测试通过，媒体测试覆盖本地/独立内容模式、嵌套文章相对引用、实际文件类型、重复上传、只读状态、引用阻止删除和回收副本。
-- `pnpm check`：Svelte 与 TypeScript 检查通过，无错误和警告。
+- `pnpm check`：React、Hono 与 TypeScript 检查通过，无错误。
 - `pnpm build`：Node 适配器生产构建通过。
 - 真实运行验证：从生产构建登录面板，经表单分别创建临时 Markdown 与 MDX 文章并上传文章 WebP 与公共 WebP；由面板启动 Mizuki Astro，两种文章页均返回 HTTP 200。MDX 表达式、提示指令、文章相对图片和 `/images/` 公共图片均出现在真实渲染结果中。验证后通过面板删除动作清理临时内容并关闭测试进程。
