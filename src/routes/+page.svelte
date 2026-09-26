@@ -25,14 +25,14 @@
           <p class="text-xs opacity-60">本机博客管理工作区</p>
         </div>
       </div>
-      <span class="badge preset-tonal text-xs">阶段 2 · 安全存储</span>
+      <div class="flex items-center gap-3"><a class="btn preset-filled-primary-500" href="/articles">管理文章</a><span class="badge preset-tonal text-xs">阶段 3 · 文章管理</span></div>
     </div>
   </header>
 
   <main class="mx-auto max-w-6xl space-y-8 px-5 py-10">
     <section class="space-y-2">
       <h1 class="text-3xl font-semibold">连接 Mizuki 项目</h1>
-      <p class="max-w-3xl opacity-70">选择本机 Mizuki 根目录。面板会读取配置并显示实际内容来源；当前阶段提供安全同步、备份和 Git 状态检查。</p>
+      <p class="max-w-3xl opacity-70">选择本机 Mizuki 根目录。面板会读取配置并显示实际内容来源；可连接工作区、查看 Git 状态并管理 Markdown/MDX 文章。</p>
     </section>
 
     <section class="card bg-surface-100-900 space-y-5 p-6 shadow-sm">
