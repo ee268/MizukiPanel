@@ -23,6 +23,7 @@ process.env.PANEL_ACCESS_TOKEN = token;
 process.env.HOST = '127.0.0.1';
 process.env.PORT = String(port);
 process.env.ORIGIN = `http://127.0.0.1:${port}`;
+process.env.BODY_SIZE_LIMIT ??= '25M';
 
 console.log(`MizukiPanel: http://127.0.0.1:${port}/login`);
 console.log(`本次启动的访问令牌：${token}`);
