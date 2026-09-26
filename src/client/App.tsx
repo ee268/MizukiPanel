@@ -8,6 +8,7 @@ import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
 import PermMediaOutlined from '@mui/icons-material/PermMediaOutlined';
 import PreviewOutlined from '@mui/icons-material/PreviewOutlined';
+import TuneOutlined from '@mui/icons-material/TuneOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined';
 import PaletteOutlined from '@mui/icons-material/PaletteOutlined';
@@ -20,11 +21,13 @@ const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
 const ArticlesPage = lazy(() => import('./pages/ArticlesPage'));
 const MediaPage = lazy(() => import('./pages/MediaPage'));
 const PreviewPage = lazy(() => import('./pages/PreviewPage'));
+const ConfigPage = lazy(() => import('./pages/ConfigPage'));
 
 const drawerWidth = 248;
 const navigation = [
   { path: '/', label: '工作区', icon: <DashboardOutlined /> },
   { path: '/articles', label: '文章管理', icon: <ArticleOutlined /> },
+  { path: '/config', label: '站点配置', icon: <TuneOutlined /> },
   { path: '/media', label: '媒体管理', icon: <PermMediaOutlined /> },
   { path: '/preview', label: '真实预览', icon: <PreviewOutlined /> }
 ];
@@ -105,6 +108,7 @@ export default function App() {
     <Route element={<RequireAuth />}>
       <Route path="/" element={<WorkspacePage />} />
       <Route path="/articles" element={<ArticlesPage />} />
+      <Route path="/config" element={<ConfigPage />} />
       <Route path="/media" element={<MediaPage />} />
       <Route path="/preview" element={<PreviewPage />} />
     </Route>

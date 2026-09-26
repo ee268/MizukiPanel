@@ -18,6 +18,9 @@ import { StorageConflict } from '../lib/server/storage';
 import { PathGuardError } from '../lib/server/path-guard';
 import { deleteMedia, listMedia, MediaError, readMedia, uploadMedia, type MediaScope } from '../lib/server/media';
 import { previewStatus, startPreview, stopPreview } from '../lib/server/preview';
+import {
+  ConfigValidationError, listConfigs, readConfig, restoreConfig, saveConfig, SiteConfigError
+} from '../lib/server/configs';
 
 class ApiError extends Error {
   constructor(public status: 400 | 401 | 403 | 404 | 409 | 500, message: string) { super(message); }
@@ -35,7 +38,8 @@ function message(error: unknown): string {
 function mapError(error: unknown): never {
   if (error instanceof ApiError) throw error;
   if (error instanceof StorageConflict) throw new ApiError(409, error.message);
-  if (error instanceof ArticleValidationError || error instanceof MediaError || error instanceof PathGuardError || error instanceof ProjectError)
+  if (error instanceof ArticleValidationError || error instanceof ConfigValidationError || error instanceof SiteConfigError
+    || error instanceof MediaError || error instanceof PathGuardError || error instanceof ProjectError)
     throw new ApiError(400, error.message);
   if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') throw new ApiError(404, '目标文件不存在或已被移动');
   throw error;
@@ -164,6 +168,30 @@ app.delete('/api/article', async (context) => {
   const body = await context.req.json<{ id?: string; version?: string }>();
   if (!body.id || !body.version) throw new ApiError(400, '删除参数不完整');
   try { await deleteArticle(await project(), body.id, body.version); return context.json({ ok: true }); }
+  catch (error) { mapError(error); }
+});
+
+app.get('/api/configs', async (context) => context.json(await listConfigs(await project())));
+
+app.get('/api/config', async (context) => {
+  const key = context.req.query('key');
+  if (!key) throw new ApiError(400, '缺少配置名称');
+  try { return context.json(await readConfig(await project(), key)); }
+  catch (error) { mapError(error); }
+});
+
+app.put('/api/config', async (context) => {
+  const body = await context.req.json<{ key?: string; initializer?: string; version?: string }>();
+  if (!body.key || typeof body.initializer !== 'string' || typeof body.version !== 'string')
+    throw new ApiError(400, '配置保存参数不完整');
+  try { return context.json(await saveConfig(await project(), body.key, body.initializer, body.version)); }
+  catch (error) { mapError(error); }
+});
+
+app.post('/api/config/restore', async (context) => {
+  const body = await context.req.json<{ key?: string; backupPath?: string; version?: string }>();
+  if (!body.key || !body.backupPath || !body.version) throw new ApiError(400, '配置恢复参数不完整');
+  try { return context.json(await restoreConfig(await project(), body.key, body.backupPath, body.version)); }
   catch (error) { mapError(error); }
 });
 

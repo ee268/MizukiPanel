@@ -61,3 +61,28 @@ export interface PreviewStatus {
   logs: string[];
   error: string | null;
 }
+
+export type ConfigValue = null | boolean | number | string | ConfigValue[] | { [key: string]: ConfigValue };
+
+export interface ConfigDescriptor {
+  key: string;
+  label: string;
+  group: string;
+  file: string;
+  exportName: string;
+}
+
+export interface SiteConfigDocument {
+  report: ProjectReport;
+  descriptor: ConfigDescriptor;
+  mode: ProjectReport['mode'];
+  readOnly: boolean;
+  targetExists: boolean;
+  version: string;
+  initializer: string;
+  defaultValue: ConfigValue;
+  overrideValue: ConfigValue | null;
+  effectiveValue: ConfigValue;
+  changedPaths: string[];
+  warnings: string[];
+}
