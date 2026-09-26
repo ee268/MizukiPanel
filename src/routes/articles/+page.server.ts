@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import { readWorkspacePath } from '$lib/server/workspace';
 import { inspectProject } from '$lib/server/project';
 import { ArticleValidationError, type ArticleFields } from '$lib/server/article-format';
-import { createArticle, deleteArticle, listArticles, readArticle, renameArticle,
+import { articlePreviewPath, createArticle, deleteArticle, listArticles, readArticle, renameArticle,
   saveArticleFields, saveArticleSource } from '$lib/server/articles';
 import { StorageConflict } from '$lib/server/storage';
 import { PathGuardError } from '$lib/server/path-guard';
@@ -55,7 +55,8 @@ export const load: PageServerLoad = async ({ url }) => {
     try { selected = await readArticle(report, postId); }
     catch (error) { selectionError = error instanceof Error ? error.message : '文章无法读取'; }
   }
-  return { report, articles, selected, selectionError, creating: url.searchParams.has('new') };
+  return { report, articles, selected, selectionError, creating: url.searchParams.has('new'),
+    previewPath: selected ? articlePreviewPath(selected) : null };
 };
 
 export const actions: Actions = {

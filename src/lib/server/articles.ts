@@ -126,6 +126,11 @@ function routes(item: Pick<ArticleListItem, 'id' | 'alias' | 'permalink' | 'slug
   if (item.permalink) output.push(validateRoutePath(item.permalink, 'permalink').toLowerCase());
   return output;
 }
+
+export function articlePreviewPath(item: Pick<ArticleListItem, 'id' | 'slug'>): string {
+  const slug = item.slug || item.id.replace(/\.(md|mdx)$/i, '').split('/').map((segment) => githubSlug(segment)).join('/').replace(/\/index$/, '');
+  return '/posts/' + validateRoutePath(slug, '文章 URL') + '/';
+}
 const RESERVED = new Set(['about','archive','posts','anime','albums','diary','friends','projects',
   'skills','devices','timeline','ai-tools','rss','atom','api','robots.txt','sitemap-index.xml','_astro']);
 async function assertUnique(report: ProjectReport, id: string, source: string, excluding?: string) {

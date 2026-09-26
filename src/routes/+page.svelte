@@ -25,7 +25,7 @@
           <p class="text-xs opacity-60">本机博客管理工作区</p>
         </div>
       </div>
-      <div class="flex items-center gap-3"><a class="btn preset-filled-primary-500" href="/articles">管理文章</a><span class="badge preset-tonal text-xs">阶段 3 · 文章管理</span></div>
+        <div class="flex items-center gap-3"><a class="btn preset-tonal" href="/media">媒体</a><a class="btn preset-tonal" href="/preview">预览</a><a class="btn preset-filled-primary-500" href="/articles">管理文章</a><span class="badge preset-tonal text-xs">阶段 4 · 媒体与预览</span></div>
     </div>
   </header>
 

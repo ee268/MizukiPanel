@@ -30,6 +30,8 @@
       </div>
       <nav class="flex items-center gap-3 text-sm">
         <a class="btn preset-tonal" href="/">工作区</a>
+        <a class="btn preset-tonal" href="/media">媒体</a>
+        <a class="btn preset-tonal" href="/preview">预览</a>
         <a class="btn preset-filled-primary-500" href="/articles?new=1">新建文章</a>
       </nav>
     </div>
@@ -123,6 +125,7 @@
               <p class="mt-1 break-all font-mono text-xs opacity-60">{article.id} · {article.format.toUpperCase()}</p>
             </div>
             <div class="flex gap-2">
+              {#if data.previewPath}<a class="btn preset-tonal" href={'/preview?path=' + encodeURIComponent(data.previewPath)}>真实预览</a>{/if}
               <button class="btn preset-tonal" class:preset-filled-primary-500={editorMode === 'form'} type="button" onclick={() => editorMode = 'form'} disabled={Boolean(article.error)}>表单</button>
               <button class="btn preset-tonal" class:preset-filled-primary-500={editorMode === 'source'} type="button" onclick={() => editorMode = 'source'}>源码</button>
             </div>
