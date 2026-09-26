@@ -189,7 +189,8 @@ feat(storage): add atomic writes and file conflict detection
 feat(posts): manage Markdown and MDX articles
 
 # 阶段 4 · MizukiPanel
-feat(media): manage assets and open Astro previews
+feat(media): add safe image management
+feat(preview): add managed Astro preview
 
 # 阶段 5 · MizukiPanel
 feat(config): edit site settings in both content modes
