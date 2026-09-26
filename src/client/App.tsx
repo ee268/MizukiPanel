@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import {
-  AppBar, Box, CircularProgress, Divider, Drawer, IconButton, List, ListItemButton,
-  ListItemIcon, ListItemText, Toolbar, Typography, useMediaQuery, useTheme
+  AppBar, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
+  Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText, Slider,
+  Stack, ToggleButton, ToggleButtonGroup, Toolbar, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
 import ArticleOutlined from '@mui/icons-material/ArticleOutlined';
@@ -9,8 +10,10 @@ import PermMediaOutlined from '@mui/icons-material/PermMediaOutlined';
 import PreviewOutlined from '@mui/icons-material/PreviewOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined';
+import PaletteOutlined from '@mui/icons-material/PaletteOutlined';
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { api } from './api';
+import { hueColor, usePanelTheme, type PanelColorMode } from './theme';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const WorkspacePage = lazy(() => import('./pages/WorkspacePage'));
@@ -25,6 +28,38 @@ const navigation = [
   { path: '/media', label: '媒体管理', icon: <PermMediaOutlined /> },
   { path: '/preview', label: '真实预览', icon: <PreviewOutlined /> }
 ];
+
+function ThemeSettings() {
+  const [open, setOpen] = useState(false);
+  const { hue, mode, setHue, setMode, reset } = usePanelTheme();
+  const modes: Array<{ value: PanelColorMode; label: string }> = [
+    { value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }, { value: 'system', label: '跟随系统' }
+  ];
+  return <>
+    <IconButton aria-label="面板主题设置" title="面板主题设置" onClick={() => setOpen(true)}><PaletteOutlined /></IconButton>
+    <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
+      <DialogTitle>面板主题</DialogTitle>
+      <DialogContent>
+        <Stack spacing={3} sx={{ pt: 1 }}>
+          <Box>
+            <Typography gutterBottom>显示模式</Typography>
+            <ToggleButtonGroup exclusive fullWidth value={mode} onChange={(_, value: PanelColorMode | null) => value && setMode(value)}>
+              {modes.map((item) => <ToggleButton key={item.value} value={item.value}>{item.label}</ToggleButton>)}
+            </ToggleButtonGroup>
+          </Box>
+          <Box>
+            <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography>主题色相</Typography><Typography variant="body2" color="text.secondary">{hue}°</Typography>
+            </Stack>
+            <Slider value={hue} min={0} max={360} step={1} onChange={(_, value) => setHue(value as number)} aria-label="主题色相" />
+            <Box sx={{ height: 36, borderRadius: 2, background: `linear-gradient(90deg, ${Array.from({ length: 13 }, (_, index) => hueColor(index * 30)).join(', ')})` }} />
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions><Button onClick={reset}>恢复默认</Button><Button variant="contained" onClick={() => setOpen(false)}>完成</Button></DialogActions>
+    </Dialog>
+  </>;
+}
 
 function RequireAuth() {
   const [state, setState] = useState<'loading' | 'ready' | 'login'>('loading');
@@ -56,7 +91,7 @@ function AppShell() {
   </>;
   return <Box sx={{ display: 'flex', minHeight: '100vh' }}>
     <AppBar position="fixed" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', zIndex: theme.zIndex.drawer + 1, ml: { md: `${drawerWidth}px` }, width: { md: `calc(100% - ${drawerWidth}px)` } }}>
-      <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Typography variant="h6">{current?.label ?? 'MizukiPanel'}</Typography><Box sx={{ flex: 1 }} /><Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, mr: 1 }}>React · Material UI</Typography><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
+      <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Typography variant="h6">{current?.label ?? 'MizukiPanel'}</Typography><Box sx={{ flex: 1 }} /><Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, mr: 1 }}>React · Material UI</Typography><ThemeSettings /><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
     </AppBar>
     <Drawer variant={desktop ? 'permanent' : 'temporary'} open={desktop || open} onClose={() => setOpen(false)}
       sx={{ width: drawerWidth, flexShrink: 0, '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' } }}>{drawer}</Drawer>
