@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import type { ProjectReport } from '../src/lib/server/project';
-import { articleFields, ArticleValidationError, parseArticleSource, patchArticleSource } from '../src/lib/server/article-format';
+import { articleFields, ArticleValidationError, frontmatterEntries, parseArticleSource, patchArticleFrontmatter, patchArticleSource } from '../src/lib/server/article-format';
 import { createArticle, deleteArticle, listArticles, readArticle, renameArticle, saveArticleFields, saveArticleSource } from '../src/lib/server/articles';
 import { StorageConflict } from '../src/lib/server/storage';
 
@@ -51,6 +51,20 @@ it('preserves MDX JSX and YAML comments while rejecting invalid dates and URLs',
   fields.published = '2026-09-27';
   fields.sourceLink = 'javascript:alert(1)';
   expect(() => patchArticleSource(source, fields)).toThrow(ArticleValidationError);
+});
+it('edits Frontmatter keys and YAML values while preserving the article body', () => {
+  const source = '---\ntitle: Hello\npublished: 2026-09-27\n# keep this comment\noldName: old value\ntags: [one]\n---\n\n# Body\n';
+  const entries = frontmatterEntries(parseArticleSource(source).data).map((entry) =>
+    entry.key === 'oldName' ? { ...entry, key: 'newName', value: '[first, second]' } : entry.key === 'tags' ? { ...entry, value: '[react, mui]' } : entry
+  );
+  const patched = patchArticleFrontmatter(source, entries);
+  const parsed = parseArticleSource(patched);
+  expect(parsed.data.oldName).toBeUndefined();
+  expect(parsed.data.newName).toEqual(['first', 'second']);
+  expect(parsed.data.tags).toEqual(['react', 'mui']);
+  expect(parsed.parts.body).toBe('\n# Body\n');
+  expect(patched).toContain('# keep this comment');
+  expect(() => patchArticleFrontmatter(source, [...entries, { key: 'title', value: 'Duplicate' }])).toThrow(ArticleValidationError);
 });
 it('manages local articles with optimistic locking, rename, URL collision, and reversible deletion', async () => {
   const report = await fixture('local');

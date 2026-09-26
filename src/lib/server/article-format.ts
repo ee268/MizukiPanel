@@ -1,4 +1,4 @@
-import { isMap, parseDocument } from 'yaml';
+import { isMap, isScalar, parseDocument, stringify } from 'yaml';
 
 export class ArticleValidationError extends Error {
   constructor(message: string) { super(message); this.name = 'ArticleValidationError'; }
@@ -28,6 +28,12 @@ export interface ArticleFields {
   comment: boolean;
   encrypted: boolean;
   hideHomeContent: boolean;
+}
+
+export interface FrontmatterEntry {
+  key: string;
+  value: string;
+  originalKey?: string;
 }
 
 function splitFrontmatter(source: string) {
@@ -128,6 +134,58 @@ export function parseArticleSource(source: string) {
   const parsed = parse(source);
   validateMetadata(parsed.data);
   return parsed;
+}
+
+export function frontmatterEntries(data: Record<string, unknown>): FrontmatterEntry[] {
+  return Object.entries(data).map(([key, value]) => ({
+    key,
+    value: stringify(value, { lineWidth: 0 }).trimEnd(),
+    originalKey: key
+  }));
+}
+
+function dataFromEntries(entries: FrontmatterEntry[]): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+  for (const [index, entry] of entries.entries()) {
+    const key = entry.key.trim();
+    if (!key) throw new ArticleValidationError(`第 ${index + 1} 行的字段名不能为空`);
+    if (/[:\n\r\t\x00-\x1f]/.test(key)) throw new ArticleValidationError(`字段名包含不支持的字符：${key}`);
+    if (Object.hasOwn(data, key)) throw new ArticleValidationError(`Frontmatter 字段名重复：${key}`);
+    const valueDocument = parseDocument(entry.value || "''", { uniqueKeys: true, strict: true });
+    if (valueDocument.errors.length)
+      throw new ArticleValidationError(`字段 ${key} 的 YAML 内容无效：${valueDocument.errors[0].message}`);
+    data[key] = valueDocument.toJS();
+  }
+  validateMetadata(data);
+  return data;
+}
+
+export function patchArticleFrontmatter(source: string, entries: FrontmatterEntry[]): string {
+  const { parts, document, data: currentData } = parse(source);
+  const data = dataFromEntries(entries);
+  if (!isMap(document.contents)) throw new ArticleValidationError('Frontmatter 顶层必须是键值对象');
+  const map = document.contents;
+  const existing = new Map(Object.keys(currentData).map((key, index) => [key, map.items[index]]));
+  const nextItems = entries.map((entry) => {
+    const pair = existing.get(entry.originalKey ?? entry.key);
+    if (!pair) return document.createPair(entry.key.trim(), data[entry.key.trim()]) as typeof map.items[number];
+    if (isScalar(pair.key)) pair.key.value = entry.key.trim();
+    else pair.key = document.createNode(entry.key.trim()) as unknown as typeof pair.key;
+    const previousValue = pair.value;
+    const nextValue = document.createNode(data[entry.key.trim()]);
+    if (previousValue) {
+      nextValue.commentBefore = previousValue.commentBefore;
+      nextValue.comment = previousValue.comment;
+      nextValue.spaceBefore = previousValue.spaceBefore;
+    }
+    pair.value = nextValue as typeof pair.value;
+    return pair;
+  });
+  map.items.splice(0, map.items.length, ...nextItems);
+  const nextYaml = document.toString({ lineWidth: 0 }).replace(/\n/g, parts.newline);
+  const result = parts.opening + nextYaml + parts.closing + parts.body;
+  parseArticleSource(result);
+  return result;
 }
 
 export function articleFields(data: Record<string, unknown>): ArticleFields {

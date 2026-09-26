@@ -8,8 +8,8 @@ import { assertManagedRealPath, resolveManagedPath } from './path-guard';
 import { defaultStateDir } from './workspace';
 import { readManagedFile, StorageConflict, writeManagedFile } from './storage';
 import {
-  articleFields, ArticleValidationError, newArticleSource, parseArticleSource,
-  patchArticleSource, validateRoutePath, type ArticleFields
+  articleFields, ArticleValidationError, frontmatterEntries, newArticleSource, parseArticleSource,
+  patchArticleFrontmatter, patchArticleSource, validateRoutePath, type ArticleFields, type FrontmatterEntry
 } from './article-format';
 
 export interface ArticleListItem {
@@ -27,6 +27,7 @@ export interface ArticleRecord extends ArticleListItem {
   source: string;
   version: string;
   fields: ArticleFields;
+  frontmatter: FrontmatterEntry[];
 }
 
 function location(report: ProjectReport) {
@@ -105,12 +106,12 @@ export async function readArticle(report: ProjectReport, id: string): Promise<Ar
   try {
     const parsed = parseArticleSource(result.content);
     const fields = articleFields(parsed.data);
-    return { id, source: result.content, version: result.version, fields, format,
+    return { id, source: result.content, version: result.version, fields, frontmatter: frontmatterEntries(parsed.data), format,
       title: fields.title, published: fields.published, draft: fields.draft,
       alias: fields.alias, permalink: fields.permalink, slug: fields.slug, error: null };
   } catch (error) {
     const fields = articleFields({});
-    return { id, source: result.content, version: result.version, fields, format,
+    return { id, source: result.content, version: result.version, fields, frontmatter: [], format,
       title: path.basename(id), published: '', draft: false, alias: '', permalink: '', slug: '',
       error: error instanceof Error ? error.message : 'Frontmatter 无法解析' };
   }
@@ -169,6 +170,15 @@ export async function saveArticleFields(report: ProjectReport, id: string, field
   const current = await readManagedFile(root, relativePost(report, id));
   if (current.version !== version) throw new StorageConflict('文章已在其他位置修改，请重新加载');
   const source = patchArticleSource(current.content, fields);
+  await assertUnique(report, id, source, id);
+  return writeManagedFile(root, relativePost(report, id), source, version, backupDir());
+}
+
+export async function saveArticleFrontmatter(report: ProjectReport, id: string, entries: FrontmatterEntry[], version: string) {
+  const { root } = writable(report);
+  const current = await readManagedFile(root, relativePost(report, id));
+  if (current.version !== version) throw new StorageConflict('文章已在其他位置修改，请重新加载');
+  const source = patchArticleFrontmatter(current.content, entries);
   await assertUnique(report, id, source, id);
   return writeManagedFile(root, relativePost(report, id), source, version, backupDir());
 }
