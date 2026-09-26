@@ -89,7 +89,7 @@ export async function inspectProject(requestedPath: string): Promise<ProjectRepo
       throw new ProjectError('必需文件位于项目目录之外：' + relative);
     }
   }
-  let packageInfo: { name?: string; dependencies?: Record<string, string> };
+  let packageInfo: { name?: string; dependencies?: Record<string, string>; scripts?: Record<string, string> };
   try {
     packageInfo = JSON.parse(await readFile(resolveManagedPath(root, 'package.json'), 'utf8'));
   } catch {
@@ -111,7 +111,7 @@ export async function inspectProject(requestedPath: string): Promise<ProjectRepo
   // sync-content.js loads .env after process.env, so .env takes precedence.
   const setting = (key: string): string | undefined => env.get(key) ?? process.env[key];
   const syncFlag = setting('ENABLE_CONTENT_SYNC');
-  const syncEnabled = syncFlag !== 'false';
+  const syncEnabled = syncFlag === 'true';
   const configuredContentDir = setting('CONTENT_DIR');
   const contentDir = configuredContentDir
     ? path.resolve(root, configuredContentDir)
@@ -119,6 +119,12 @@ export async function inspectProject(requestedPath: string): Promise<ProjectRepo
   const contentDirExists = await isDirectory(contentDir);
   const remoteConfigured = Boolean(setting('CONTENT_REPO_URL'));
   const warnings: string[] = [];
+  const coreFile = resolveManagedPath(root, 'scripts/content-sync-core.js');
+  const safeSync = (await exists(coreFile))
+    && /SYNC_CONTRACT_VERSION\s*=\s*2/.test(await readFile(coreFile, 'utf8'))
+    && packageInfo.scripts?.predev === 'node scripts/sync-content.js'
+    && packageInfo.scripts?.prebuild === 'node scripts/sync-content.js';
+  let contentRepoGit = false;
 
   let mode: ContentMode;
   let contentRoot: string | null = null;
@@ -127,27 +133,22 @@ export async function inspectProject(requestedPath: string): Promise<ProjectRepo
   } else if (contentDirExists) {
     mode = 'external';
     contentRoot = await realpath(contentDir);
-    if (!(await exists(path.join(contentRoot, '.git')))) {
-      warnings.push('内容目录不是 Git 工作树；后续发布流程需要独立仓库。');
-    }
-    warnings.push('当前同步脚本可能重置未提交的内容。阶段 2 完成安全同步改造前，独立仓库模式只读。');
+    contentRepoGit = await exists(path.join(contentRoot, '.git'));
+    if (!contentRepoGit) warnings.push('内容目录不是 Git 工作树；请使用独立内容仓库。');
+    if (!safeSync) warnings.push('Mizuki 尚未安装安全同步协议 v2；独立仓库暂时只读。');
   } else {
     mode = 'blocked';
     warnings.push(remoteConfigured
       ? '已配置独立内容仓库，但本地内容目录尚不存在；请先完成克隆或同步。'
-      : 'Mizuki 当前同步脚本在 ENABLE_CONTENT_SYNC 未明确设为 false 时默认尝试同步。请在 .env 中明确选择本地模式或配置独立内容仓库。');
+      : '已启用独立内容同步，但内容目录不存在且未配置 CONTENT_REPO_URL。');
   }
-  if (!syncFlag) {
-    warnings.push('未显式设置 ENABLE_CONTENT_SYNC；面板按 sync-content.js 的实际默认行为判定模式。');
-  }
-
-  const sourceRoot = mode === 'external' ? contentRoot! : root;
+const sourceRoot = mode === 'external' ? contentRoot! : root;
   const entries: Array<{ key: SourceMapping['key']; label: string; local: string; external: string; note?: string }> = [
     { key: 'posts', label: '博客文章', local: 'src/content/posts', external: 'posts' },
     { key: 'spec', label: '关于与友链正文', local: 'src/content/spec', external: 'spec' },
     { key: 'data', label: '特色页结构化数据', local: 'src/data', external: 'data' },
     { key: 'images', label: '公共图片与相册', local: 'public/images', external: 'images' },
-    { key: 'animes', label: '追番季度内容', local: 'src/content/animes', external: 'animes', note: mode === 'external' ? '当前 Mizuki 同步脚本尚未映射此目录；阶段 2 处理。' : undefined },
+    { key: 'animes', label: '追番季度内容', local: 'src/content/animes', external: 'animes' },
     { key: 'config', label: '站点配置', local: 'src/config', external: 'overrides', note: mode === 'external' ? '独立仓库使用 overrides；由 Mizuki 构建时深合并。' : undefined }
   ];
   const mappings: SourceMapping[] = await Promise.all(entries.map(async (entry) => {
@@ -177,7 +178,7 @@ export async function inspectProject(requestedPath: string): Promise<ProjectRepo
     requestedPath: input,
     root,
     mode,
-    readOnly: mode !== 'local' || escapedMappings.length > 0,
+    readOnly: mode === 'blocked' || escapedMappings.length > 0 || (mode === 'external' && (!safeSync || !contentRepoGit)),
     contentRoot,
     warnings,
     mappings

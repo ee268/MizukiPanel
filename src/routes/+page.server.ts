@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { inspectProject, ProjectError } from '$lib/server/project';
+import { inspectGit } from '$lib/server/git';
 import { clearWorkspace, readWorkspacePath, saveWorkspacePath } from '$lib/server/workspace';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -8,17 +9,20 @@ export const load: PageServerLoad = async () => {
   try {
     connectedPath = await readWorkspacePath();
   } catch {
-    return { report: null, connectionError: '本机工作区记录无法读取，请检查 .local/workspace.json。', connectedPath: null };
+    return { report: null, connectionError: '本机工作区记录无法读取，请检查 .local/workspace.json。', connectedPath: null, gitStatus: null };
   }
-  if (!connectedPath) return { report: null, connectionError: null, connectedPath: null };
+  if (!connectedPath) return { report: null, connectionError: null, connectedPath: null, gitStatus: null };
   try {
     const report = await inspectProject(connectedPath);
-    return { report, connectionError: null, connectedPath };
+    let gitStatus: Awaited<ReturnType<typeof inspectGit>> | null = null;
+    try { gitStatus = await inspectGit(report.contentRoot ?? report.root); } catch { /* Git is optional in local mode. */ }
+    return { report, connectionError: null, connectedPath, gitStatus };
   } catch (error) {
     return {
       report: null,
       connectionError: error instanceof Error ? error.message : '项目检查失败',
-      connectedPath
+      connectedPath,
+      gitStatus: null
     };
   }
 };

@@ -25,14 +25,14 @@
           <p class="text-xs opacity-60">本机博客管理工作区</p>
         </div>
       </div>
-      <span class="badge preset-tonal text-xs">阶段 1 · 项目连接</span>
+      <span class="badge preset-tonal text-xs">阶段 2 · 安全存储</span>
     </div>
   </header>
 
   <main class="mx-auto max-w-6xl space-y-8 px-5 py-10">
     <section class="space-y-2">
       <h1 class="text-3xl font-semibold">连接 Mizuki 项目</h1>
-      <p class="max-w-3xl opacity-70">选择本机 Mizuki 根目录。面板会读取配置并显示实际内容来源；当前阶段不会改动博客文件。</p>
+      <p class="max-w-3xl opacity-70">选择本机 Mizuki 根目录。面板会读取配置并显示实际内容来源；当前阶段提供安全同步、备份和 Git 状态检查。</p>
     </section>
 
     <section class="card bg-surface-100-900 space-y-5 p-6 shadow-sm">
@@ -71,12 +71,28 @@
         </div>
       </section>
 
+      <section class="card bg-surface-100-900 space-y-2 p-5 shadow-sm">
+        <h2 class="font-semibold">内容仓库 Git 状态</h2>
+        {#if data.gitStatus}
+          <p class="text-sm">分支：<span class="font-mono">{data.gitStatus.branch ?? '游离 HEAD'}</span> · 未提交变更：{data.gitStatus.changes.length} · 领先：{data.gitStatus.ahead} · 落后：{data.gitStatus.behind}</p>
+          {#if data.gitStatus.changes.length}
+            <ul class="max-h-36 overflow-auto font-mono text-xs">
+              {#each data.gitStatus.changes.slice(0, 20) as change}
+                <li>{change.status} {change.path}</li>
+              {/each}
+            </ul>
+          {/if}
+        {:else}
+          <p class="text-sm opacity-70">未检测到可读取的 Git 仓库。</p>
+        {/if}
+      </section>
+
       {#if report.readOnly}
         <section class="card border-warning-500/30 bg-warning-500/10 border p-5" role="status">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 class="font-semibold">当前工作区为只读状态</h2>
-              <p class="mt-1 text-sm opacity-80">请先处理以下配置或等待安全同步阶段完成。</p>
+              <p class="mt-1 text-sm opacity-80">请先处理以下配置问题。</p>
             </div>
             <Dialog>
               <Dialog.Trigger class="btn preset-tonal-warning-500">查看原因</Dialog.Trigger>
@@ -85,7 +101,7 @@
                 <Dialog.Positioner class="fixed inset-0 z-50 flex items-center justify-center p-4">
                   <Dialog.Content class="card bg-surface-100-900 w-full max-w-lg space-y-4 p-6 shadow-xl">
                     <Dialog.Title class="text-lg font-semibold">只读原因</Dialog.Title>
-                    <Dialog.Description class="text-sm">当前阶段仅建立安全的项目连接，不执行内容同步或编辑。</Dialog.Description>
+                    <Dialog.Description class="text-sm">同步协议或仓库配置尚未达到安全写入条件。</Dialog.Description>
                     <ul class="list-disc space-y-2 pl-5 text-sm">
                       {#each report.warnings as warning}
                         <li>{warning}</li>
