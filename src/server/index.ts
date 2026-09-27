@@ -21,6 +21,12 @@ import { previewStatus, startPreview, stopPreview } from '../lib/server/preview'
 import {
   ConfigValidationError, listConfigs, readConfig, restoreConfig, saveConfig, SiteConfigError
 } from '../lib/server/configs';
+import {
+  deleteAlbum, deleteAnimeSeason, FeatureError, featureIndex, listAlbums, listAnimeSeasons,
+  readAnimeSeason, readFeatureData, readFeatureText, restoreFeatureFile, saveAlbum, saveAnimeSeason,
+  saveFeatureData, saveFeatureText
+} from '../lib/server/features';
+import type { ConfigValue } from '../lib/server/config-format';
 
 class ApiError extends Error {
   constructor(public status: 400 | 401 | 403 | 404 | 409 | 500, message: string) { super(message); }
@@ -38,7 +44,7 @@ function message(error: unknown): string {
 function mapError(error: unknown): never {
   if (error instanceof ApiError) throw error;
   if (error instanceof StorageConflict) throw new ApiError(409, error.message);
-  if (error instanceof ArticleValidationError || error instanceof ConfigValidationError || error instanceof SiteConfigError
+  if (error instanceof ArticleValidationError || error instanceof ConfigValidationError || error instanceof SiteConfigError || error instanceof FeatureError
     || error instanceof MediaError || error instanceof PathGuardError || error instanceof ProjectError)
     throw new ApiError(400, error.message);
   if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') throw new ApiError(404, '目标文件不存在或已被移动');
@@ -193,6 +199,58 @@ app.post('/api/config/restore', async (context) => {
   if (!body.key || !body.backupPath || !body.version) throw new ApiError(400, '配置恢复参数不完整');
   try { return context.json(await restoreConfig(await project(), body.key, body.backupPath, body.version)); }
   catch (error) { mapError(error); }
+});
+
+app.get('/api/features', async (context) => context.json(await featureIndex(await project())));
+
+app.get('/api/feature/data', async (context) => {
+  const key = context.req.query('key'); if (!key) throw new ApiError(400, '缺少数据源名称');
+  try { return context.json(await readFeatureData(await project(), key)); } catch (error) { mapError(error); }
+});
+app.put('/api/feature/data', async (context) => {
+  const body = await context.req.json<{ key?: string; value?: ConfigValue; version?: string }>();
+  if (!body.key || body.value === undefined || typeof body.version !== 'string') throw new ApiError(400, '特色页数据保存参数不完整');
+  try { return context.json(await saveFeatureData(await project(), body.key, body.value, body.version)); } catch (error) { mapError(error); }
+});
+app.get('/api/feature/text', async (context) => {
+  const key = context.req.query('key'); if (!key) throw new ApiError(400, '缺少正文名称');
+  try { return context.json(await readFeatureText(await project(), key)); } catch (error) { mapError(error); }
+});
+app.put('/api/feature/text', async (context) => {
+  const body = await context.req.json<{ key?: string; content?: string; version?: string }>();
+  if (!body.key || typeof body.content !== 'string' || typeof body.version !== 'string') throw new ApiError(400, '正文保存参数不完整');
+  try { return context.json(await saveFeatureText(await project(), body.key, body.content, body.version)); } catch (error) { mapError(error); }
+});
+app.post('/api/feature/restore', async (context) => {
+  const body = await context.req.json<{ kind?: 'data' | 'text'; key?: string; backupPath?: string; version?: string }>();
+  if (!body.kind || !body.key || !body.backupPath || !body.version) throw new ApiError(400, '恢复参数不完整');
+  try { return context.json(await restoreFeatureFile(await project(), body.kind, body.key, body.backupPath, body.version)); } catch (error) { mapError(error); }
+});
+app.get('/api/feature/anime-seasons', async (context) => context.json(await listAnimeSeasons(await project())));
+app.get('/api/feature/anime-season', async (context) => {
+  const id = context.req.query('id'); if (!id) throw new ApiError(400, '缺少季度路径');
+  try { return context.json(await readAnimeSeason(await project(), id)); } catch (error) { mapError(error); }
+});
+app.put('/api/feature/anime-season', async (context) => {
+  const body = await context.req.json<{ id?: string; content?: string; version?: string }>();
+  if (!body.id || typeof body.content !== 'string' || typeof body.version !== 'string') throw new ApiError(400, '季度保存参数不完整');
+  try { return context.json(await saveAnimeSeason(await project(), body.id, body.content, body.version)); } catch (error) { mapError(error); }
+});
+app.delete('/api/feature/anime-season', async (context) => {
+  const body = await context.req.json<{ id?: string; version?: string }>();
+  if (!body.id || !body.version) throw new ApiError(400, '季度删除参数不完整');
+  try { return context.json({ trash: await deleteAnimeSeason(await project(), body.id, body.version) }); } catch (error) { mapError(error); }
+});
+app.get('/api/feature/albums', async (context) => context.json(await listAlbums(await project())));
+app.put('/api/feature/album', async (context) => {
+  const body = await context.req.json<{ id?: string; info?: Record<string, unknown>; version?: string }>();
+  if (!body.id || !body.info || typeof body.version !== 'string') throw new ApiError(400, '相册保存参数不完整');
+  try { return context.json(await saveAlbum(await project(), body.id, body.info, body.version)); } catch (error) { mapError(error); }
+});
+app.delete('/api/feature/album', async (context) => {
+  const body = await context.req.json<{ id?: string; version?: string }>();
+  if (!body.id || !body.version) throw new ApiError(400, '相册删除参数不完整');
+  try { return context.json({ trash: await deleteAlbum(await project(), body.id, body.version) }); } catch (error) { mapError(error); }
 });
 
 app.get('/api/media', async (context) => {

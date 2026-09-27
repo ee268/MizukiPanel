@@ -6,6 +6,8 @@ export class ConfigValidationError extends Error {
   constructor(message: string) { super(message); this.name = 'ConfigValidationError'; }
 }
 
+export type InitializerKind = 'object' | 'array' | 'object-or-array';
+
 interface LocatedInitializer {
   node: ts.Expression;
   sourceFile: ts.SourceFile;
@@ -33,7 +35,7 @@ function locate(source: string, exportName: string | null): LocatedInitializer {
     throw new ConfigValidationError('覆盖文件必须包含 export default 对象');
   }
   for (const statement of file.statements) {
-    if (!ts.isVariableStatement(statement) || !statement.modifiers?.some((item) => item.kind === ts.SyntaxKind.ExportKeyword)) continue;
+    if (!ts.isVariableStatement(statement)) continue;
     for (const declaration of statement.declarationList.declarations) {
       if (ts.isIdentifier(declaration.name) && declaration.name.text === exportName && declaration.initializer)
         return { node: declaration.initializer, sourceFile: file };
@@ -143,31 +145,37 @@ function assertSafe(node: ts.Expression, file: ts.SourceFile, allowed: Set<strin
   throw new ConfigValidationError(`配置包含不可安全执行的表达式：${value.getText(file)}`);
 }
 
-export function parseConfigInitializer(source: string, exportName: string | null) {
+function assertKind(node: ts.Expression, kind: InitializerKind) {
+  const valid = kind === 'object-or-array' ? ts.isObjectLiteralExpression(node) || ts.isArrayLiteralExpression(node)
+    : kind === 'array' ? ts.isArrayLiteralExpression(node) : ts.isObjectLiteralExpression(node);
+  if (!valid) throw new ConfigValidationError(kind === 'array' ? '数据初始化器必须是数组字面量' : '配置导出必须是对象字面量');
+}
+
+export function parseConfigInitializer(source: string, exportName: string | null, kind: InitializerKind = 'object') {
   const located = locate(source, exportName);
   const node = unwrap(located.node);
-  if (!ts.isObjectLiteralExpression(node)) throw new ConfigValidationError('配置导出必须是对象字面量');
+  assertKind(node, kind);
   return {
     initializer: located.node.getText(located.sourceFile),
     value: evaluate(located.node, located.sourceFile, constants(located.sourceFile))
   };
 }
 
-function parseEditedInitializer(initializer: string, allowed = new Set<string>(['undefined'])): ts.Expression {
+function parseEditedInitializer(initializer: string, allowed = new Set<string>(['undefined']), kind: InitializerKind = 'object'): ts.Expression {
   const wrapper = sourceFile(`const __value = (${initializer});`);
   const statement = wrapper.statements[0];
   if (!statement || !ts.isVariableStatement(statement)) throw new ConfigValidationError('配置内容无法解析');
   const expression = statement.declarationList.declarations[0]?.initializer;
   if (!expression) throw new ConfigValidationError('配置内容不能为空');
   const node = unwrap(expression);
-  if (!ts.isObjectLiteralExpression(node)) throw new ConfigValidationError('配置内容必须是对象字面量');
+  assertKind(node, kind);
   assertSafe(node, wrapper, allowed);
   return expression;
 }
 
-export function replaceConfigInitializer(source: string, exportName: string | null, initializer: string): string {
+export function replaceConfigInitializer(source: string, exportName: string | null, initializer: string, kind: InitializerKind = 'object'): string {
   const located = locate(source, exportName);
-  parseEditedInitializer(initializer, availableIdentifiers(located.sourceFile));
+  parseEditedInitializer(initializer, availableIdentifiers(located.sourceFile), kind);
   return source.slice(0, located.node.getStart(located.sourceFile)) + initializer.trim() + source.slice(located.node.getEnd());
 }
 
