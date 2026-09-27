@@ -1,6 +1,6 @@
 # MizukiPanel
 
-Mizuki 博客的本机管理面板。界面使用 React 与 Material UI，采用顶部标题栏、左侧主导航和右侧内容区。当前完成阶段 6：文章、18 项站点配置、全部特色页、公共图片与文章资源，以及 Mizuki Astro 真实预览。安全同步与存储见 [阶段 2 说明](docs/STAGE_2.md)，文章操作见 [阶段 3 说明](docs/STAGE_3.md)，媒体与预览见 [阶段 4 说明](docs/STAGE_4.md)，配置管理见 [阶段 5 说明](docs/STAGE_5.md)，特色页管理见 [阶段 6 说明](docs/STAGE_6.md)，界面迁移见 [React + Material UI 迁移说明](docs/REACT_MUI_MIGRATION.md)。
+Mizuki 博客的本机管理面板。界面使用 React 与 Material UI，采用顶部标题栏、左侧主导航和右侧内容区。当前已完成文章、18 项站点配置、全部特色页、公共图片与文章资源、Mizuki Astro 真实预览及发布工作流。安全同步与存储见 [阶段 2 说明](docs/STAGE_2.md)，文章操作见 [阶段 3 说明](docs/STAGE_3.md)，媒体与预览见 [阶段 4 说明](docs/STAGE_4.md)，配置管理见 [阶段 5 说明](docs/STAGE_5.md)，特色页管理见 [阶段 6 说明](docs/STAGE_6.md)，发布流程见 [发布工作流](docs/PUBLISHING.md)，界面迁移见 [React + Material UI 迁移说明](docs/REACT_MUI_MIGRATION.md)。
 
 ## 运行要求
 
@@ -27,4 +27,4 @@ pnpm test
 pnpm build
 ```
 
-连接路径仅保存在被 Git 忽略的 `.local/workspace.json`；访问令牌只存在于本次启动进程中。文章管理写入前会检查版本冲突，文章与媒体删除会移入本地回收目录。Astro 预览只监听 `127.0.0.1:4321`，面板不会自动提交、推送或同步 Git 变更。
+连接路径仅保存在被 Git 忽略的 `.local/workspace.json`；访问令牌只存在于本次启动进程中。文章管理写入前会检查版本冲突，文章与媒体删除会移入本地回收目录。Astro 预览只监听 `127.0.0.1:4321`。提交、推送、独立内容同步与构建仅在“发布管理”页由用户明确触发；提交范围只包含用户勾选的受管理文件。
