@@ -86,3 +86,55 @@ export interface SiteConfigDocument {
   changedPaths: string[];
   warnings: string[];
 }
+
+export interface FeatureModule {
+  key: string;
+  label: string;
+  pagePath: string;
+  switchKey: string | null;
+  resources: string[];
+  enabled: boolean;
+  navigationConfigured: boolean;
+  sourceMode?: string;
+  sourceStatus?: string;
+}
+
+export interface FeatureDataDescriptor {
+  key: string;
+  module: string;
+  label: string;
+  file: string;
+  variable: string;
+  shape: 'array' | 'object';
+}
+
+export interface FeatureDataDocument {
+  report: ProjectReport;
+  descriptor: FeatureDataDescriptor;
+  value: ConfigValue;
+  version: string;
+  sourcePath: string;
+  readOnly: boolean;
+  warnings: string[];
+}
+
+export interface FeatureTextDocument {
+  report: ProjectReport;
+  key: string;
+  label: string;
+  content: string;
+  version: string;
+  exists: boolean;
+  readOnly: boolean;
+}
+
+export interface AnimeSeason { id: string; version: string; size: number }
+export interface AnimeSeasonDocument { report: ProjectReport; id: string; content: string; version: string; readOnly: boolean }
+
+export interface AlbumRecord {
+  id: string;
+  info: Record<string, unknown>;
+  version: string;
+  photos: string[];
+  complete: boolean;
+}
