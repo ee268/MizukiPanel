@@ -5,7 +5,8 @@ import path from 'node:path';
 import { afterEach, expect, it } from 'vitest';
 import type { ProjectReport } from '../src/lib/server/project';
 import {
-  commitSelected, publishDiff, publishOverview, PublishError, revertPanelCommit, validateCommitMessage
+  commitSelected, publishDiff, publishOperationStatus, publishOverview, PublishError, pushCurrentBranch,
+  revertPanelCommit, startPublishOperation, validateCommitMessage
 } from '../src/lib/server/publish';
 
 const directories: string[] = [];
@@ -101,3 +102,71 @@ it('requires Conventional Commits and refuses pre-existing staged changes', asyn
   await expect(commitSelected(report, ['src/content/posts/one.md'], 'feat(content): publish post')).rejects.toThrow('暂存区已有内容');
   expect(git(root, 'diff', '--cached', '--name-only')).toBe('README.md');
 });
+async function externalFixture(): Promise<{ base: string; site: string; contentRoot: string; remote: string; report: ProjectReport }> {
+  const base = await mkdtemp(path.join(tmpdir(), 'mizuki-publish-external-'));
+  directories.push(base);
+  const site = path.join(base, 'site');
+  const contentRoot = path.join(base, 'content');
+  const remote = path.join(base, 'remote.git');
+  await mkdir(path.join(contentRoot, 'posts'), { recursive: true });
+  await mkdir(site, { recursive: true });
+  await writeFile(path.join(contentRoot, 'posts/one.md'), '# One\n');
+  await writeFile(path.join(site, 'package.json'), JSON.stringify({
+    private: true,
+    scripts: {
+      'sync-content': 'node -e "require(\'node:fs\').writeFileSync(\'sync.marker\', \'ok\')"',
+      build: 'node -e "require(\'node:fs\').writeFileSync(\'build.marker\', \'ok\')"'
+    }
+  }));
+  git(contentRoot, 'init');
+  git(contentRoot, 'config', 'user.name', 'MizukiPanel Test');
+  git(contentRoot, 'config', 'user.email', 'panel@example.invalid');
+  git(contentRoot, 'add', '.');
+  git(contentRoot, 'commit', '-m', 'chore(test): initialize content');
+  git(contentRoot, 'branch', '-M', 'main');
+  execFileSync('git', ['init', '--bare', remote], { stdio: 'ignore' });
+  git(contentRoot, 'remote', 'add', 'origin', remote);
+  git(contentRoot, 'push', '-u', 'origin', 'main');
+  const report: ProjectReport = {
+    requestedPath: site,
+    root: site,
+    mode: 'external',
+    readOnly: false,
+    contentRoot,
+    warnings: [],
+    mappings: [{ key: 'posts', label: '文章', sourcePath: path.join(contentRoot, 'posts'), exists: true }]
+  };
+  return { base, site, contentRoot, remote, report };
+}
+
+async function waitForOperation(report: ProjectReport): Promise<ReturnType<typeof publishOperationStatus>> {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const status = publishOperationStatus(report);
+    if (status.state !== 'running') return status;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('发布操作等待超时');
+}
+
+it('publishes an external content commit to its configured upstream', async () => {
+  const { contentRoot, remote, report } = await externalFixture();
+  await writeFile(path.join(contentRoot, 'posts/one.md'), '# External\n');
+  expect((await publishOverview(report)).repositoryLabel).toBe('独立内容仓库');
+  const published = await commitSelected(report, ['posts/one.md'], 'feat(content): publish external post');
+  expect((await publishOverview(report)).canPush).toBe(true);
+  await pushCurrentBranch(report);
+  expect(git(remote, 'rev-parse', 'refs/heads/main')).toBe(published.sha);
+  expect((await publishOverview(report)).ahead).toBe(0);
+}, 20_000);
+
+it('requires explicit external synchronization before running a build', async () => {
+  const { site, report } = await externalFixture();
+  expect((await publishOverview(report)).canBuild).toBe(false);
+  await startPublishOperation(report, 'sync');
+  expect((await waitForOperation(report)).state).toBe('succeeded');
+  expect(await readFile(path.join(site, 'sync.marker'), 'utf8')).toBe('ok');
+  expect((await publishOverview(report)).canBuild).toBe(true);
+  await startPublishOperation(report, 'build');
+  expect((await waitForOperation(report)).state).toBe('succeeded');
+  expect(await readFile(path.join(site, 'build.marker'), 'utf8')).toBe('ok');
+}, 30_000);
