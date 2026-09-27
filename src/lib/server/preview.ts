@@ -77,7 +77,7 @@ export async function startPreview(report: ProjectReport): Promise<PreviewStatus
   const astroCli = path.join(report.root, 'node_modules', 'astro', 'bin', 'astro.mjs');
   const child = spawn(process.execPath, [astroCli, 'dev', '--host', '127.0.0.1', '--port', String(runtime.port), '--strictPort'], {
     cwd: report.root,
-    env: { ...process.env, BROWSER: 'none', ASTRO_TELEMETRY_DISABLED: '1' },
+    env: { ...process.env, BROWSER: 'none', ASTRO_TELEMETRY_DISABLED: '1', ASTRO_DEV_BACKGROUND: '0' },
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe']
   });
