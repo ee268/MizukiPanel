@@ -52,7 +52,7 @@ export function contributionCalendar(activity: DashboardDay[]): ContributionCale
   return { weeks, months };
 }
 
-export function contributionLevel(count: number, maximum: number): 0 | 1 | 2 | 3 | 4 {
-  if (count <= 0 || maximum <= 0) return 0;
-  return Math.min(4, Math.max(1, Math.ceil((count / maximum) * 4))) as 1 | 2 | 3 | 4;
+export function contributionLevel(count: number): 0 | 1 | 2 | 3 | 4 {
+  if (count <= 0) return 0;
+  return Math.min(4, Math.floor(count)) as 1 | 2 | 3 | 4;
 }

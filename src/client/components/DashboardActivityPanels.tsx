@@ -30,12 +30,11 @@ function contributionDateLabel(date: string, count: number): string {
 function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
   const theme = useTheme();
   const calendar = contributionCalendar(git.activity);
-  const maximum = Math.max(0, ...git.activity.map((day) => day.count));
   const colors = [
-    alpha(theme.palette.text.primary, theme.palette.mode === "dark" ? 0.12 : 0.08),
+    "transparent",
     alpha(theme.palette.primary.main, 0.25),
-    alpha(theme.palette.primary.main, 0.45),
-    alpha(theme.palette.primary.main, 0.7),
+    alpha(theme.palette.primary.main, 0.5),
+    alpha(theme.palette.primary.main, 0.75),
     theme.palette.primary.main,
   ];
   const cellSize = 12;
@@ -136,7 +135,7 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
                           <Box
                             component="span"
                             sx={{
-                              bgcolor: colors[contributionLevel(day.count, maximum)],
+                              bgcolor: colors[contributionLevel(day.count)],
                               border: `1px solid ${alpha(theme.palette.text.primary, 0.06)}`,
                               borderRadius: "3px",
                               display: "block",
@@ -168,7 +167,13 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
               <Box
                 aria-hidden
                 key={index}
-                sx={{ bgcolor: color, borderRadius: "3px", height: cellSize, width: cellSize }}
+                sx={{
+                  bgcolor: color,
+                  border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
+                  borderRadius: "3px",
+                  height: cellSize,
+                  width: cellSize,
+                }}
               />
             ))}
             <Typography variant="caption" color="text.secondary">多</Typography>

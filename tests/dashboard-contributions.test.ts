@@ -21,10 +21,11 @@ it("aligns contribution days into Sunday-first weeks and labels months", () => {
   expect(calendar.months).toEqual([{ label: "9月", column: 0 }]);
 });
 
-it("maps commit counts to four theme color levels", () => {
-  expect(contributionLevel(0, 8)).toBe(0);
-  expect(contributionLevel(1, 8)).toBe(1);
-  expect(contributionLevel(4, 8)).toBe(2);
-  expect(contributionLevel(6, 8)).toBe(3);
-  expect(contributionLevel(8, 8)).toBe(4);
+it("maps zero through four commits to fixed theme color levels", () => {
+  expect(contributionLevel(0)).toBe(0);
+  expect(contributionLevel(1)).toBe(1);
+  expect(contributionLevel(2)).toBe(2);
+  expect(contributionLevel(3)).toBe(3);
+  expect(contributionLevel(4)).toBe(4);
+  expect(contributionLevel(12)).toBe(4);
 });
