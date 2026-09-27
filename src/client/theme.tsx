@@ -51,12 +51,13 @@ export function createPanelMuiTheme(hue: number, resolvedMode: 'light' | 'dark')
   const secondaryHue = (hue + 125) % 360;
   const secondaryMain = hueColor(secondaryHue, resolvedMode === 'dark' ? 62 : 42);
   const secondaryHover = hueColor(secondaryHue, resolvedMode === 'dark' ? 52 : 34);
+  const themeContrast = resolvedMode === 'dark' ? '#000' : '#fff';
   return createTheme({
     cssVariables: true,
     palette: {
       mode: resolvedMode,
-      primary: { main: primaryMain, dark: primaryHover, contrastText: '#fff' },
-      secondary: { main: secondaryMain, dark: secondaryHover, contrastText: '#fff' },
+      primary: { main: primaryMain, dark: primaryHover, contrastText: themeContrast },
+      secondary: { main: secondaryMain, dark: secondaryHover, contrastText: themeContrast },
       background: resolvedMode === 'dark'
         ? { default: '#111318', paper: '#191c23' }
         : { default: '#f5f6fa', paper: '#ffffff' }
@@ -73,12 +74,12 @@ export function createPanelMuiTheme(hue: number, resolvedMode: 'light' | 'dark')
           root: ({ ownerState }) => ({
             textTransform: 'none', fontWeight: 600,
             ...(ownerState.variant === 'contained' && (ownerState.color === 'primary' || ownerState.color === undefined) ? {
-              color: '#fff', backgroundColor: primaryMain,
-              '&:hover': { color: '#fff', backgroundColor: primaryHover }
+              color: themeContrast, backgroundColor: primaryMain,
+              '&:hover': { color: themeContrast, backgroundColor: primaryHover }
             } : {}),
             ...(ownerState.variant === 'contained' && ownerState.color === 'secondary' ? {
-              color: '#fff', backgroundColor: secondaryMain,
-              '&:hover': { color: '#fff', backgroundColor: secondaryHover }
+              color: themeContrast, backgroundColor: secondaryMain,
+              '&:hover': { color: themeContrast, backgroundColor: secondaryHover }
             } : {})
           })
         }
@@ -87,10 +88,10 @@ export function createPanelMuiTheme(hue: number, resolvedMode: 'light' | 'dark')
         styleOverrides: {
           root: {
             '&.active': {
-              color: '#fff', backgroundColor: primaryMain,
+              color: themeContrast, backgroundColor: primaryMain,
               '& .MuiListItemIcon-root': { color: 'inherit' }
             },
-            '&.active:hover': { color: '#fff', backgroundColor: primaryHover }
+            '&.active:hover': { color: themeContrast, backgroundColor: primaryHover }
           }
         }
       },
