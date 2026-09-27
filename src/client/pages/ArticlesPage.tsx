@@ -104,7 +104,7 @@ export default function ArticlesPage() {
 
   return <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, lg: 3 } }}>
     <Stack spacing={2}>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between' }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' } }}>
         <Box><Typography variant="h4">文章管理</Typography><Typography color="text.secondary">{report?.mode === 'external' ? '独立内容仓库' : '本地内容'} · {articles.length} 篇文章</Typography></Box>
         <Button variant="contained" startIcon={<AddOutlined />} onClick={() => setCreateOpen(true)} disabled={report?.readOnly}>新建文章</Button>
       </Stack>
