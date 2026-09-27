@@ -1,10 +1,10 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { assertManagedRealPath, PathGuardError, resolveManagedPath } from '../src/lib/server/path-guard';
 import { inspectProject, ProjectError } from '../src/lib/server/project';
-import { readWorkspacePath, saveWorkspacePath } from '../src/lib/server/workspace';
+import { readWorkspacePath, saveWorkspacePath, selectWorkspaceDirectory, WorkspacePickerError } from '../src/lib/server/workspace';
 
 const temporaryDirectories: string[] = [];
 
@@ -96,4 +96,14 @@ describe('path and workspace safety', () => {
     expect(await readWorkspacePath(stateDir)).toBe(root);
     expect(JSON.parse(await readFile(path.join(stateDir, 'workspace.json'), 'utf8'))).toEqual({ projectPath: root });
   });
+});
+it('validates a selected workspace directory and handles cancellation', async () => {
+  const root = await fixture();
+  const selected = await selectWorkspaceDirectory(root, async (initialPath) => {
+    expect(initialPath).toBe(root);
+    return root;
+  });
+  expect(selected).toBe(await realpath(root));
+  expect(await selectWorkspaceDirectory(root, async () => '')).toBeNull();
+  await expect(selectWorkspaceDirectory(root, async () => path.join(root, 'package.json'))).rejects.toBeInstanceOf(WorkspacePickerError);
 });

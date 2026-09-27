@@ -8,7 +8,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { SESSION_COOKIE, validAccessToken } from '../lib/server/auth';
 import { inspectProject, ProjectError, type ProjectReport } from '../lib/server/project';
 import { inspectGit } from '../lib/server/git';
-import { clearWorkspace, readWorkspacePath, saveWorkspacePath } from '../lib/server/workspace';
+import { clearWorkspace, readWorkspacePath, saveWorkspacePath, selectWorkspaceDirectory, WorkspacePickerError } from '../lib/server/workspace';
 import {
   articlePreviewPath, createArticle, deleteArticle, listArticles, readArticle, renameArticle,
   saveArticleFrontmatter, saveArticleSource
@@ -49,7 +49,7 @@ function mapError(error: unknown): never {
   if (error instanceof ApiError) throw error;
   if (error instanceof StorageConflict) throw new ApiError(409, error.message);
   if (error instanceof ArticleValidationError || error instanceof ConfigValidationError || error instanceof SiteConfigError || error instanceof FeatureError
-    || error instanceof MediaError || error instanceof PathGuardError || error instanceof ProjectError || error instanceof PublishError)
+    || error instanceof MediaError || error instanceof PathGuardError || error instanceof ProjectError || error instanceof PublishError || error instanceof WorkspacePickerError)
     throw new ApiError(400, error.message);
   if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') throw new ApiError(404, '目标文件不存在或已被移动');
   throw error;
@@ -102,6 +102,11 @@ app.get('/api/workspace', async (context) => {
   }
 });
 
+app.post('/api/workspace/select-directory', async (context) => {
+  const body: { initialPath?: string } = await context.req.json<{ initialPath?: string }>().catch(() => ({}));
+  try { return context.json({ path: await selectWorkspaceDirectory(body.initialPath) }); }
+  catch (error) { mapError(error); }
+});
 app.post('/api/workspace/connect', async (context) => {
   const { projectPath } = await context.req.json<{ projectPath?: string }>();
   if (!projectPath) throw new ApiError(400, '请输入 Mizuki 项目目录');

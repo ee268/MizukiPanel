@@ -22,10 +22,22 @@ export default function WorkspacePage() {
     catch (cause) { setError(cause instanceof Error ? cause.message : '工作区读取失败'); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+  async function connectProject(nextPath: string) {
+    await api('/api/workspace/connect', json('POST', { projectPath: nextPath }));
+    setProjectPath(nextPath); await load(); window.dispatchEvent(new Event('mizuki-site-identity-changed'));
+  }
   async function connect(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
-    try { await api('/api/workspace/connect', json('POST', { projectPath })); await load(); window.dispatchEvent(new Event('mizuki-site-identity-changed')); }
+    try { await connectProject(projectPath); }
     catch (cause) { setError(cause instanceof Error ? cause.message : '连接失败'); }
+    finally { setBusy(false); }
+  }
+  async function selectAndConnect() {
+    setBusy(true); setError('');
+    try {
+      const result = await api<{ path: string | null }>('/api/workspace/select-directory', json('POST', { initialPath: projectPath }));
+      if (result.path) await connectProject(result.path);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : '无法选择文件夹'); }
     finally { setBusy(false); }
   }
   async function disconnect() {
@@ -40,7 +52,7 @@ export default function WorkspacePage() {
       <Paper variant="outlined" sx={{ p: 3 }}>
         <Stack component="form" direction={{ xs: 'column', sm: 'row' }} spacing={2} onSubmit={connect} sx={{ alignItems: 'flex-start' }}>
           <TextField label="Mizuki 项目绝对路径" value={projectPath} onChange={(event) => setProjectPath(event.target.value)} placeholder="C:\\sites\\Mizuki" required fullWidth />
-          <Button variant="contained" type="submit" startIcon={<FolderOpenOutlined />} disabled={busy} sx={{ minWidth: 150, height: 40 }}>{data?.report ? '重新连接' : '连接项目'}</Button>
+          <Button variant="contained" type="button" startIcon={<FolderOpenOutlined />} onClick={selectAndConnect} title="打开文件资源管理器选择 Mizuki 文件夹" disabled={busy} sx={{ minWidth: 150, height: 40 }}>{data?.report ? '重新连接' : '连接项目'}</Button>
           {data?.connectedPath && <Button color="error" variant="outlined" onClick={disconnect} startIcon={<LinkOffOutlined />} disabled={busy} sx={{ minWidth: 120, height: 40 }}>断开</Button>}
         </Stack>
       </Paper>
