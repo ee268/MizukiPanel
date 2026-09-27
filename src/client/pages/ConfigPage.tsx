@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Box, Button, Chip, CircularProgress, Container, Divider, Grid, List, ListItemButton,
-  ListItemText, Paper, Snackbar, Stack, Tab, Tabs, TextField, Typography
+  ListItemText, Paper, Snackbar, Stack, Tab, Tabs, Typography
 } from '@mui/material';
 import SaveOutlined from '@mui/icons-material/SaveOutlined';
 import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
 import RestoreOutlined from '@mui/icons-material/RestoreOutlined';
 import { api, json } from '../api';
+import { TypeScriptEditor } from '../components/TypeScriptEditor';
 import type { ConfigDescriptor, ConfigValue, ProjectReport, SiteConfigDocument } from '../types';
 
 const formatted = (value: ConfigValue | null) => value === null ? '（未设置覆盖值）' : JSON.stringify(value, null, 2);
@@ -97,8 +98,7 @@ export default function ConfigPage() {
             </Paper>
             {tab === 0 ? <Paper variant="outlined" sx={{ p: 2.5 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>编辑导出对象的 TypeScript 内容。仅允许对象、数组、标量、枚举和标识符；函数调用及其他可执行表达式会被拒绝。</Typography>
-              <TextField value={initializer} onChange={(event) => setInitializer(event.target.value)} multiline minRows={20} fullWidth disabled={document.readOnly || busy}
-                slotProps={{ htmlInput: { spellCheck: false } }} sx={{ '& textarea': { fontFamily: 'Consolas, "Cascadia Code", monospace', fontSize: 13, lineHeight: 1.55 } }} />
+              <TypeScriptEditor value={initializer} onChange={setInitializer} disabled={document.readOnly || busy} />
               <Stack direction="row" spacing={1.5} sx={{ mt: 2, flexWrap: 'wrap' }} useFlexGap>
                 <Button variant="contained" startIcon={<SaveOutlined />} onClick={save} disabled={document.readOnly || busy || initializer === document.initializer}>保存配置</Button>
                 <Button startIcon={<RefreshOutlined />} onClick={() => { setInitializer(document.initializer); setError(''); }} disabled={busy}>放弃编辑</Button>
