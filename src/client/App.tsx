@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState, type MouseEvent } from 'react';
 import {
-  AppBar, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
-  Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText, Slider,
+  AppBar, Box, Button, CircularProgress, Divider, Drawer, IconButton, List, ListItemButton,
+  ListItemIcon, ListItemText, Popover, Slider,
   Stack, ToggleButton, ToggleButtonGroup, Toolbar, Typography, useMediaQuery, useTheme
 } from '@mui/material';
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined';
@@ -33,17 +33,19 @@ const navigation = [
 ];
 
 function ThemeSettings() {
-  const [open, setOpen] = useState(false);
+  const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const { hue, mode, setHue, setMode, reset } = usePanelTheme();
   const modes: Array<{ value: PanelColorMode; label: string }> = [
     { value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }, { value: 'system', label: '跟随系统' }
   ];
   return <>
-    <IconButton aria-label="面板主题设置" title="面板主题设置" onClick={() => setOpen(true)}><PaletteOutlined /></IconButton>
-    <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="xs">
-      <DialogTitle>面板主题</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ pt: 1 }}>
+    <IconButton aria-label="面板主题设置" title="面板主题设置" aria-haspopup="true" aria-expanded={Boolean(anchorElement)}
+      onClick={(event: MouseEvent<HTMLElement>) => setAnchorElement(event.currentTarget)}><PaletteOutlined /></IconButton>
+    <Popover open={Boolean(anchorElement)} anchorEl={anchorElement} onClose={() => setAnchorElement(null)}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      slotProps={{ paper: { sx: { width: 340, maxWidth: 'calc(100vw - 24px)', p: 2.5, mt: 1 } } }}>
+        <Stack spacing={3}>
+          <Typography variant="h6">面板主题</Typography>
           <Box>
             <Typography gutterBottom>显示模式</Typography>
             <ToggleButtonGroup exclusive fullWidth value={mode} onChange={(_, value: PanelColorMode | null) => value && setMode(value)}>
@@ -57,10 +59,9 @@ function ThemeSettings() {
             <Slider value={hue} min={0} max={360} step={1} onChange={(_, value) => setHue(value as number)} aria-label="主题色相" />
             <Box sx={{ height: 36, borderRadius: 2, background: `linear-gradient(90deg, ${Array.from({ length: 13 }, (_, index) => hueColor(index * 30)).join(', ')})` }} />
           </Box>
+          <Button onClick={reset} sx={{ alignSelf: 'flex-start' }}>恢复默认</Button>
         </Stack>
-      </DialogContent>
-      <DialogActions><Button onClick={reset}>恢复默认</Button><Button variant="contained" onClick={() => setOpen(false)}>完成</Button></DialogActions>
-    </Dialog>
+    </Popover>
   </>;
 }
 
