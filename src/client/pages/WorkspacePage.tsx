@@ -21,6 +21,7 @@ import LinkOffOutlined from "@mui/icons-material/LinkOffOutlined";
 import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
 import RefreshOutlined from "@mui/icons-material/RefreshOutlined";
 import { api, json } from "../api";
+import { DashboardCharts } from "../components/DashboardCharts";
 import type { DashboardOverview, ProjectReport } from "../types";
 
 interface WorkspaceData {
@@ -310,6 +311,8 @@ export default function WorkspacePage() {
                     ))}
               </Grid>
             )}
+
+            {dashboard && <DashboardCharts articles={dashboard.articles} />}
 
             {dashboard && dashboard.articles.total === 0 && (
               <Alert severity="info">当前内容目录中还没有 Markdown 或 MDX 文章。</Alert>
