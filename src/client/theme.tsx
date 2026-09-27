@@ -52,6 +52,7 @@ export function createPanelMuiTheme(hue: number, resolvedMode: 'light' | 'dark')
   const secondaryMain = hueColor(secondaryHue, resolvedMode === 'dark' ? 62 : 42);
   const secondaryHover = hueColor(secondaryHue, resolvedMode === 'dark' ? 52 : 34);
   const themeContrast = resolvedMode === 'dark' ? '#000' : '#fff';
+  const scrollbarTrack = resolvedMode === 'dark' ? '#111318' : '#e5e7ed';
   return createTheme({
     cssVariables: true,
     palette: {
@@ -68,6 +69,23 @@ export function createPanelMuiTheme(hue: number, resolvedMode: 'light' | 'dark')
       h4: { fontWeight: 700 }, h5: { fontWeight: 700 }, h6: { fontWeight: 650 }
     },
     components: {
+      MuiCssBaseline: {
+        styleOverrides: {
+          '*': {
+            scrollbarColor: primaryMain + ' ' + scrollbarTrack,
+            scrollbarWidth: 'thin'
+          },
+          '*::-webkit-scrollbar': { width: 10, height: 10 },
+          '*::-webkit-scrollbar-track': { backgroundColor: scrollbarTrack },
+          '*::-webkit-scrollbar-thumb': {
+            backgroundColor: primaryMain,
+            border: '2px solid ' + scrollbarTrack,
+            borderRadius: 999
+          },
+          '*::-webkit-scrollbar-thumb:hover': { backgroundColor: primaryHover },
+          '*::-webkit-scrollbar-corner': { backgroundColor: scrollbarTrack }
+        }
+      },
       MuiButton: {
         defaultProps: { disableElevation: true },
         styleOverrides: {

@@ -29,3 +29,22 @@ it('uses mode-specific text with a visible hover background for theme-colored co
     expect(navigation['&.active:hover']).toMatchObject({ color: expectedText, backgroundColor: theme.palette.primary.dark });
   }
 });
+it('styles every scrollbar with the current theme color', () => {
+  for (const mode of ['light', 'dark'] as const) {
+    const theme = createPanelMuiTheme(180, mode);
+    const overrides = theme.components?.MuiCssBaseline?.styleOverrides as Record<string, Record<string, unknown>>;
+    const expectedTrack = mode === 'dark' ? '#111318' : '#e5e7ed';
+
+    expect(overrides['*']).toMatchObject({
+      scrollbarColor: `${theme.palette.primary.main} ${expectedTrack}`,
+      scrollbarWidth: 'thin'
+    });
+    expect(overrides['*::-webkit-scrollbar-thumb']).toMatchObject({
+      backgroundColor: theme.palette.primary.main,
+      border: `2px solid ${expectedTrack}`
+    });
+    expect(overrides['*::-webkit-scrollbar-thumb:hover']).toMatchObject({
+      backgroundColor: theme.palette.primary.dark
+    });
+  }
+});
