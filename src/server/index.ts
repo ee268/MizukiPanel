@@ -7,7 +7,6 @@ import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { SESSION_COOKIE, validAccessToken } from '../lib/server/auth';
 import { inspectProject, ProjectError, type ProjectReport } from '../lib/server/project';
-import { inspectGit } from '../lib/server/git';
 import { clearWorkspace, readWorkspacePath, saveWorkspacePath, selectWorkspaceDirectory, WorkspacePickerError } from '../lib/server/workspace';
 import {
   articlePreviewPath, createArticle, deleteArticle, listArticles, readArticle, renameArticle,
@@ -92,14 +91,11 @@ app.get('/api/session', (context) => context.json({ authenticated: true }));
 
 app.get('/api/workspace', async (context) => {
   const connectedPath = await readWorkspacePath();
-  if (!connectedPath) return context.json({ connectedPath: null, report: null, gitStatus: null, connectionError: null });
+  if (!connectedPath) return context.json({ connectedPath: null, report: null, connectionError: null });
   try {
-    const report = await inspectProject(connectedPath);
-    let gitStatus = null;
-    try { gitStatus = await inspectGit(report.contentRoot ?? report.root); } catch { /* Git is optional in local mode. */ }
-    return context.json({ connectedPath, report, gitStatus, connectionError: null });
+    return context.json({ connectedPath, report: await inspectProject(connectedPath), connectionError: null });
   } catch (error) {
-    return context.json({ connectedPath, report: null, gitStatus: null, connectionError: message(error) });
+    return context.json({ connectedPath, report: null, connectionError: message(error) });
   }
 });
 
