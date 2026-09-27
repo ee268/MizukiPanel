@@ -21,6 +21,7 @@ import LinkOffOutlined from "@mui/icons-material/LinkOffOutlined";
 import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
 import RefreshOutlined from "@mui/icons-material/RefreshOutlined";
 import { api, json } from "../api";
+import { DashboardActivityPanels } from "../components/DashboardActivityPanels";
 import { DashboardCharts } from "../components/DashboardCharts";
 import type { DashboardOverview, ProjectReport } from "../types";
 
@@ -314,17 +315,14 @@ export default function WorkspacePage() {
 
             {dashboard && <DashboardCharts articles={dashboard.articles} />}
 
+            {dashboard && <DashboardActivityPanels dashboard={dashboard} />}
+
             {dashboard && dashboard.articles.total === 0 && (
               <Alert severity="info">当前内容目录中还没有 Markdown 或 MDX 文章。</Alert>
             )}
             {dashboard && dashboard.articles.invalid > 0 && (
               <Alert severity="warning">
                 有 {dashboard.articles.invalid} 篇文章的 Frontmatter 无法纳入统计，请在文章管理中修复。
-              </Alert>
-            )}
-            {dashboard && !dashboard.git.available && (
-              <Alert severity="info">
-                Mizuki 项目仓库的提交历史暂不可用，文章统计不受影响。
               </Alert>
             )}
           </>
