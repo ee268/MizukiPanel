@@ -181,3 +181,8 @@ export interface PublishOperationStatus {
   logs: string[];
   error: string | null;
 }
+
+export interface SiteIdentity {
+  title: string;
+  avatarUrl: string | null;
+}

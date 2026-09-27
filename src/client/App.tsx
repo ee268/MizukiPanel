@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useState, type MouseEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState, type MouseEvent } from 'react';
 import {
-  AppBar, Box, Button, CircularProgress, Divider, Drawer, IconButton, List, ListItemButton,
+  AppBar, Avatar, Box, Button, CircularProgress, Divider, Drawer, IconButton, List, ListItemButton,
   ListItemIcon, ListItemText, Popover, Slider,
   Stack, ToggleButton, ToggleButtonGroup, Toolbar, Typography, useMediaQuery, useTheme
 } from '@mui/material';
@@ -16,6 +16,7 @@ import PaletteOutlined from '@mui/icons-material/PaletteOutlined';
 import RocketLaunchOutlined from '@mui/icons-material/RocketLaunchOutlined';
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { api } from './api';
+import type { SiteIdentity } from './types';
 import { hueColor, usePanelTheme, type PanelColorMode } from './theme';
 
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -83,12 +84,24 @@ function AppShell() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [open, setOpen] = useState(false);
+  const [identity, setIdentity] = useState<SiteIdentity>({ title: 'Mizuki', avatarUrl: null });
   const routeLocation = useLocation();
   const current = navigation.find((item) => item.path === '/' ? routeLocation.pathname === '/' : routeLocation.pathname.startsWith(item.path));
+  const loadIdentity = useCallback(async () => {
+    try { setIdentity(await api<SiteIdentity>('/api/site-identity')); }
+    catch { setIdentity({ title: 'Mizuki', avatarUrl: null }); }
+  }, []);
+  useEffect(() => {
+    const refresh = () => void loadIdentity();
+    refresh();
+    window.addEventListener('mizuki-site-identity-changed', refresh);
+    const timer = window.setInterval(refresh, 5000);
+    return () => { window.removeEventListener('mizuki-site-identity-changed', refresh); window.clearInterval(timer); };
+  }, [loadIdentity]);
   async function logout() { await api('/api/auth/logout', { method: 'POST' }); window.location.assign('/login'); }
   const drawer = <>
     <Toolbar sx={{ px: 2.5 }}>
-      <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: 'primary.main', color: 'primary.contrastText', display: 'grid', placeItems: 'center', fontWeight: 800, mr: 1.5 }}>M</Box>
+      <Avatar src={identity.avatarUrl ?? undefined} alt={identity.title} variant="rounded" sx={{ width: 36, height: 36, mr: 1.5, bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 800 }}>M</Avatar>
       <Box><Typography sx={{ fontWeight: 750 }}>MizukiPanel</Typography><Typography variant="caption" color="text.secondary">本机博客管理</Typography></Box>
     </Toolbar>
     <Divider />
@@ -101,7 +114,7 @@ function AppShell() {
   </>;
   return <Box sx={{ display: 'flex', minHeight: '100vh' }}>
     <AppBar position="fixed" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', zIndex: theme.zIndex.drawer + 1, ml: { md: `${drawerWidth}px` }, width: { md: `calc(100% - ${drawerWidth}px)` } }}>
-      <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Typography variant="h6">{current?.label ?? 'MizukiPanel'}</Typography><Box sx={{ flex: 1 }} /><Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, mr: 1 }}>React · Material UI</Typography><ThemeSettings /><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
+      <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Typography variant="h6">{current?.label ?? 'MizukiPanel'}</Typography><Box sx={{ flex: 1 }} /><Typography variant="body2" color="text.secondary" title={identity.title} sx={{ display: { xs: 'none', sm: 'block' }, mr: 1, maxWidth: { sm: 220, lg: 360 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{identity.title}</Typography><ThemeSettings /><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
     </AppBar>
     <Drawer variant={desktop ? 'permanent' : 'temporary'} open={desktop || open} onClose={() => setOpen(false)}
       sx={{ width: drawerWidth, flexShrink: 0, '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' } }}>{drawer}</Drawer>

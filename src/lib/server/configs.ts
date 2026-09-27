@@ -1,7 +1,9 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { ProjectReport } from './project';
+import { assertManagedRealPath } from './path-guard';
 import { defaultStateDir } from './workspace';
-import { readManagedFile, restoreManagedFile, StorageConflict, writeManagedFile } from './storage';
+import { contentVersion, readManagedFile, restoreManagedFile, StorageConflict, writeManagedFile } from './storage';
 import {
   changedConfigPaths, createOverrideSource, deepMergeConfig, parseConfigInitializer,
   replaceConfigInitializer, type ConfigValue, ConfigValidationError
@@ -38,6 +40,47 @@ export const CONFIGS: readonly ConfigDescriptor[] = [
 
 export class SiteConfigError extends Error {
   constructor(message: string) { super(message); this.name = 'SiteConfigError'; }
+}
+
+export interface SiteIdentity {
+  title: string;
+  avatarUrl: string | null;
+}
+
+function objectValue(value: ConfigValue, key: string): ConfigValue | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value[key] : undefined;
+}
+
+function stringValue(value: ConfigValue | undefined): string | null {
+  return typeof value === 'string' && !value.startsWith('«expression:') && value.trim() ? value.trim() : null;
+}
+
+function remoteAvatar(value: string): boolean {
+  return /^https?:\/\//i.test(value) || /^data:image\/(?:png|jpeg|gif|webp|avif);base64,/i.test(value);
+}
+
+async function avatarFile(report: ProjectReport, configuredPath: string): Promise<string> {
+  if (configuredPath.includes('?') || configuredPath.includes('#')) throw new SiteConfigError('本地头像路径不能包含查询参数或片段');
+  const normalized = configuredPath.replaceAll('\\', '/');
+  if (normalized.startsWith('/')) {
+    const publicPath = normalized.replace(/^\/+/, '');
+    if (report.mode === 'external' && (publicPath === 'images' || publicPath.startsWith('images/'))) {
+      const imageMapping = report.mappings.find((mapping) => mapping.key === 'images');
+      if (!imageMapping) throw new SiteConfigError('独立内容仓库缺少图片目录映射');
+      return assertManagedRealPath(imageMapping.sourcePath, publicPath.slice('images'.length).replace(/^\/+/, ''));
+    }
+    return assertManagedRealPath(report.root, `public/${publicPath}`);
+  }
+  return assertManagedRealPath(report.root, `src/${normalized}`);
+}
+
+function avatarContentType(bytes: Buffer): string {
+  if (bytes.length >= 12 && bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  if (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+  if (bytes.length >= 6 && ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString('ascii'))) return 'image/gif';
+  if (bytes.length >= 12 && bytes.subarray(4, 12).toString('ascii').startsWith('ftypavi')) return 'image/avif';
+  throw new SiteConfigError('头像文件不是支持的 PNG、JPEG、GIF、WebP 或 AVIF 图片');
 }
 
 function descriptor(key: string): ConfigDescriptor {
@@ -112,6 +155,28 @@ export async function readConfig(report: ProjectReport, key: string) {
     changedPaths: changedConfigPaths(defaults.value, effectiveValue),
     warnings: expressions ? [`检测到 ${expressions} 个枚举或标识符表达式；面板只展示源码且不会执行它们。`] : []
   };
+}
+
+export async function readSiteAvatar(report: ProjectReport): Promise<{ bytes: Buffer; type: string; version: string }> {
+  const profile = await readConfig(report, 'profileConfig');
+  const avatar = stringValue(objectValue(profile.effectiveValue, 'avatar'));
+  if (!avatar || remoteAvatar(avatar)) throw new SiteConfigError('当前头像不是可由面板读取的本地图片');
+  const bytes = await readFile(await avatarFile(report, avatar));
+  return { bytes, type: avatarContentType(bytes), version: contentVersion(bytes) };
+}
+
+export async function readSiteIdentity(report: ProjectReport): Promise<SiteIdentity> {
+  const [site, profile] = await Promise.all([readConfig(report, 'siteConfig'), readConfig(report, 'profileConfig')]);
+  const title = stringValue(objectValue(site.effectiveValue, 'title')) ?? 'Mizuki';
+  const avatar = stringValue(objectValue(profile.effectiveValue, 'avatar'));
+  if (!avatar) return { title, avatarUrl: null };
+  if (remoteAvatar(avatar)) return { title, avatarUrl: avatar };
+  try {
+    const local = await readSiteAvatar(report);
+    return { title, avatarUrl: `/api/site-identity/avatar?v=${encodeURIComponent(local.version)}` };
+  } catch {
+    return { title, avatarUrl: null };
+  }
 }
 
 export async function saveConfig(report: ProjectReport, key: string, initializer: string, expectedVersion: string) {

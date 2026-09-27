@@ -24,13 +24,13 @@ export default function WorkspacePage() {
   useEffect(() => { void load(); }, [load]);
   async function connect(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
-    try { await api('/api/workspace/connect', json('POST', { projectPath })); await load(); }
+    try { await api('/api/workspace/connect', json('POST', { projectPath })); await load(); window.dispatchEvent(new Event('mizuki-site-identity-changed')); }
     catch (cause) { setError(cause instanceof Error ? cause.message : '连接失败'); }
     finally { setBusy(false); }
   }
   async function disconnect() {
     setBusy(true); setError('');
-    try { await api('/api/workspace/disconnect', json('POST')); await load(); }
+    try { await api('/api/workspace/disconnect', json('POST')); await load(); window.dispatchEvent(new Event('mizuki-site-identity-changed')); }
     catch (cause) { setError(cause instanceof Error ? cause.message : '断开失败'); }
     finally { setBusy(false); }
   }

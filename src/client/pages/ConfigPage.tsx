@@ -50,6 +50,7 @@ export default function ConfigPage() {
       }));
       setDocument(result.config); setInitializer(result.config.initializer); setBackupPath(result.backupPath);
       setNotice(result.config.mode === 'external' ? '覆盖配置已保存；预览前请重新启动 Astro。' : '站点配置已保存。'); setError('');
+      if (selected === 'siteConfig' || selected === 'profileConfig') window.dispatchEvent(new Event('mizuki-site-identity-changed'));
     } catch (cause) { setError(cause instanceof Error ? cause.message : '配置保存失败'); }
     finally { setBusy(false); }
   }
@@ -61,6 +62,7 @@ export default function ConfigPage() {
         key: selected, backupPath, version: document.version
       }));
       setDocument(result); setInitializer(result.initializer); setBackupPath(null); setNotice('已恢复保存前的配置。'); setError('');
+      if (selected === 'siteConfig' || selected === 'profileConfig') window.dispatchEvent(new Event('mizuki-site-identity-changed'));
     } catch (cause) { setError(cause instanceof Error ? cause.message : '配置恢复失败'); }
     finally { setBusy(false); }
   }
