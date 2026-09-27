@@ -22,6 +22,8 @@ export interface ArticleListItem {
   alias: string;
   permalink: string;
   slug: string;
+  tags: string[];
+  category: string;
 }
 export interface ArticleRecord extends ArticleListItem {
   source: string;
@@ -86,12 +88,15 @@ export async function listArticles(report: ProjectReport): Promise<ArticleListIt
   const ids = await collect(root, base);
   const items = await Promise.all(ids.map(async (id): Promise<ArticleListItem> => {
     const format = id.toLowerCase().endsWith('.mdx') ? 'mdx' : 'md';
-    const fallback = { id, title: path.basename(id), published: '', draft: false, format, error: null, alias: '', permalink: '', slug: '' } as ArticleListItem;
+    const fallback = { id, title: path.basename(id), published: '', draft: false, format, error: null,
+      alias: '', permalink: '', slug: '', tags: [], category: '' } as ArticleListItem;
     try {
       const filename = await assertManagedRealPath(root, prefix + '/' + id);
       const parsed = parseArticleSource(await readFile(filename, 'utf8'));
       const fields = articleFields(parsed.data);
-      return { ...fallback, title: fields.title, published: fields.published, draft: fields.draft, alias: fields.alias, permalink: fields.permalink, slug: fields.slug };
+      return { ...fallback, title: fields.title, published: fields.published, draft: fields.draft,
+        alias: fields.alias, permalink: fields.permalink, slug: fields.slug,
+        tags: Array.isArray(parsed.data.tags) ? parsed.data.tags.map(String) : [], category: fields.category };
     } catch (error) {
       return { ...fallback, error: error instanceof Error ? error.message : '文章无法读取' };
     }
@@ -108,12 +113,13 @@ export async function readArticle(report: ProjectReport, id: string): Promise<Ar
     const fields = articleFields(parsed.data);
     return { id, source: result.content, version: result.version, fields, frontmatter: frontmatterEntries(parsed.data), format,
       title: fields.title, published: fields.published, draft: fields.draft,
-      alias: fields.alias, permalink: fields.permalink, slug: fields.slug, error: null };
+      alias: fields.alias, permalink: fields.permalink, slug: fields.slug,
+      tags: Array.isArray(parsed.data.tags) ? parsed.data.tags.map(String) : [], category: fields.category, error: null };
   } catch (error) {
     const fields = articleFields({});
     return { id, source: result.content, version: result.version, fields, frontmatter: [], format,
       title: path.basename(id), published: '', draft: false, alias: '', permalink: '', slug: '',
-      error: error instanceof Error ? error.message : 'Frontmatter 无法解析' };
+      tags: [], category: '', error: error instanceof Error ? error.message : 'Frontmatter 无法解析' };
   }
 }
 

@@ -34,6 +34,36 @@ export interface ArticleListItem {
   alias: string;
   permalink: string;
   slug: string;
+  tags: string[];
+  category: string;
+}
+
+export interface DashboardDay { date: string; count: number }
+
+export interface DashboardOverview {
+  generatedAt: string;
+  range: { start: string; end: string };
+  articles: {
+    total: number;
+    published: number;
+    drafts: number;
+    scheduled: number;
+    invalid: number;
+    addedLast30Days: number;
+    activity: DashboardDay[];
+    recent: Array<Pick<ArticleListItem, 'id' | 'title' | 'published' | 'draft' | 'format'>>;
+    tags: Array<{ name: string; count: number }>;
+  };
+  git: {
+    repositoryRoot: string;
+    available: boolean;
+    error: string | null;
+    totalCommits: number;
+    commitsLast30Days: number;
+    currentStreak: number;
+    longestStreak: number;
+    activity: DashboardDay[];
+  };
 }
 
 export interface FrontmatterEntry { key: string; value: string; originalKey?: string }

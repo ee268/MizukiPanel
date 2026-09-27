@@ -31,6 +31,7 @@ import {
   pushCurrentBranch, revertPanelCommit, startPublishOperation
 } from '../lib/server/publish';
 import type { ConfigValue } from '../lib/server/config-format';
+import { dashboardOverview } from '../lib/server/dashboard';
 
 class ApiError extends Error {
   constructor(public status: 400 | 401 | 403 | 404 | 409 | 500, message: string) { super(message); }
@@ -121,6 +122,8 @@ app.post('/api/workspace/disconnect', async (context) => {
   await clearWorkspace();
   return context.json({ ok: true });
 });
+
+app.get('/api/dashboard', async (context) => context.json(await dashboardOverview(await project())));
 
 app.get('/api/articles', async (context) => {
   const report = await project();
