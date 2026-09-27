@@ -45,6 +45,60 @@ export function usePanelTheme(): PanelThemeContextValue {
   return value;
 }
 
+export function createPanelMuiTheme(hue: number, resolvedMode: 'light' | 'dark') {
+  const primaryMain = hueColor(hue, resolvedMode === 'dark' ? 64 : 48);
+  const primaryHover = hueColor(hue, resolvedMode === 'dark' ? 54 : 40);
+  const secondaryHue = (hue + 125) % 360;
+  const secondaryMain = hueColor(secondaryHue, resolvedMode === 'dark' ? 62 : 42);
+  const secondaryHover = hueColor(secondaryHue, resolvedMode === 'dark' ? 52 : 34);
+  return createTheme({
+    cssVariables: true,
+    palette: {
+      mode: resolvedMode,
+      primary: { main: primaryMain, dark: primaryHover, contrastText: '#fff' },
+      secondary: { main: secondaryMain, dark: secondaryHover, contrastText: '#fff' },
+      background: resolvedMode === 'dark'
+        ? { default: '#111318', paper: '#191c23' }
+        : { default: '#f5f6fa', paper: '#ffffff' }
+    },
+    shape: { borderRadius: 12 },
+    typography: {
+      fontFamily: 'Inter, "Segoe UI", "Microsoft YaHei", sans-serif',
+      h4: { fontWeight: 700 }, h5: { fontWeight: 700 }, h6: { fontWeight: 650 }
+    },
+    components: {
+      MuiButton: {
+        defaultProps: { disableElevation: true },
+        styleOverrides: {
+          root: ({ ownerState }) => ({
+            textTransform: 'none', fontWeight: 600,
+            ...(ownerState.variant === 'contained' && (ownerState.color === 'primary' || ownerState.color === undefined) ? {
+              color: '#fff', backgroundColor: primaryMain,
+              '&:hover': { color: '#fff', backgroundColor: primaryHover }
+            } : {}),
+            ...(ownerState.variant === 'contained' && ownerState.color === 'secondary' ? {
+              color: '#fff', backgroundColor: secondaryMain,
+              '&:hover': { color: '#fff', backgroundColor: secondaryHover }
+            } : {})
+          })
+        }
+      },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: {
+            '&.active': {
+              color: '#fff', backgroundColor: primaryMain,
+              '& .MuiListItemIcon-root': { color: 'inherit' }
+            },
+            '&.active:hover': { color: '#fff', backgroundColor: primaryHover }
+          }
+        }
+      },
+      MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
+      MuiTextField: { defaultProps: { size: 'small' } }
+    }
+  });
+}
 export function PanelThemeProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState(readSettings);
   const [systemDark, setSystemDark] = useState(() => matchMedia('(prefers-color-scheme: dark)').matches);
@@ -56,27 +110,7 @@ export function PanelThemeProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => { localStorage.setItem(storageKey, JSON.stringify(settings)); }, [settings]);
   const resolvedMode = settings.mode === 'system' ? (systemDark ? 'dark' : 'light') : settings.mode;
-  const theme = useMemo(() => createTheme({
-    cssVariables: true,
-    palette: {
-      mode: resolvedMode,
-      primary: { main: hueColor(settings.hue, resolvedMode === 'dark' ? 64 : 48) },
-      secondary: { main: hueColor((settings.hue + 125) % 360, resolvedMode === 'dark' ? 62 : 42) },
-      background: resolvedMode === 'dark'
-        ? { default: '#111318', paper: '#191c23' }
-        : { default: '#f5f6fa', paper: '#ffffff' }
-    },
-    shape: { borderRadius: 12 },
-    typography: {
-      fontFamily: 'Inter, "Segoe UI", "Microsoft YaHei", sans-serif',
-      h4: { fontWeight: 700 }, h5: { fontWeight: 700 }, h6: { fontWeight: 650 }
-    },
-    components: {
-      MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { textTransform: 'none', fontWeight: 600 } } },
-      MuiPaper: { styleOverrides: { root: { backgroundImage: 'none' } } },
-      MuiTextField: { defaultProps: { size: 'small' } }
-    }
-  }), [resolvedMode, settings.hue]);
+  const theme = useMemo(() => createPanelMuiTheme(settings.hue, resolvedMode), [resolvedMode, settings.hue]);
   const value = useMemo<PanelThemeContextValue>(() => ({
     ...settings,
     resolvedMode,
