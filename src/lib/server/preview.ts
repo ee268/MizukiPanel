@@ -14,12 +14,13 @@ interface PreviewRuntime {
   startedAt: string | null;
   logs: string[];
   error: string | null;
+  stoppingChild: ChildProcess | null;
 }
 
 const runtimeKey = Symbol.for('mizuki-panel.preview-runtime');
 const globals = globalThis as typeof globalThis & { [runtimeKey]?: PreviewRuntime };
 const runtime = globals[runtimeKey] ??= {
-  child: null, projectRoot: null, port: 4321, startedAt: null, logs: [], error: null
+  child: null, projectRoot: null, port: 4321, startedAt: null, logs: [], error: null, stoppingChild: null
 };
 
 function append(chunk: Buffer | string) {
@@ -33,6 +34,11 @@ async function responds(port: number): Promise<boolean> {
     const response = await fetch(`http://127.0.0.1:${port}/`, { signal: AbortSignal.timeout(1200) });
     return response.status < 500;
   } catch { return false; }
+}
+
+export function previewExitError(code: number | null, expectedStop: boolean): string | null {
+  if (expectedStop || !code) return null;
+  return 'Astro 预览异常退出，退出码 ' + code;
 }
 
 export interface PreviewStatus {
@@ -87,9 +93,13 @@ export async function startPreview(report: ProjectReport): Promise<PreviewStatus
   child.stderr?.on('data', append);
   child.on('error', (error) => { runtime.error = error.message; append(`启动失败：${error.message}`); });
   child.on('exit', (code, signal) => {
-    append(`预览进程已退出（code=${code ?? '-'}, signal=${signal ?? '-'}）`);
-    if (code && code !== 0) runtime.error = `Astro 预览异常退出，退出码 ${code}`;
-    runtime.child = null;
+    const expectedStop = runtime.stoppingChild === child;
+    if (!expectedStop) append('预览进程已退出（code=' + (code ?? '-') + ', signal=' + (signal ?? '-') + '）');
+    const exitError = previewExitError(code, expectedStop);
+    if (expectedStop) runtime.error = null;
+    else if (exitError) runtime.error = exitError;
+    if (runtime.child === child) runtime.child = null;
+    if (expectedStop) runtime.stoppingChild = null;
   });
   return previewStatus(report);
 }
@@ -99,12 +109,14 @@ export async function stopPreview(report: ProjectReport): Promise<PreviewStatus>
   if (!child || child.exitCode !== null || child.killed) return previewStatus(report);
   if (path.resolve(runtime.projectRoot ?? '') !== path.resolve(report.root))
     throw new Error('当前预览不属于所选 Mizuki 工作区');
+  runtime.stoppingChild = child;
+  runtime.error = null;
   const pid = child.pid;
   if (pid) {
     if (process.platform === 'win32') await run('taskkill', ['/pid', String(pid), '/t', '/f'], { windowsHide: true }).catch(() => child.kill());
     else child.kill('SIGTERM');
   }
-  runtime.child = null;
+  if (runtime.child === child) runtime.child = null;
   append('已停止由面板启动的预览进程。');
   return previewStatus(report);
 }

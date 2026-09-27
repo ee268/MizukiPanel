@@ -65,18 +65,21 @@ function PreviewLogs({ logs }: { logs: string[] }) {
         height: { xs: "60vh", md: "calc(100vh - 260px)" },
         minHeight: 420,
         overflow: "auto",
-        p: 2,
+        p: 0,
       }}
     >
       <Typography
         sx={{
           bgcolor: "#0b1020",
           color: "#f8fafc",
+          borderBottom: "1px solid",
+          borderColor: "rgba(148, 163, 184, 0.22)",
           fontWeight: 650,
-          pb: 1,
+          px: 2,
+          py: 1.25,
           position: "sticky",
           top: 0,
-          zIndex: 1,
+          zIndex: 2,
         }}
       >
         运行日志
@@ -89,6 +92,8 @@ function PreviewLogs({ logs }: { logs: string[] }) {
           lineHeight: 1.65,
           m: 0,
           overflowWrap: "anywhere",
+          px: 2,
+          py: 1.5,
           whiteSpace: "pre-wrap",
         }}
       >
