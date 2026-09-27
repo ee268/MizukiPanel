@@ -13,6 +13,7 @@ import AutoAwesomeOutlined from '@mui/icons-material/AutoAwesomeOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import LogoutOutlined from '@mui/icons-material/LogoutOutlined';
 import PaletteOutlined from '@mui/icons-material/PaletteOutlined';
+import RocketLaunchOutlined from '@mui/icons-material/RocketLaunchOutlined';
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { api } from './api';
 import { hueColor, usePanelTheme, type PanelColorMode } from './theme';
@@ -24,6 +25,7 @@ const MediaPage = lazy(() => import('./pages/MediaPage'));
 const PreviewPage = lazy(() => import('./pages/PreviewPage'));
 const ConfigPage = lazy(() => import('./pages/ConfigPage'));
 const FeaturesPage = lazy(() => import('./pages/FeaturesPage'));
+const PublishPage = lazy(() => import('./pages/PublishPage'));
 
 const drawerWidth = 248;
 const navigation = [
@@ -32,7 +34,8 @@ const navigation = [
   { path: '/config', label: '站点配置', icon: <TuneOutlined /> },
   { path: '/features', label: '特色页面', icon: <AutoAwesomeOutlined /> },
   { path: '/media', label: '媒体管理', icon: <PermMediaOutlined /> },
-  { path: '/preview', label: '真实预览', icon: <PreviewOutlined /> }
+  { path: '/preview', label: '真实预览', icon: <PreviewOutlined /> },
+  { path: '/publish', label: '发布管理', icon: <RocketLaunchOutlined /> }
 ];
 
 function ThemeSettings() {
@@ -116,6 +119,7 @@ export default function App() {
       <Route path="/features" element={<FeaturesPage />} />
       <Route path="/media" element={<MediaPage />} />
       <Route path="/preview" element={<PreviewPage />} />
+      <Route path="/publish" element={<PublishPage />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes></Suspense>;

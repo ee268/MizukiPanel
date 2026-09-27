@@ -138,3 +138,46 @@ export interface AlbumRecord {
   photos: string[];
   complete: boolean;
 }
+export interface PublishChange {
+  status: string;
+  path: string;
+  originalPath: string | null;
+  staged: boolean;
+  conflict: boolean;
+  managed: boolean;
+}
+
+export interface PublishCheck {
+  key: string;
+  label: string;
+  status: 'pass' | 'warning' | 'error';
+  detail: string;
+}
+
+export interface PublishOverview {
+  mode: ProjectReport['mode'];
+  repositoryLabel: string;
+  repositoryRoot: string;
+  branch: string | null;
+  upstream: string | null;
+  ahead: number;
+  behind: number;
+  head: string | null;
+  lastSubject: string | null;
+  changes: PublishChange[];
+  checks: PublishCheck[];
+  canCommit: boolean;
+  canPush: boolean;
+  canSync: boolean;
+  canBuild: boolean;
+}
+
+export interface PublishOperationStatus {
+  kind: 'validate' | 'sync' | 'build' | null;
+  state: 'idle' | 'running' | 'succeeded' | 'failed';
+  projectRoot: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  logs: string[];
+  error: string | null;
+}
