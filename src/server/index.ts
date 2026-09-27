@@ -26,6 +26,10 @@ import {
   readAnimeSeason, readFeatureData, readFeatureText, restoreFeatureFile, saveAlbum, saveAnimeSeason,
   saveFeatureData, saveFeatureText
 } from '../lib/server/features';
+import {
+  commitSelected, publishDiff, publishOperationStatus, publishOverview, PublishError,
+  pushCurrentBranch, revertPanelCommit, startPublishOperation
+} from '../lib/server/publish';
 import type { ConfigValue } from '../lib/server/config-format';
 
 class ApiError extends Error {
@@ -45,7 +49,7 @@ function mapError(error: unknown): never {
   if (error instanceof ApiError) throw error;
   if (error instanceof StorageConflict) throw new ApiError(409, error.message);
   if (error instanceof ArticleValidationError || error instanceof ConfigValidationError || error instanceof SiteConfigError || error instanceof FeatureError
-    || error instanceof MediaError || error instanceof PathGuardError || error instanceof ProjectError)
+    || error instanceof MediaError || error instanceof PathGuardError || error instanceof ProjectError || error instanceof PublishError)
     throw new ApiError(400, error.message);
   if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') throw new ApiError(404, '目标文件不存在或已被移动');
   throw error;
@@ -299,6 +303,32 @@ app.post('/api/preview/start', async (context) => {
 });
 app.post('/api/preview/stop', async (context) => {
   try { return context.json(await stopPreview(await project())); } catch (error) { mapError(error); }
+});
+
+app.get('/api/publish', async (context) => {
+  try { return context.json(await publishOverview(await project())); } catch (error) { mapError(error); }
+});
+app.get('/api/publish/diff', async (context) => {
+  const filePath = context.req.query('path');
+  if (!filePath) throw new ApiError(400, '缺少待预览的文件路径');
+  try { return context.json({ diff: await publishDiff(await project(), filePath) }); } catch (error) { mapError(error); }
+});
+app.post('/api/publish/commit', async (context) => {
+  const body = await context.req.json<{ paths?: string[]; message?: string }>();
+  if (!Array.isArray(body.paths) || typeof body.message !== 'string') throw new ApiError(400, '提交参数不完整');
+  try { return context.json(await commitSelected(await project(), body.paths, body.message)); } catch (error) { mapError(error); }
+});
+app.post('/api/publish/push', async (context) => {
+  try { return context.json(await pushCurrentBranch(await project())); } catch (error) { mapError(error); }
+});
+app.post('/api/publish/revert', async (context) => {
+  try { return context.json(await revertPanelCommit(await project())); } catch (error) { mapError(error); }
+});
+app.get('/api/publish/operation', async (context) => context.json(publishOperationStatus(await project())));
+app.post('/api/publish/operation', async (context) => {
+  const body = await context.req.json<{ kind?: 'validate' | 'sync' | 'build' }>();
+  if (!body.kind || !['validate', 'sync', 'build'].includes(body.kind)) throw new ApiError(400, '发布操作无效');
+  try { return context.json(await startPublishOperation(await project(), body.kind)); } catch (error) { mapError(error); }
 });
 
 app.onError((error, context) => {
