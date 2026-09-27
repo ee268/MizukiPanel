@@ -12,7 +12,6 @@ import {
   Stack,
   Tooltip,
   Typography,
-  alpha,
   useTheme,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
@@ -30,13 +29,7 @@ function contributionDateLabel(date: string, count: number): string {
 function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
   const theme = useTheme();
   const calendar = contributionCalendar(git.activity);
-  const colors = [
-    "transparent",
-    alpha(theme.palette.primary.main, 0.25),
-    alpha(theme.palette.primary.main, 0.5),
-    alpha(theme.palette.primary.main, 0.75),
-    theme.palette.primary.main,
-  ];
+  const opacities = [1, 0.25, 0.5, 0.75, 1];
   const cellSize = 12;
   const gap = 3;
   const graphWidth = calendar.weeks.length * (cellSize + gap) - gap;
@@ -135,8 +128,9 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
                           <Box
                             component="span"
                             sx={{
-                              bgcolor: colors[contributionLevel(day.count)],
-                              border: `1px solid ${alpha(theme.palette.text.primary, 0.06)}`,
+                              bgcolor: day.count > 0 ? "primary.main" : "transparent",
+                              border: `1px solid ${theme.palette.divider}`,
+                              opacity: opacities[contributionLevel(day.count)],
                               borderRadius: "3px",
                               display: "block",
                               height: cellSize,
@@ -163,15 +157,16 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
             sx={{ alignItems: "center", justifyContent: "flex-end", mt: 1 }}
           >
             <Typography variant="caption" color="text.secondary">少</Typography>
-            {colors.map((color, index) => (
+            {opacities.map((opacity, index) => (
               <Box
                 aria-hidden
                 key={index}
                 sx={{
-                  bgcolor: color,
-                  border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`,
+                  bgcolor: index > 0 ? "primary.main" : "transparent",
+                  border: `1px solid ${theme.palette.divider}`,
                   borderRadius: "3px",
                   height: cellSize,
+                  opacity,
                   width: cellSize,
                 }}
               />
