@@ -16,7 +16,8 @@ import PaletteOutlined from '@mui/icons-material/PaletteOutlined';
 import RocketLaunchOutlined from '@mui/icons-material/RocketLaunchOutlined';
 import ChevronLeftOutlined from '@mui/icons-material/ChevronLeftOutlined';
 import ChevronRightOutlined from '@mui/icons-material/ChevronRightOutlined';
-import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import InfoOutlined from '@mui/icons-material/InfoOutlined';
+import { Navigate, NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { api } from './api';
 import type { SiteIdentity } from './types';
 import { hueColor, usePanelTheme, type PanelColorMode } from './theme';
@@ -29,6 +30,7 @@ const PreviewPage = lazy(() => import('./pages/PreviewPage'));
 const ConfigPage = lazy(() => import('./pages/ConfigPage'));
 const FeaturesPage = lazy(() => import('./pages/FeaturesPage'));
 const PublishPage = lazy(() => import('./pages/PublishPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
 
 const drawerWidth = 248;
 const collapsedDrawerWidth = 72;
@@ -87,15 +89,13 @@ function AppShell() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const [identity, setIdentity] = useState<SiteIdentity>({ title: 'Mizuki', avatarUrl: null });
+  const [collapsed, setCollapsed] = useState(true);
+  const [identity, setIdentity] = useState<SiteIdentity>({ title: 'Mizuki', avatarUrl: null, logoUrl: null });
   const compact = desktop && collapsed;
   const effectiveDrawerWidth = compact ? collapsedDrawerWidth : drawerWidth;
-  const routeLocation = useLocation();
-  const current = navigation.find((item) => item.path === '/' ? routeLocation.pathname === '/' : routeLocation.pathname.startsWith(item.path));
   const loadIdentity = useCallback(async () => {
     try { setIdentity(await api<SiteIdentity>('/api/site-identity')); }
-    catch { setIdentity({ title: 'Mizuki', avatarUrl: null }); }
+    catch { setIdentity({ title: 'Mizuki', avatarUrl: null, logoUrl: null }); }
   }, []);
   useEffect(() => {
     const refresh = () => void loadIdentity();
@@ -107,9 +107,9 @@ function AppShell() {
   async function logout() { await api('/api/auth/logout', { method: 'POST' }); window.location.assign('/login'); }
   const drawer = <>
     <Toolbar sx={{ px: compact ? 1.5 : 2.5, justifyContent: compact ? 'center' : 'flex-start' }}>
-      <Avatar src={identity.avatarUrl ?? undefined} alt={identity.title} variant="rounded"
+      <Avatar src={identity.logoUrl ?? undefined} alt={`${identity.title} 网站 Logo`} variant="rounded"
         sx={{ width: 36, height: 36, mr: compact ? 0 : 1.5, bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 800 }}>M</Avatar>
-      {!compact && <Box sx={{ minWidth: 0 }}><Typography noWrap sx={{ fontWeight: 750 }}>MizukiPanel</Typography><Typography noWrap variant="caption" color="text.secondary">本机博客管理</Typography></Box>}
+      {!compact && <Box sx={{ minWidth: 0 }}><Typography noWrap sx={{ fontWeight: 750 }}>MizukiPanel</Typography></Box>}
     </Toolbar>
     <Divider />
     <List sx={{ p: compact ? 1 : 1.5, flex: 1, overflowY: 'auto' }}>
@@ -121,23 +121,30 @@ function AppShell() {
         </ListItemButton>
       </Tooltip>)}
     </List>
-    {desktop && <Box sx={{ mt: 'auto' }}>
+    <Box sx={{ mt: 'auto' }}>
       <Divider />
-      <Tooltip title={compact ? '展开导航栏' : ''} placement="right">
-        <ListItemButton aria-label={compact ? '展开导航栏' : '收起导航栏'} onClick={() => setCollapsed((value) => !value)}
-          sx={{ justifyContent: compact ? 'center' : 'flex-start', minHeight: 56, px: compact ? 1 : 2.5 }}>
-          <ListItemIcon sx={{ minWidth: compact ? 0 : 40, justifyContent: 'center' }}>{compact ? <ChevronRightOutlined /> : <ChevronLeftOutlined />}</ListItemIcon>
-          {!compact && <ListItemText primary="收起导航栏" />}
+      <Tooltip title={compact ? '关于' : ''} placement="right">
+        <ListItemButton component={NavLink} to="/about" aria-label="关于"
+          sx={{ justifyContent: compact ? 'center' : 'flex-start', minHeight: 52, px: compact ? 1 : 2.5, '&.active': { color: 'primary.main', bgcolor: 'action.selected', '& .MuiListItemIcon-root': { color: 'inherit' } } }}>
+          <ListItemIcon sx={{ minWidth: compact ? 0 : 40, justifyContent: 'center' }}><InfoOutlined /></ListItemIcon>
+          {!compact && <ListItemText primary="关于" />}
         </ListItemButton>
       </Tooltip>
-    </Box>}
+      {desktop && <Tooltip title={compact ? '展开导航栏' : ''} placement="right">
+          <ListItemButton aria-label={compact ? '展开导航栏' : '收起导航栏'} onClick={() => setCollapsed((value) => !value)}
+            sx={{ justifyContent: compact ? 'center' : 'flex-start', minHeight: 56, px: compact ? 1 : 2.5 }}>
+            <ListItemIcon sx={{ minWidth: compact ? 0 : 40, justifyContent: 'center' }}>{compact ? <ChevronRightOutlined /> : <ChevronLeftOutlined />}</ListItemIcon>
+            {!compact && <ListItemText primary="收起导航栏" />}
+          </ListItemButton>
+        </Tooltip>}
+    </Box>
   </>;
   return <Box sx={{ display: 'flex', minHeight: '100vh' }}>
     <AppBar position="fixed" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', zIndex: theme.zIndex.drawer + 1, ml: { md: effectiveDrawerWidth + 'px' }, width: { md: 'calc(100% - ' + effectiveDrawerWidth + 'px)' }, transition: theme.transitions.create(['margin', 'width']) }}>
-      <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Typography variant="h6">{current?.label ?? 'MizukiPanel'}</Typography><Box sx={{ flex: 1 }} /><Typography variant="body2" color="text.secondary" title={identity.title} sx={{ display: { xs: 'none', sm: 'block' }, mr: 1, maxWidth: { sm: 220, lg: 360 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{identity.title}</Typography><ThemeSettings /><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
+      <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Box sx={{ flex: 1 }} /><Avatar src={identity.avatarUrl ?? undefined} alt={identity.title} sx={{ width: 32, height: 32, mr: 1, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: 14, fontWeight: 800 }}>M</Avatar><Typography variant="body2" color="text.secondary" title={identity.title} sx={{ display: { xs: 'none', sm: 'block' }, mr: 1, maxWidth: { sm: 220, lg: 360 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{identity.title}</Typography><ThemeSettings /><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
     </AppBar>
     <Drawer variant={desktop ? 'permanent' : 'temporary'} open={desktop || open} onClose={() => setOpen(false)}
-      sx={{ width: effectiveDrawerWidth, flexShrink: 0, transition: theme.transitions.create('width'), '& .MuiDrawer-paper': { width: effectiveDrawerWidth, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflowX: 'hidden', transition: theme.transitions.create('width') } }}>{drawer}</Drawer>
+      sx={{ width: effectiveDrawerWidth, flexShrink: 0, transition: theme.transitions.create('width'), '& .MuiDrawer-paper': { width: effectiveDrawerWidth, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflowX: 'hidden', borderRight: 'none', transition: theme.transitions.create('width') } }}>{drawer}</Drawer>
     <Box component="main" sx={{ flexGrow: 1, minWidth: 0, pt: 8, ml: { md: 0 } }}><Outlet /></Box>
   </Box>;
 }
@@ -153,6 +160,7 @@ export default function App() {
       <Route path="/media" element={<MediaPage />} />
       <Route path="/preview" element={<PreviewPage />} />
       <Route path="/publish" element={<PublishPage />} />
+      <Route path="/about" element={<AboutPage />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes></Suspense>;

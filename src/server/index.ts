@@ -18,7 +18,7 @@ import { PathGuardError } from '../lib/server/path-guard';
 import { deleteMedia, listMedia, MediaError, readMedia, uploadMedia, type MediaScope } from '../lib/server/media';
 import { previewStatus, startPreview, stopPreview } from '../lib/server/preview';
 import {
-  ConfigValidationError, listConfigs, readConfig, readSiteAvatar, readSiteIdentity, restoreConfig, saveConfig, SiteConfigError
+  ConfigValidationError, listConfigs, readConfig, readSiteAvatar, readSiteIdentity, readSiteLogo, restoreConfig, saveConfig, SiteConfigError
 } from '../lib/server/configs';
 import {
   deleteAlbum, deleteAnimeSeason, FeatureError, featureIndex, listAlbums, listAnimeSeasons,
@@ -193,6 +193,14 @@ app.get('/api/site-identity/avatar', async (context) => {
     const avatar = await readSiteAvatar(await project());
     return context.body(Uint8Array.from(avatar.bytes), 200, {
       'content-type': avatar.type, 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff'
+    });
+  } catch (error) { mapError(error); }
+});
+app.get('/api/site-identity/logo', async (context) => {
+  try {
+    const logo = await readSiteLogo(await project());
+    return context.body(Uint8Array.from(logo.bytes), 200, {
+      'content-type': logo.type, 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff'
     });
   } catch (error) { mapError(error); }
 });

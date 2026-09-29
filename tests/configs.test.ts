@@ -6,7 +6,7 @@ import type { ProjectReport } from '../src/lib/server/project';
 import {
   ConfigValidationError, createOverrideSource, deepMergeConfig, parseConfigInitializer, replaceConfigInitializer
 } from '../src/lib/server/config-format';
-import { readConfig, readSiteAvatar, readSiteIdentity, restoreConfig, saveConfig } from '../src/lib/server/configs';
+import { readConfig, readSiteAvatar, readSiteIdentity, readSiteLogo, restoreConfig, saveConfig } from '../src/lib/server/configs';
 
 const temporary: string[] = [];
 afterEach(async () => { await Promise.all(temporary.splice(0).map((entry) => rm(entry, { recursive: true, force: true }))); });
@@ -49,25 +49,29 @@ it('saves and restores local config and creates external overrides', async () =>
   expect(await readFile(path.join(contentRoot, 'overrides/siteConfig.ts'), 'utf8')).toContain('export default');
 });
 
-it('reads the effective site title and serves local or external avatar files', async () => {
+it('reads the effective site identity and serves local brand images', async () => {
   const root = await mkdtemp(path.join(tmpdir(), 'mizuki-identity-'));
   const contentRoot = path.join(root, 'content');
   temporary.push(root);
   await mkdir(path.join(root, 'src/config'), { recursive: true });
   await mkdir(path.join(root, 'src/assets/images'), { recursive: true });
+  await mkdir(path.join(root, 'public/assets/home'), { recursive: true });
   await mkdir(path.join(contentRoot, 'overrides'), { recursive: true });
   await mkdir(path.join(contentRoot, 'images'), { recursive: true });
   const webp = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.from([0])]);
-  await writeFile(path.join(root, 'src/config/siteConfig.ts'), 'export const siteConfig = { title: "Local Blog" };\n');
+  await writeFile(path.join(root, 'src/config/siteConfig.ts'), 'export const siteConfig = { title: "Local Blog", navbarTitle: { logo: "assets/home/logo.webp" } };\n');
   await writeFile(path.join(root, 'src/config/profileConfig.ts'), 'export const profileConfig = { avatar: "assets/images/avatar.webp" };\n');
   await writeFile(path.join(root, 'src/assets/images/avatar.webp'), webp);
+  await writeFile(path.join(root, 'public/assets/home/logo.webp'), webp);
   const local: ProjectReport = {
     requestedPath: root, root, mode: 'local', readOnly: false, contentRoot: null, warnings: [], mappings: []
   };
   const localIdentity = await readSiteIdentity(local);
   expect(localIdentity.title).toBe('Local Blog');
   expect(localIdentity.avatarUrl).toMatch(/^\/api\/site-identity\/avatar\?v=/);
+  expect(localIdentity.logoUrl).toMatch(/^\/api\/site-identity\/logo\?v=/);
   expect(await readSiteAvatar(local)).toMatchObject({ type: 'image/webp', bytes: webp });
+  expect(await readSiteLogo(local)).toMatchObject({ type: 'image/webp', bytes: webp });
 
   await writeFile(path.join(contentRoot, 'overrides/siteConfig.ts'), 'export default { title: "External Blog" };\n');
   await writeFile(path.join(contentRoot, 'overrides/profileConfig.ts'), 'export default { avatar: "/images/profile.webp" };\n');
