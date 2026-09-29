@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
@@ -9,6 +9,8 @@ import {
   type ArticleFilter,
   type FrontmatterRow,
 } from "./types";
+
+const ARTICLES_PER_PAGE = 10;
 
 export function useArticles() {
   const [params, setParams] = useSearchParams();
@@ -22,12 +24,15 @@ export function useArticles() {
   const [mode, setMode] = useState<ArticleEditorMode>("frontmatter");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ArticleFilter>("all");
+  const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(params.has("new"));
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const listScrollPosition = useRef(0);
+  const shouldRestoreListScroll = useRef(false);
 
   const loadList = useCallback(async () => {
     try {
@@ -96,12 +101,57 @@ export function useArticles() {
     [articles, query, filter],
   );
 
+  const pageCount = Math.max(1, Math.ceil(visibleArticles.length / ARTICLES_PER_PAGE));
+  const pagedArticles = useMemo(() => {
+    const start = (page - 1) * ARTICLES_PER_PAGE;
+    return visibleArticles.slice(start, start + ARTICLES_PER_PAGE);
+  }, [page, visibleArticles]);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount));
+  }, [pageCount]);
+
+  useEffect(() => {
+    if (selectedId || !shouldRestoreListScroll.current) {
+      return;
+    }
+
+    shouldRestoreListScroll.current = false;
+    let restoreFrame: number | undefined;
+    const renderFrame = window.requestAnimationFrame(() => {
+      restoreFrame = window.requestAnimationFrame(() => {
+        window.scrollTo({ top: listScrollPosition.current, behavior: "auto" });
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(renderFrame);
+      if (restoreFrame !== undefined) {
+        window.cancelAnimationFrame(restoreFrame);
+      }
+    };
+  }, [selectedId]);
+
   function choose(id: string) {
+    if (!selectedId) {
+      listScrollPosition.current = window.scrollY;
+    }
     setParams({ post: id });
   }
 
   function showList() {
+    shouldRestoreListScroll.current = true;
     setParams({});
+  }
+
+  function changeQuery(value: string) {
+    setQuery(value);
+    setPage(1);
+  }
+
+  function changeFilter(value: ArticleFilter) {
+    setFilter(value);
+    setPage(1);
   }
 
   function applyArticle(nextArticle: ArticleRecord, nextPreviewPath: string | null) {
@@ -221,7 +271,7 @@ export function useArticles() {
       await api("/api/article", json("DELETE", { id: article.id, version: article.version }));
       setDeleteOpen(false);
       setArticle(null);
-      setParams({});
+      showList();
       await loadList();
       setNotice("文章已移入回收目录");
     } catch (cause) {
@@ -241,6 +291,8 @@ export function useArticles() {
     mode,
     query,
     filter,
+    page,
+    pageCount,
     error,
     notice,
     busy,
@@ -248,12 +300,13 @@ export function useArticles() {
     renameOpen,
     deleteOpen,
     selectedId,
-    visibleArticles,
+    pagedArticles,
     setFrontmatter,
     setSource,
     setMode,
-    setQuery,
-    setFilter,
+    setQuery: changeQuery,
+    setFilter: changeFilter,
+    setPage,
     setError,
     setNotice,
     setCreateOpen,

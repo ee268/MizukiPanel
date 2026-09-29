@@ -7,6 +7,7 @@ import {
   Chip,
   InputAdornment,
   MenuItem,
+  Pagination,
   Paper,
   Stack,
   TextField,
@@ -26,19 +27,25 @@ const filterOptions: Array<{ value: ArticleFilter; label: string }> = [
 
 interface ArticleListProps {
   articles: ArticleListItem[];
+  page: number;
+  pageCount: number;
   query: string;
   filter: ArticleFilter;
   onQueryChange: (query: string) => void;
   onFilterChange: (filter: ArticleFilter) => void;
+  onPageChange: (page: number) => void;
   onSelect: (id: string) => void;
 }
 
 export function ArticleList({
   articles,
+  page,
+  pageCount,
   query,
   filter,
   onQueryChange,
   onFilterChange,
+  onPageChange,
   onSelect,
 }: ArticleListProps) {
   return (
@@ -135,6 +142,19 @@ export function ArticleList({
             请调整搜索内容或文章状态筛选。
           </Typography>
         </Paper>
+      )}
+
+      {articles.length > 0 && (
+        <Pagination
+          count={pageCount}
+          page={page}
+          onChange={(_, value) => onPageChange(value)}
+          color="primary"
+          shape="rounded"
+          showFirstButton
+          showLastButton
+          sx={{ alignSelf: "center" }}
+        />
       )}
     </Stack>
   );

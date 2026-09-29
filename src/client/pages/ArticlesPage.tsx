@@ -72,11 +72,14 @@ export default function ArticlesPage() {
           />
         ) : (
           <ArticleList
-            articles={articles.visibleArticles}
+            articles={articles.pagedArticles}
+            page={articles.page}
+            pageCount={articles.pageCount}
             query={articles.query}
             filter={articles.filter}
             onQueryChange={articles.setQuery}
             onFilterChange={articles.setFilter}
+            onPageChange={articles.setPage}
             onSelect={articles.choose}
           />
         )}
