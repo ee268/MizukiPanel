@@ -107,8 +107,8 @@ function AppShell() {
   async function logout() { await api('/api/auth/logout', { method: 'POST' }); window.location.assign('/login'); }
   const drawer = <>
     <Toolbar sx={{ px: compact ? 1 : 2.5, justifyContent: 'center' }}>
-      <Box component="img" src="/mizuki-panel-logo.svg" alt="MizukiPanel"
-        sx={{ width: compact ? 52 : 174, height: 44, display: 'block', objectFit: 'contain', bgcolor: 'transparent', flexShrink: 0 }} />
+      <Box component="img" src={compact ? '/mizuki-panel-mark.svg' : '/mizuki-panel-logo.svg'} alt="MizukiPanel"
+        sx={{ width: compact ? 50 : 190, height: compact ? 50 : 48, display: 'block', objectFit: 'contain', bgcolor: 'transparent', flexShrink: 0 }} />
     </Toolbar>
     <Divider />
     <List sx={{ p: compact ? 1 : 1.5, flex: 1, overflowY: 'auto' }}>
