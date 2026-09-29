@@ -18,7 +18,7 @@ import { PathGuardError } from '../lib/server/path-guard';
 import { deleteMedia, listMedia, MediaError, readMedia, uploadMedia, type MediaScope } from '../lib/server/media';
 import { previewStatus, startPreview, stopPreview } from '../lib/server/preview';
 import {
-  ConfigValidationError, listConfigs, readConfig, readSiteAvatar, readSiteIdentity, readSiteLogo, restoreConfig, saveConfig, SiteConfigError
+  ConfigValidationError, listConfigs, readConfig, readSiteAvatar, readSiteIdentity, restoreConfig, saveConfig, SiteConfigError
 } from '../lib/server/configs';
 import {
   deleteAlbum, deleteAnimeSeason, FeatureError, featureIndex, listAlbums, listAnimeSeasons,
@@ -196,14 +196,6 @@ app.get('/api/site-identity/avatar', async (context) => {
     });
   } catch (error) { mapError(error); }
 });
-app.get('/api/site-identity/logo', async (context) => {
-  try {
-    const logo = await readSiteLogo(await project());
-    return context.body(Uint8Array.from(logo.bytes), 200, {
-      'content-type': logo.type, 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff'
-    });
-  } catch (error) { mapError(error); }
-});
 app.get('/api/configs', async (context) => context.json(await listConfigs(await project())));
 
 app.get('/api/config', async (context) => {
@@ -361,7 +353,7 @@ app.onError((error, context) => {
 });
 
 app.use('/assets/*', serveStatic({ root: './dist' }));
-app.get('/favicon.svg', serveStatic({ path: './dist/favicon.svg' }));
+app.get('/favicon.ico', serveStatic({ path: './dist/favicon.ico' }));
 app.get('*', async (context) => context.html(await readFile(path.join(clientRoot, 'index.html'), 'utf8')));
 
 if (!process.env.PANEL_ACCESS_TOKEN) process.env.PANEL_ACCESS_TOKEN = randomBytes(32).toString('base64url');

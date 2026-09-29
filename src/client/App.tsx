@@ -90,12 +90,12 @@ function AppShell() {
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
-  const [identity, setIdentity] = useState<SiteIdentity>({ title: 'Mizuki', avatarUrl: null, logoUrl: null });
+  const [identity, setIdentity] = useState<SiteIdentity>({ title: 'Mizuki', avatarUrl: null });
   const compact = desktop && collapsed;
   const effectiveDrawerWidth = compact ? collapsedDrawerWidth : drawerWidth;
   const loadIdentity = useCallback(async () => {
     try { setIdentity(await api<SiteIdentity>('/api/site-identity')); }
-    catch { setIdentity({ title: 'Mizuki', avatarUrl: null, logoUrl: null }); }
+    catch { setIdentity({ title: 'Mizuki', avatarUrl: null }); }
   }, []);
   useEffect(() => {
     const refresh = () => void loadIdentity();
@@ -106,12 +106,9 @@ function AppShell() {
   }, [loadIdentity]);
   async function logout() { await api('/api/auth/logout', { method: 'POST' }); window.location.assign('/login'); }
   const drawer = <>
-    <Toolbar sx={{ px: compact ? 1.5 : 2.5, justifyContent: compact ? 'center' : 'flex-start' }}>
-      {identity.logoUrl
-        ? <Box component="img" src={identity.logoUrl} alt={`${identity.title} 网站 Logo`}
-            sx={{ width: 44, height: 40, mr: compact ? 0 : 1.5, display: 'block', objectFit: 'contain', bgcolor: 'transparent', flexShrink: 0 }} />
-        : <Avatar variant="rounded" sx={{ width: 36, height: 36, mr: compact ? 0 : 1.5, bgcolor: 'transparent', color: 'primary.main', fontWeight: 800 }}>M</Avatar>}
-      {!compact && <Box sx={{ minWidth: 0 }}><Typography noWrap sx={{ fontWeight: 750 }}>MizukiPanel</Typography></Box>}
+    <Toolbar sx={{ px: compact ? 1 : 2.5, justifyContent: 'center' }}>
+      <Box component="img" src="/mizuki-panel-logo.svg" alt="MizukiPanel"
+        sx={{ width: compact ? 52 : 174, height: 44, display: 'block', objectFit: 'contain', bgcolor: 'transparent', flexShrink: 0 }} />
     </Toolbar>
     <Divider />
     <List sx={{ p: compact ? 1 : 1.5, flex: 1, overflowY: 'auto' }}>

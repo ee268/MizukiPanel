@@ -45,7 +45,6 @@ export class SiteConfigError extends Error {
 export interface SiteIdentity {
   title: string;
   avatarUrl: string | null;
-  logoUrl: string | null;
 }
 
 function objectValue(value: ConfigValue | undefined, key: string): ConfigValue | undefined {
@@ -166,36 +165,18 @@ export async function readSiteAvatar(report: ProjectReport): Promise<{ bytes: Bu
   return { bytes, type: imageContentType(bytes, '头像'), version: contentVersion(bytes) };
 }
 
-export async function readSiteLogo(report: ProjectReport): Promise<{ bytes: Buffer; type: string; version: string }> {
-  const site = await readConfig(report, 'siteConfig');
-  const navbarTitle = objectValue(site.effectiveValue, 'navbarTitle');
-  const logo = stringValue(objectValue(navbarTitle, 'logo'));
-  if (!logo || remoteImage(logo)) throw new SiteConfigError('当前网站 Logo 不是可由面板读取的本地图片');
-  const bytes = await readFile(await imageFile(report, logo, 'public', '网站 Logo'));
-  return { bytes, type: imageContentType(bytes, '网站 Logo'), version: contentVersion(bytes) };
-}
-
 export async function readSiteIdentity(report: ProjectReport): Promise<SiteIdentity> {
   const [site, profile] = await Promise.all([readConfig(report, 'siteConfig'), readConfig(report, 'profileConfig')]);
   const title = stringValue(objectValue(site.effectiveValue, 'title')) ?? 'Mizuki';
   const avatar = stringValue(objectValue(profile.effectiveValue, 'avatar'));
-  const navbarTitle = objectValue(site.effectiveValue, 'navbarTitle');
-  const logo = stringValue(objectValue(navbarTitle, 'logo'));
   let avatarUrl: string | null = avatar && remoteImage(avatar) ? avatar : null;
-  let logoUrl: string | null = logo && remoteImage(logo) ? logo : null;
   if (avatar && !avatarUrl) {
     try {
       const local = await readSiteAvatar(report);
       avatarUrl = `/api/site-identity/avatar?v=${encodeURIComponent(local.version)}`;
     } catch { /* leave unavailable local images empty */ }
   }
-  if (logo && !logoUrl) {
-    try {
-      const local = await readSiteLogo(report);
-      logoUrl = `/api/site-identity/logo?v=${encodeURIComponent(local.version)}`;
-    } catch { /* leave unavailable local images empty */ }
-  }
-  return { title, avatarUrl, logoUrl };
+  return { title, avatarUrl };
 }
 
 export async function saveConfig(report: ProjectReport, key: string, initializer: string, expectedVersion: string) {

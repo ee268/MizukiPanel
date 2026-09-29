@@ -215,5 +215,4 @@ export interface PublishOperationStatus {
 export interface SiteIdentity {
   title: string;
   avatarUrl: string | null;
-  logoUrl: string | null;
 }
