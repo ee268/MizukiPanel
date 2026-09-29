@@ -4,6 +4,7 @@ import { keyframes } from "@mui/material/styles";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import { useNavigate } from "react-router-dom";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
 
 function translucent(color: string, percentage: number): string {
   return "color-mix(in srgb, " + color + " " + percentage + "%, transparent)";
@@ -49,7 +50,7 @@ export default function LoginPage() {
       await api("/api/auth/login", json("POST", { token }));
       navigate("/", { replace: true });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "登录失败");
+      setError(errorMessage(cause, "登录失败"));
     } finally {
       setBusy(false);
     }

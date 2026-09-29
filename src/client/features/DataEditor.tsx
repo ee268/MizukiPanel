@@ -20,9 +20,10 @@ import {
   Typography,
 } from "@mui/material";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
 import type { ConfigValue, FeatureDataDocument } from "../types";
-import { errorText } from "./common";
 import { LoadingPaper } from "./LoadingPaper";
+
 export function DataEditor({
   resource,
   notify,
@@ -49,7 +50,7 @@ export function DataEditor({
         setItems(data.value.map((item) => JSON.stringify(item, null, 2)));
       else setObjectText(JSON.stringify(data.value, null, 2));
     } catch (cause) {
-      fail(errorText(cause, "数据读取失败"));
+      fail(errorMessage(cause, "数据读取失败"));
     } finally {
       setBusy(false);
     }
@@ -91,7 +92,7 @@ export function DataEditor({
         setItems(result.document.value.map((item) => JSON.stringify(item, null, 2)));
       else setObjectText(JSON.stringify(result.document.value, null, 2));
     } catch (cause) {
-      fail(errorText(cause, "数据保存失败"));
+      fail(errorMessage(cause, "数据保存失败"));
     } finally {
       setBusy(false);
     }
@@ -107,7 +108,7 @@ export function DataEditor({
       notify("已恢复保存前的数据。");
       await load();
     } catch (cause) {
-      fail(errorText(cause, "恢复失败"));
+      fail(errorMessage(cause, "恢复失败"));
     } finally {
       setBusy(false);
     }

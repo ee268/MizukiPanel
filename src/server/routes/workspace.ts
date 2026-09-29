@@ -9,6 +9,7 @@ import {
 } from "../../lib/server/workspace";
 import { ApiError, errorMessage, mapError } from "../errors";
 import { currentProject } from "../project";
+
 export function registerWorkspaceRoutes(app: Hono) {
   app.get("/api/workspace", async (context) => {
     const connectedPath = await readWorkspacePath();

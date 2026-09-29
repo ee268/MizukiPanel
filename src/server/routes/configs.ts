@@ -9,6 +9,7 @@ import {
 } from "../../lib/server/configs";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
+
 export function registerConfigRoutes(app: Hono) {
   app.get("/api/site-identity", async (context) => {
     try {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
+import { SITE_IDENTITY_CHANGED_EVENT } from "../shared/site-identity";
 import type { SiteIdentity } from "../types";
 
 const fallbackIdentity: SiteIdentity = {
@@ -22,11 +23,11 @@ export function useSiteIdentity(): SiteIdentity {
     const refresh = () => void loadIdentity();
 
     refresh();
-    window.addEventListener("mizuki-site-identity-changed", refresh);
+    window.addEventListener(SITE_IDENTITY_CHANGED_EVENT, refresh);
     const timer = window.setInterval(refresh, 5000);
 
     return () => {
-      window.removeEventListener("mizuki-site-identity-changed", refresh);
+      window.removeEventListener(SITE_IDENTITY_CHANGED_EVENT, refresh);
       window.clearInterval(timer);
     };
   }, [loadIdentity]);

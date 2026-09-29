@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
 import type { PublishOperationStatus, PublishOverview } from "../types";
 import { operationLabels } from "./constants";
 
 export type PublishDialog = "push" | "revert" | null;
 export type PublishOperationKind = "validate" | "sync" | "build";
-
-function message(cause: unknown, fallback: string) {
-  return cause instanceof Error ? cause.message : fallback;
-}
 
 export function usePublish() {
   const [overview, setOverview] = useState<PublishOverview | null>(null);
@@ -38,7 +35,7 @@ export function usePublish() {
       setSelected((current) => current.filter((item) => available.has(item)));
       setError("");
     } catch (cause) {
-      setError(message(cause, "发布状态读取失败"));
+      setError(errorMessage(cause, "发布状态读取失败"));
     }
   }, []);
 
@@ -85,7 +82,7 @@ export function usePublish() {
       );
       setDiff(result.diff);
     } catch (cause) {
-      setError(message(cause, "差异读取失败"));
+      setError(errorMessage(cause, "差异读取失败"));
     }
   }
 
@@ -99,7 +96,7 @@ export function usePublish() {
       setDialog(null);
       await load();
     } catch (cause) {
-      setError(message(cause, "发布操作失败"));
+      setError(errorMessage(cause, "发布操作失败"));
     } finally {
       setBusy(false);
     }

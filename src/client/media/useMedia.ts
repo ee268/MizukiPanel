@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
 import type { MediaItem } from "../types";
 import type { MediaData, MediaScope } from "./types";
-
-function message(cause: unknown, fallback: string) {
-  return cause instanceof Error ? cause.message : fallback;
-}
 
 export function useMedia() {
   const [data, setData] = useState<MediaData | null>(null);
@@ -26,7 +23,7 @@ export function useMedia() {
       setArticleId((current) => current || next.articles[0]?.id || "");
       setError("");
     } catch (cause) {
-      setError(message(cause, "媒体读取失败"));
+      setError(errorMessage(cause, "媒体读取失败"));
     }
   }, []);
 
@@ -65,7 +62,7 @@ export function useMedia() {
       setFile(null);
       await load();
     } catch (cause) {
-      setError(message(cause, "上传失败"));
+      setError(errorMessage(cause, "上传失败"));
     } finally {
       setBusy(false);
     }
@@ -84,7 +81,7 @@ export function useMedia() {
       setNotice("媒体已移入回收目录");
       await load();
     } catch (cause) {
-      setError(message(cause, "删除失败"));
+      setError(errorMessage(cause, "删除失败"));
     } finally {
       setBusy(false);
     }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Box, Paper, Typography, useTheme } from "@mui/material";
 import { previewLogTokens, type PreviewLogTone } from "../preview-log";
+
 export function PreviewLogs({ logs }: { logs: string[] }) {
   const theme = useTheme();
   const container = useRef<HTMLDivElement | null>(null);

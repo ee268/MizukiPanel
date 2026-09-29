@@ -2,11 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
 import { previewTargetUrl } from "../preview-log";
+import { errorMessage } from "../shared/errors";
 import type { PreviewStatus } from "../types";
-
-function message(cause: unknown, fallback: string) {
-  return cause instanceof Error ? cause.message : fallback;
-}
 
 export function usePreview() {
   const [params] = useSearchParams();
@@ -21,7 +18,7 @@ export function usePreview() {
     try {
       setPreview(await api<PreviewStatus>("/api/preview/status"));
     } catch (cause) {
-      setError(message(cause, "预览状态读取失败"));
+      setError(errorMessage(cause, "预览状态读取失败"));
     }
   }, []);
 
@@ -84,7 +81,7 @@ export function usePreview() {
         pendingTab.current.close();
       }
       pendingTab.current = null;
-      setError(message(cause, "启动失败"));
+      setError(errorMessage(cause, "启动失败"));
     }
   }
 
@@ -98,7 +95,7 @@ export function usePreview() {
     try {
       setPreview(await api<PreviewStatus>("/api/preview/stop", json("POST")));
     } catch (cause) {
-      setError(message(cause, "停止失败"));
+      setError(errorMessage(cause, "停止失败"));
     }
   }
 

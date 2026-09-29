@@ -10,6 +10,7 @@ import {
 } from "../../lib/server/publish";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
+
 export function registerPublishRoutes(app: Hono) {
   app.get("/api/publish", async (context) => {
     try {

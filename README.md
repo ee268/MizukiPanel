@@ -1,6 +1,6 @@
 # MizukiPanel
 
-Mizuki 博客的本机管理面板。界面使用 React 与 Material UI，采用顶部标题栏、左侧主导航和右侧内容区。当前已完成文章、18 项站点配置、全部特色页、公共图片与文章资源、Mizuki Astro 真实预览及发布工作流。安全同步与存储见 [阶段 2 说明](docs/STAGE_2.md)，文章操作见 [阶段 3 说明](docs/STAGE_3.md)，媒体与预览见 [阶段 4 说明](docs/STAGE_4.md)，配置管理见 [阶段 5 说明](docs/STAGE_5.md)，特色页管理见 [阶段 6 说明](docs/STAGE_6.md)，发布流程见 [发布工作流](docs/PUBLISHING.md)，界面迁移见 [React + Material UI 迁移说明](docs/REACT_MUI_MIGRATION.md)。
+Mizuki 博客的本机管理面板。界面使用 React 与 Material UI，采用顶部标题栏、左侧主导航和右侧内容区。当前已完成文章、18 项站点配置、全部特色页、公共图片与文章资源、Mizuki Astro 真实预览及发布工作流。项目的模块边界与扩展约定见 [架构说明](docs/ARCHITECTURE.md)，安全同步与存储见 [阶段 2 说明](docs/STAGE_2.md)，文章操作见 [阶段 3 说明](docs/STAGE_3.md)，媒体与预览见 [阶段 4 说明](docs/STAGE_4.md)，配置管理见 [阶段 5 说明](docs/STAGE_5.md)，特色页管理见 [阶段 6 说明](docs/STAGE_6.md)，发布流程见 [发布工作流](docs/PUBLISHING.md)，界面迁移见 [React + Material UI 迁移说明](docs/REACT_MUI_MIGRATION.md)。
 
 ## 运行要求
 
@@ -23,6 +23,7 @@ Mizuki 只有在 `.env` 显式设置 `ENABLE_CONTENT_SYNC=true` 时才使用独�
 
 ```bash
 pnpm check
+pnpm format:check
 pnpm test
 pnpm build
 ```

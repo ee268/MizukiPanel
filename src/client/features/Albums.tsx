@@ -18,8 +18,9 @@ import {
   Typography,
 } from "@mui/material";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
 import type { AlbumRecord, ProjectReport } from "../types";
-import { errorText } from "./common";
+
 export function Albums({
   report,
   notify,
@@ -40,7 +41,7 @@ export function Albums({
       const data = await api<{ albums: AlbumRecord[] }>("/api/feature/albums");
       setAlbums(data.albums);
     } catch (cause) {
-      fail(errorText(cause, "相册读取失败"));
+      fail(errorMessage(cause, "相册读取失败"));
     }
   }, [fail]);
   useEffect(() => {
@@ -85,7 +86,7 @@ export function Albums({
       if (next) choose(next);
       notify("相册信息已保存。");
     } catch (cause) {
-      fail(errorText(cause, "相册保存失败"));
+      fail(errorMessage(cause, "相册保存失败"));
     }
   }
   async function remove() {
@@ -97,7 +98,7 @@ export function Albums({
       notify("相册目录已移入回收目录。");
       await load();
     } catch (cause) {
-      fail(errorText(cause, "相册删除失败"));
+      fail(errorMessage(cause, "相册删除失败"));
     }
   }
   async function uploadPhoto() {
@@ -112,7 +113,7 @@ export function Albums({
       notify("相册图片已上传。");
       await load();
     } catch (cause) {
-      fail(errorText(cause, "图片上传失败"));
+      fail(errorMessage(cause, "图片上传失败"));
     }
   }
   async function deletePhoto(photo: string) {
@@ -125,7 +126,7 @@ export function Albums({
       notify("相册图片已移入回收目录。");
       await load();
     } catch (cause) {
-      fail(errorText(cause, "图片删除失败"));
+      fail(errorMessage(cause, "图片删除失败"));
     }
   }
   return (

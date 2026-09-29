@@ -3,9 +3,10 @@ import RestoreOutlined from "@mui/icons-material/RestoreOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import { Button, Paper, Stack, TextField, Typography } from "@mui/material";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
 import type { FeatureTextDocument } from "../types";
-import { errorText } from "./common";
 import { LoadingPaper } from "./LoadingPaper";
+
 export function TextEditor({
   resource,
   notify,
@@ -25,7 +26,7 @@ export function TextEditor({
       setDocument(data);
       setContent(data.content);
     } catch (cause) {
-      fail(errorText(cause, "正文读取失败"));
+      fail(errorMessage(cause, "正文读取失败"));
     }
   }, [fail, resource]);
   useEffect(() => {
@@ -43,7 +44,7 @@ export function TextEditor({
       setBackupPath(result.backupPath);
       notify("正文已保存。");
     } catch (cause) {
-      fail(errorText(cause, "正文保存失败"));
+      fail(errorMessage(cause, "正文保存失败"));
     } finally {
       setBusy(false);
     }
@@ -60,7 +61,7 @@ export function TextEditor({
       setBackupPath(null);
       notify("正文已恢复。");
     } catch (cause) {
-      fail(errorText(cause, "恢复失败"));
+      fail(errorMessage(cause, "恢复失败"));
     }
   }
   if (!document) return <LoadingPaper />;

@@ -3,10 +3,6 @@ export interface FeatureEditorCallbacks {
   fail: (value: string) => void;
 }
 
-export function errorText(cause: unknown, fallback: string) {
-  return cause instanceof Error ? cause.message : fallback;
-}
-
 export function resourceLabel(key: string) {
   return (
     {

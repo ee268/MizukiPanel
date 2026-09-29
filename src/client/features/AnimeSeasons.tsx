@@ -15,8 +15,9 @@ import {
   Typography,
 } from "@mui/material";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
 import type { AnimeSeason, AnimeSeasonDocument } from "../types";
-import { errorText } from "./common";
+
 export function AnimeSeasons({
   notify,
   fail,
@@ -34,7 +35,7 @@ export function AnimeSeasons({
       const data = await api<{ seasons: AnimeSeason[] }>("/api/feature/anime-seasons");
       setSeasons(data.seasons);
     } catch (cause) {
-      fail(errorText(cause, "季度列表读取失败"));
+      fail(errorMessage(cause, "季度列表读取失败"));
     }
   }, [fail]);
   useEffect(() => {
@@ -49,7 +50,7 @@ export function AnimeSeasons({
       setDocument(data);
       setContent(data.content);
     } catch (cause) {
-      fail(errorText(cause, "季度内容读取失败"));
+      fail(errorMessage(cause, "季度内容读取失败"));
     }
   }
   async function save() {
@@ -66,7 +67,7 @@ export function AnimeSeasons({
       notify("季度内容已保存。");
       await loadList();
     } catch (cause) {
-      fail(errorText(cause, "季度内容保存失败"));
+      fail(errorMessage(cause, "季度内容保存失败"));
     }
   }
   async function remove() {
@@ -82,7 +83,7 @@ export function AnimeSeasons({
       notify("季度文件已移入回收目录。");
       await loadList();
     } catch (cause) {
-      fail(errorText(cause, "季度删除失败"));
+      fail(errorMessage(cause, "季度删除失败"));
     }
   }
   function create() {

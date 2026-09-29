@@ -12,6 +12,7 @@ import {
 } from "../../lib/server/articles";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
+
 export function registerArticleRoutes(app: Hono) {
   app.get("/api/articles", async (context) => {
     const report = await currentProject();

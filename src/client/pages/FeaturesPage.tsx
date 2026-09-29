@@ -20,7 +20,8 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
-import { errorText, resourceLabel } from "../features/common";
+import { resourceLabel } from "../features/common";
+import { errorMessage } from "../shared/errors";
 import { FeatureResource } from "../features/FeatureResource";
 import type { FeatureDataDescriptor, FeatureModule, ProjectReport } from "../types";
 
@@ -39,7 +40,7 @@ export default function FeaturesPage() {
   useEffect(() => {
     api<IndexResponse>("/api/features")
       .then(setIndex)
-      .catch((cause) => setError(errorText(cause, "特色页清单读取失败")));
+      .catch((cause) => setError(errorMessage(cause, "特色页清单读取失败")));
   }, []);
   const module = index?.modules.find((item) => item.key === selected);
   useEffect(() => {

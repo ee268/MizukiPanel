@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
 import type { ArticleListItem, ArticleRecord, ProjectReport } from "../types";
 import {
   createFrontmatterRow,
@@ -8,10 +9,6 @@ import {
   type ArticleFilter,
   type FrontmatterRow,
 } from "./types";
-
-function message(cause: unknown, fallback: string) {
-  return cause instanceof Error ? cause.message : fallback;
-}
 
 export function useArticles() {
   const [params, setParams] = useSearchParams();
@@ -41,7 +38,7 @@ export function useArticles() {
       setArticles(data.articles);
       setError("");
     } catch (cause) {
-      setError(message(cause, "文章列表读取失败"));
+      setError(errorMessage(cause, "文章列表读取失败"));
     }
   }, []);
 
@@ -61,7 +58,7 @@ export function useArticles() {
       setError("");
     } catch (cause) {
       setArticle(null);
-      setError(message(cause, "文章读取失败"));
+      setError(errorMessage(cause, "文章读取失败"));
     }
   }, []);
 
@@ -130,7 +127,7 @@ export function useArticles() {
       setNotice("Frontmatter 已保存");
       await loadList();
     } catch (cause) {
-      setError(message(cause, "保存失败"));
+      setError(errorMessage(cause, "保存失败"));
     } finally {
       setBusy(false);
     }
@@ -152,7 +149,7 @@ export function useArticles() {
       setNotice("文章源码已保存");
       await loadList();
     } catch (cause) {
-      setError(message(cause, "保存失败"));
+      setError(errorMessage(cause, "保存失败"));
     } finally {
       setBusy(false);
     }
@@ -178,7 +175,7 @@ export function useArticles() {
       choose(payload.id);
       setNotice("文章已创建");
     } catch (cause) {
-      setError(message(cause, "创建失败"));
+      setError(errorMessage(cause, "创建失败"));
     } finally {
       setBusy(false);
     }
@@ -203,7 +200,7 @@ export function useArticles() {
       choose(nextId);
       setNotice("文章已重命名");
     } catch (cause) {
-      setError(message(cause, "重命名失败"));
+      setError(errorMessage(cause, "重命名失败"));
     } finally {
       setBusy(false);
     }
@@ -224,7 +221,7 @@ export function useArticles() {
       await loadList();
       setNotice("文章已移入回收目录");
     } catch (cause) {
-      setError(message(cause, "删除失败"));
+      setError(errorMessage(cause, "删除失败"));
     } finally {
       setBusy(false);
     }

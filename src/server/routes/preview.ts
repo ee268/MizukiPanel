@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 import { previewStatus, startPreview, stopPreview } from "../../lib/server/preview";
 import { mapError } from "../errors";
 import { currentProject } from "../project";
+
 export function registerPreviewRoutes(app: Hono) {
   app.get("/api/preview/status", async (context) =>
     context.json(await previewStatus(await currentProject())),

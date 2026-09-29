@@ -10,6 +10,7 @@ import {
 } from "../../lib/server/media";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
+
 export function registerMediaRoutes(app: Hono) {
   app.get("/api/media", async (context) => {
     const report = await currentProject();

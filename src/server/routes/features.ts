@@ -17,6 +17,7 @@ import {
 } from "../../lib/server/features";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
+
 export function registerFeatureRoutes(app: Hono) {
   app.get("/api/features", async (context) =>
     context.json(await featureIndex(await currentProject())),

@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
+import { notifySiteIdentityChanged } from "../shared/site-identity";
 import type { ConfigDescriptor, ProjectReport, SiteConfigDocument } from "../types";
-
-function message(cause: unknown, fallback: string) {
-  return cause instanceof Error ? cause.message : fallback;
-}
 
 function notifyIdentityChange(key: string) {
   if (key === "siteConfig" || key === "profileConfig") {
-    window.dispatchEvent(new Event("mizuki-site-identity-changed"));
+    notifySiteIdentityChanged();
   }
 }
 
@@ -32,7 +30,7 @@ export function useConfigs() {
         setConfigs(data.configs);
         setReport(data.report);
       })
-      .catch((cause) => setError(message(cause, "配置清单读取失败")));
+      .catch((cause) => setError(errorMessage(cause, "配置清单读取失败")));
   }, []);
 
   useEffect(() => {
@@ -51,7 +49,7 @@ export function useConfigs() {
       setBackupPath(null);
       setError("");
     } catch (cause) {
-      setError(message(cause, "配置读取失败"));
+      setError(errorMessage(cause, "配置读取失败"));
     } finally {
       setBusy(false);
     }
@@ -112,7 +110,7 @@ export function useConfigs() {
       setError("");
       notifyIdentityChange(selected);
     } catch (cause) {
-      setError(message(cause, "配置保存失败"));
+      setError(errorMessage(cause, "配置保存失败"));
     } finally {
       setBusy(false);
     }
@@ -140,7 +138,7 @@ export function useConfigs() {
       setError("");
       notifyIdentityChange(selected);
     } catch (cause) {
-      setError(message(cause, "配置恢复失败"));
+      setError(errorMessage(cause, "配置恢复失败"));
     } finally {
       setBusy(false);
     }

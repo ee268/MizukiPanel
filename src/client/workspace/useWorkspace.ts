@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, json } from "../api";
+import { errorMessage } from "../shared/errors";
+import { notifySiteIdentityChanged } from "../shared/site-identity";
 import type { DashboardOverview } from "../types";
 import type { WorkspaceData, WorkspaceState } from "./types";
 
@@ -9,10 +11,6 @@ export interface WorkspaceController extends WorkspaceState {
   selectAndConnect: () => Promise<void>;
   disconnect: () => Promise<void>;
   reload: () => Promise<void>;
-}
-
-function message(cause: unknown, fallback: string) {
-  return cause instanceof Error ? cause.message : fallback;
 }
 
 export function useWorkspace(): WorkspaceController {
@@ -38,11 +36,11 @@ export function useWorkspace(): WorkspaceController {
         try {
           setDashboard(await api<DashboardOverview>("/api/dashboard"));
         } catch (cause) {
-          setDashboardError(message(cause, "数据总览读取失败"));
+          setDashboardError(errorMessage(cause, "数据总览读取失败"));
         }
       }
     } catch (cause) {
-      setError(message(cause, "工作区读取失败"));
+      setError(errorMessage(cause, "工作区读取失败"));
     } finally {
       setLoading(false);
     }
@@ -57,7 +55,7 @@ export function useWorkspace(): WorkspaceController {
       await api("/api/workspace/connect", json("POST", { projectPath: nextPath }));
       setProjectPath(nextPath);
       await reload();
-      window.dispatchEvent(new Event("mizuki-site-identity-changed"));
+      notifySiteIdentityChanged();
     },
     [reload],
   );
@@ -70,7 +68,7 @@ export function useWorkspace(): WorkspaceController {
     try {
       await connectProject(projectPath);
     } catch (cause) {
-      setError(message(cause, "连接失败"));
+      setError(errorMessage(cause, "连接失败"));
     } finally {
       setBusy(false);
     }
@@ -89,7 +87,7 @@ export function useWorkspace(): WorkspaceController {
         await connectProject(result.path);
       }
     } catch (cause) {
-      setError(message(cause, "无法选择文件夹"));
+      setError(errorMessage(cause, "无法选择文件夹"));
     } finally {
       setBusy(false);
     }
@@ -102,9 +100,9 @@ export function useWorkspace(): WorkspaceController {
     try {
       await api("/api/workspace/disconnect", json("POST"));
       await reload();
-      window.dispatchEvent(new Event("mizuki-site-identity-changed"));
+      notifySiteIdentityChanged();
     } catch (cause) {
-      setError(message(cause, "断开失败"));
+      setError(errorMessage(cause, "断开失败"));
     } finally {
       setBusy(false);
     }
