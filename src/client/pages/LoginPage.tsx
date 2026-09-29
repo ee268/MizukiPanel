@@ -159,6 +159,21 @@ export default function LoginPage() {
           </Button>
         </Stack>
       </Paper>
+      <Typography
+        component="footer"
+        variant="body2"
+        color="text.secondary"
+        sx={{
+          position: "absolute",
+          bottom: { xs: 16, sm: 24 },
+          left: 24,
+          right: 24,
+          zIndex: 1,
+          textAlign: "center",
+        }}
+      >
+        © 2026 ee268
+      </Typography>
     </Box>
   );
 }
