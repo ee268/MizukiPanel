@@ -56,9 +56,9 @@ export function ArticleEditor({
   if (!article) {
     return (
       <Paper variant="outlined" sx={{ p: 8, textAlign: "center" }}>
-        <Typography variant="h5">选择一篇文章</Typography>
+        <Typography variant="h5">正在读取文章</Typography>
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          编辑可改名的 Frontmatter 键值行或完整 Markdown/MDX 源码。
+          正在加载 Frontmatter 与 Markdown/MDX 源码。
         </Typography>
       </Paper>
     );

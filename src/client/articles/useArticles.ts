@@ -83,7 +83,7 @@ export function useArticles() {
   const visibleArticles = useMemo(
     () =>
       articles.filter((item) => {
-        const text = `${item.title} ${item.id}`.toLowerCase();
+        const text = `${item.title} ${item.description} ${item.id}`.toLowerCase();
         const matches = text.includes(query.trim().toLowerCase());
         const matchesState =
           filter === "all" ||
@@ -98,6 +98,10 @@ export function useArticles() {
 
   function choose(id: string) {
     setParams({ post: id });
+  }
+
+  function showList() {
+    setParams({});
   }
 
   function applyArticle(nextArticle: ArticleRecord, nextPreviewPath: string | null) {
@@ -256,6 +260,7 @@ export function useArticles() {
     setRenameOpen,
     setDeleteOpen,
     choose,
+    showList,
     saveFrontmatter,
     saveSource,
     createArticle,

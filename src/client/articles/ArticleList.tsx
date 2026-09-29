@@ -1,11 +1,11 @@
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import {
+  Box,
+  Card,
+  CardActionArea,
+  CardContent,
   Chip,
-  Divider,
   InputAdornment,
-  List,
-  ListItemButton,
-  ListItemText,
   MenuItem,
   Paper,
   Stack,
@@ -13,6 +13,8 @@ import {
   Typography,
 } from "@mui/material";
 import type { ArticleListItem } from "../types";
+import { articleImageUrl } from "./article-image";
+import { LazyArticleCover } from "./LazyArticleCover";
 import type { ArticleFilter } from "./types";
 
 const filterOptions: Array<{ value: ArticleFilter; label: string }> = [
@@ -24,7 +26,6 @@ const filterOptions: Array<{ value: ArticleFilter; label: string }> = [
 
 interface ArticleListProps {
   articles: ArticleListItem[];
-  selectedId: string | null;
   query: string;
   filter: ArticleFilter;
   onQueryChange: (query: string) => void;
@@ -34,7 +35,6 @@ interface ArticleListProps {
 
 export function ArticleList({
   articles,
-  selectedId,
   query,
   filter,
   onQueryChange,
@@ -42,74 +42,101 @@ export function ArticleList({
   onSelect,
 }: ArticleListProps) {
   return (
-    <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-      <Stack spacing={1.5} sx={{ p: 2 }}>
-        <TextField
-          placeholder="搜索标题或路径"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchOutlined fontSize="small" />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-        <TextField
-          select
-          label="文章状态"
-          value={filter}
-          onChange={(event) => onFilterChange(event.target.value as ArticleFilter)}
-        >
-          {filterOptions.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
-      </Stack>
-      <Divider />
-      <List disablePadding sx={{ maxHeight: "calc(100vh - 280px)", overflow: "auto" }}>
-        {articles.map((item) => (
-          <ListItemButton
-            key={item.id}
-            selected={selectedId === item.id}
-            onClick={() => onSelect(item.id)}
-            alignItems="flex-start"
-            sx={{ py: 1.5 }}
+    <Stack spacing={2.5}>
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
+          <TextField
+            placeholder="搜索标题、简介或路径"
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            fullWidth
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlined fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <TextField
+            select
+            label="文章状态"
+            value={filter}
+            onChange={(event) => onFilterChange(event.target.value as ArticleFilter)}
+            sx={{ minWidth: { md: 180 } }}
           >
-            <ListItemText
-              primary={
-                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                  <Typography variant="body2" sx={{ flex: 1, fontWeight: 650 }}>
-                    {item.title}
-                  </Typography>
-                  {item.error ? (
-                    <Chip size="small" color="error" label="异常" />
-                  ) : item.draft ? (
-                    <Chip size="small" color="warning" label="草稿" />
-                  ) : null}
-                </Stack>
-              }
-              secondary={
-                <>
-                  <Typography
-                    component="span"
-                    variant="caption"
-                    sx={{ display: "block", fontFamily: "monospace", overflowWrap: "anywhere" }}
-                  >
-                    {item.id}
-                  </Typography>
-                  {item.published}
-                </>
-              }
-            />
-          </ListItemButton>
-        ))}
-      </List>
-    </Paper>
+            {filterOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
+      </Paper>
+
+      {articles.length ? (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "minmax(0, 1fr)",
+              md: "repeat(2, minmax(0, 1fr))",
+              xl: "repeat(3, minmax(0, 1fr))",
+            },
+            gap: 2,
+          }}
+        >
+          {articles.map((item) => {
+            const imageUrl = articleImageUrl(item.image, item.id);
+
+            return (
+              <Card key={item.id} variant="outlined" sx={{ minWidth: 0 }}>
+                <CardActionArea onClick={() => onSelect(item.id)} sx={{ height: "100%" }}>
+                  {imageUrl && <LazyArticleCover src={imageUrl} title={item.title} />}
+                  <CardContent>
+                    <Stack spacing={1.25}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+                        <Typography variant="h6" sx={{ flex: 1, minWidth: 0 }}>
+                          {item.title}
+                        </Typography>
+                        {item.error ? (
+                          <Chip size="small" color="error" label="异常" />
+                        ) : item.draft ? (
+                          <Chip size="small" color="warning" label="草稿" />
+                        ) : null}
+                      </Stack>
+                      <Typography
+                        color="text.secondary"
+                        sx={{
+                          minHeight: "3em",
+                          display: "-webkit-box",
+                          overflow: "hidden",
+                          WebkitBoxOrient: "vertical",
+                          WebkitLineClamp: 2,
+                        }}
+                      >
+                        {item.description || "暂无文章简介"}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {item.published || "未设置发布日期"}
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            );
+          })}
+        </Box>
+      ) : (
+        <Paper variant="outlined" sx={{ p: 6, textAlign: "center" }}>
+          <Typography variant="h6">没有符合条件的文章</Typography>
+          <Typography color="text.secondary" sx={{ mt: 1 }}>
+            请调整搜索内容或文章状态筛选。
+          </Typography>
+        </Paper>
+      )}
+    </Stack>
   );
 }

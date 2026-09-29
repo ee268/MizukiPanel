@@ -103,6 +103,26 @@ it("edits Frontmatter keys and YAML values while preserving the article body", (
     patchArticleFrontmatter(source, [...entries, { key: "title", value: "Duplicate" }]),
   ).toThrow(ArticleValidationError);
 });
+it("includes article descriptions and cover references in list results", async () => {
+  const report = await fixture("local");
+  await createArticle(
+    report,
+    "nested/with-cover.md",
+    { title: "Cover article", published: "2026-09-28", draft: false },
+    "# Body",
+  );
+  const created = await readArticle(report, "nested/with-cover.md");
+  await saveArticleSource(
+    report,
+    created.id,
+    "---\ntitle: Cover article\ndescription: Article summary\nimage: ./cover.webp\npublished: 2026-09-28\n---\n\n# Body\n",
+    created.version,
+  );
+
+  const [article] = await listArticles(report);
+  expect(article.description).toBe("Article summary");
+  expect(article.image).toBe("./cover.webp");
+});
 it("manages local articles with optimistic locking, rename, URL collision, and reversible deletion", async () => {
   const report = await fixture("local");
   await createArticle(

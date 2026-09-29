@@ -23,6 +23,8 @@ import {
 export interface ArticleListItem {
   id: string;
   title: string;
+  description: string;
+  image: string;
   published: string;
   draft: boolean;
   format: "md" | "mdx";
@@ -118,6 +120,8 @@ export async function listArticles(report: ProjectReport): Promise<ArticleListIt
       const fallback = {
         id,
         title: path.basename(id),
+        description: "",
+        image: "",
         published: "",
         draft: false,
         format,
@@ -135,6 +139,8 @@ export async function listArticles(report: ProjectReport): Promise<ArticleListIt
         return {
           ...fallback,
           title: fields.title,
+          description: fields.description,
+          image: fields.image,
           published: fields.published,
           draft: fields.draft,
           alias: fields.alias,
@@ -166,6 +172,8 @@ export async function readArticle(report: ProjectReport, id: string): Promise<Ar
       frontmatter: frontmatterEntries(parsed.data),
       format,
       title: fields.title,
+      description: fields.description,
+      image: fields.image,
       published: fields.published,
       draft: fields.draft,
       alias: fields.alias,
@@ -185,6 +193,8 @@ export async function readArticle(report: ProjectReport, id: string): Promise<Ar
       frontmatter: [],
       format,
       title: path.basename(id),
+      description: "",
+      image: "",
       published: "",
       draft: false,
       alias: "",

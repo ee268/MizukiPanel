@@ -27,6 +27,8 @@ export interface GitStatus {
 export interface ArticleListItem {
   id: string;
   title: string;
+  description: string;
+  image: string;
   published: string;
   draft: boolean;
   format: "md" | "mdx";

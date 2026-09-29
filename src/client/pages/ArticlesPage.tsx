@@ -1,4 +1,5 @@
 import AddOutlined from "@mui/icons-material/AddOutlined";
+import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
 import { Alert, Box, Button, Container, Snackbar, Stack, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { ArticleDialogs } from "../articles/ArticleDialogs";
@@ -21,18 +22,25 @@ export default function ArticlesPage() {
           <Box>
             <Typography variant="h4">文章管理</Typography>
             <Typography color="text.secondary">
-              {articles.report?.mode === "external" ? "独立内容仓库" : "本地内容"} ·{" "}
-              {articles.articles.length} 篇文章
+              {articles.selectedId && articles.article
+                ? articles.article.title
+                : `${articles.report?.mode === "external" ? "独立内容仓库" : "本地内容"} · ${articles.articles.length} 篇文章`}
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddOutlined />}
-            onClick={() => articles.setCreateOpen(true)}
-            disabled={articles.report?.readOnly}
-          >
-            新建文章
-          </Button>
+          {articles.selectedId ? (
+            <Button startIcon={<ArrowBackOutlined />} onClick={articles.showList}>
+              返回文章列表
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              startIcon={<AddOutlined />}
+              onClick={() => articles.setCreateOpen(true)}
+              disabled={articles.report?.readOnly}
+            >
+              新建文章
+            </Button>
+          )}
         </Stack>
 
         {articles.error && (
@@ -44,23 +52,7 @@ export default function ArticlesPage() {
           <Alert severity="warning">当前工作区只读，请先在工作区处理配置问题。</Alert>
         )}
 
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", lg: "320px minmax(0,1fr)" },
-            gap: 2,
-            alignItems: "start",
-          }}
-        >
-          <ArticleList
-            articles={articles.visibleArticles}
-            selectedId={articles.selectedId}
-            query={articles.query}
-            filter={articles.filter}
-            onQueryChange={articles.setQuery}
-            onFilterChange={articles.setFilter}
-            onSelect={articles.choose}
-          />
+        {articles.selectedId ? (
           <ArticleEditor
             article={articles.article}
             previewPath={articles.previewPath}
@@ -78,7 +70,16 @@ export default function ArticlesPage() {
             onSaveFrontmatter={articles.saveFrontmatter}
             onSaveSource={articles.saveSource}
           />
-        </Box>
+        ) : (
+          <ArticleList
+            articles={articles.visibleArticles}
+            query={articles.query}
+            filter={articles.filter}
+            onQueryChange={articles.setQuery}
+            onFilterChange={articles.setFilter}
+            onSelect={articles.choose}
+          />
+        )}
       </Stack>
 
       <ArticleDialogs
