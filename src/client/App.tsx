@@ -106,10 +106,7 @@ function AppShell() {
   }, [loadIdentity]);
   async function logout() { await api('/api/auth/logout', { method: 'POST' }); window.location.assign('/login'); }
   const drawer = <>
-    <Toolbar sx={{ px: compact ? 1 : 2.5, justifyContent: 'center' }}>
-      <Box component="img" src={compact ? '/mizuki-panel-mark.svg' : '/mizuki-panel-logo.svg'} alt="MizukiPanel"
-        sx={{ width: compact ? 50 : 190, height: compact ? 50 : 48, display: 'block', objectFit: 'contain', bgcolor: 'transparent', flexShrink: 0 }} />
-    </Toolbar>
+    <Toolbar />
     <Divider />
     <List sx={{ p: compact ? 1 : 1.5, flex: 1, overflowY: 'auto' }}>
       {navigation.map((item) => <Tooltip key={item.path} title={compact ? item.label : ''} placement="right">
@@ -139,6 +136,8 @@ function AppShell() {
     </Box>
   </>;
   return <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box component="img" src="/mizuki-panel-logo.svg" alt="MizukiPanel"
+      sx={{ position: 'fixed', top: 8, left: { xs: 56, md: 16 }, width: { xs: 150, sm: 190 }, height: 48, display: 'block', objectFit: 'contain', bgcolor: 'transparent', zIndex: theme.zIndex.drawer + 2, pointerEvents: 'none' }} />
     <AppBar position="fixed" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', zIndex: theme.zIndex.drawer + 1, ml: { md: effectiveDrawerWidth + 'px' }, width: { md: 'calc(100% - ' + effectiveDrawerWidth + 'px)' }, transition: theme.transitions.create(['margin', 'width']) }}>
       <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Box sx={{ flex: 1 }} /><Tooltip title="编辑个人资料配置"><IconButton component={NavLink} to="/config?key=profileConfig" aria-label="编辑个人资料配置" sx={{ p: 0, mr: 1 }}><Avatar src={identity.avatarUrl ?? undefined} alt={identity.title} sx={{ width: 32, height: 32, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: 14, fontWeight: 800 }}>M</Avatar></IconButton></Tooltip><Typography variant="body2" color="text.secondary" title={identity.title} sx={{ display: { xs: 'none', sm: 'block' }, mr: 1, maxWidth: { sm: 220, lg: 360 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{identity.title}</Typography><ThemeSettings /><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
     </AppBar>
