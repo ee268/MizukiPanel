@@ -37,9 +37,11 @@ export function LazyArticleCover({ src, title }: LazyArticleCoverProps) {
     <Box
       ref={container}
       sx={{
-        aspectRatio: "16 / 9",
+        width: { xs: 120, sm: 220 },
+        minHeight: { xs: 112, sm: 140 },
         bgcolor: "action.hover",
         display: "grid",
+        flexShrink: 0,
         overflow: "hidden",
         placeItems: "center",
       }}

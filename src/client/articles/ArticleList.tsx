@@ -80,11 +80,7 @@ export function ArticleList({
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: {
-              xs: "minmax(0, 1fr)",
-              md: "repeat(2, minmax(0, 1fr))",
-              xl: "repeat(3, minmax(0, 1fr))",
-            },
+            gridTemplateColumns: "minmax(0, 1fr)",
             gap: 2,
           }}
         >
@@ -93,9 +89,12 @@ export function ArticleList({
 
             return (
               <Card key={item.id} variant="outlined" sx={{ minWidth: 0 }}>
-                <CardActionArea onClick={() => onSelect(item.id)} sx={{ height: "100%" }}>
+                <CardActionArea
+                  onClick={() => onSelect(item.id)}
+                  sx={{ height: "100%", display: "flex", alignItems: "stretch" }}
+                >
                   {imageUrl && <LazyArticleCover src={imageUrl} title={item.title} />}
-                  <CardContent>
+                  <CardContent sx={{ flex: 1, minWidth: 0 }}>
                     <Stack spacing={1.25}>
                       <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                         <Typography variant="h6" sx={{ flex: 1, minWidth: 0 }}>
