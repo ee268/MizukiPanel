@@ -1,4 +1,4 @@
-import { isMap, isScalar, parseDocument, stringify } from "yaml";
+import { isMap, isScalar, isSeq, parseDocument, stringify } from "yaml";
 
 export class ArticleValidationError extends Error {
   constructor(message: string) {
@@ -169,7 +169,11 @@ export function parseArticleSource(source: string) {
 export function frontmatterEntries(data: Record<string, unknown>): FrontmatterEntry[] {
   return Object.entries(data).map(([key, value]) => ({
     key,
-    value: stringify(value, { lineWidth: 0 }).trimEnd(),
+    value: stringify(value, {
+      collectionStyle: key === "tags" ? "flow" : "any",
+      flowCollectionPadding: false,
+      lineWidth: 0,
+    }).trimEnd(),
     originalKey: key,
   }));
 }
@@ -201,16 +205,25 @@ export function patchArticleFrontmatter(source: string, entries: FrontmatterEntr
   const map = document.contents;
   const existing = new Map(Object.keys(currentData).map((key, index) => [key, map.items[index]]));
   const nextItems = entries.map((entry) => {
+    const key = entry.key.trim();
     const pair = existing.get(entry.originalKey ?? entry.key);
-    if (!pair)
-      return document.createPair(
+    if (!pair) {
+      const nextPair = document.createPair(
         entry.key.trim(),
-        data[entry.key.trim()],
+        data[key],
       ) as (typeof map.items)[number];
-    if (isScalar(pair.key)) pair.key.value = entry.key.trim();
-    else pair.key = document.createNode(entry.key.trim()) as unknown as typeof pair.key;
+      if (key === "tags" && isSeq(nextPair.value)) {
+        nextPair.value.flow = true;
+      }
+      return nextPair;
+    }
+    if (isScalar(pair.key)) pair.key.value = key;
+    else pair.key = document.createNode(key) as unknown as typeof pair.key;
     const previousValue = pair.value;
-    const nextValue = document.createNode(data[entry.key.trim()]);
+    const nextValue = document.createNode(data[key]);
+    if (key === "tags" && isSeq(nextValue)) {
+      nextValue.flow = true;
+    }
     if (previousValue) {
       nextValue.commentBefore = previousValue.commentBefore;
       nextValue.comment = previousValue.comment;
@@ -220,7 +233,9 @@ export function patchArticleFrontmatter(source: string, entries: FrontmatterEntr
     return pair;
   });
   map.items.splice(0, map.items.length, ...nextItems);
-  const nextYaml = document.toString({ lineWidth: 0 }).replace(/\n/g, parts.newline);
+  const nextYaml = document
+    .toString({ flowCollectionPadding: false, lineWidth: 0 })
+    .replace(/\n/g, parts.newline);
   const result = parts.opening + nextYaml + parts.closing + parts.body;
   parseArticleSource(result);
   return result;
@@ -287,7 +302,13 @@ export function patchArticleSource(source: string, fields: ArticleFields): strin
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
-  if (tags.length || document.has("tags")) document.set("tags", tags);
+  if (tags.length || document.has("tags")) {
+    document.set("tags", tags);
+    const tagsNode = document.get("tags", true);
+    if (isSeq(tagsNode)) {
+      tagsNode.flow = true;
+    }
+  }
   for (const [key, defaultValue] of [
     ["draft", false],
     ["pinned", false],
@@ -299,7 +320,9 @@ export function patchArticleSource(source: string, fields: ArticleFields): strin
   }
   if (fields.priority.trim()) document.set("priority", Number(fields.priority));
   else if (document.has("priority")) document.delete("priority");
-  const nextYaml = document.toString({ lineWidth: 0 }).replace(/\n/g, parts.newline);
+  const nextYaml = document
+    .toString({ flowCollectionPadding: false, lineWidth: 0 })
+    .replace(/\n/g, parts.newline);
   const result = parts.opening + nextYaml + parts.closing + parts.body;
   parseArticleSource(result);
   return result;

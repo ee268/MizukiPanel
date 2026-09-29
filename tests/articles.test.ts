@@ -103,6 +103,19 @@ it("edits Frontmatter keys and YAML values while preserving the article body", (
     patchArticleFrontmatter(source, [...entries, { key: "title", value: "Duplicate" }]),
   ).toThrow(ArticleValidationError);
 });
+it("presents and saves tags as a YAML flow sequence", () => {
+  const source =
+    "---\ntitle: Tagged\npublished: 2026-09-27\ntags:\n  - node.js\n  - npm\n  - hexo\n---\n\n# Body\n";
+  const entries = frontmatterEntries(parseArticleSource(source).data);
+  const tags = entries.find((entry) => entry.key === "tags");
+
+  expect(tags?.value).toBe("[node.js, npm, hexo]");
+
+  const patched = patchArticleFrontmatter(source, entries);
+  expect(patched).toContain("tags: [node.js, npm, hexo]");
+  expect(patched).not.toContain("  - node.js");
+  expect(parseArticleSource(patched).parts.body).toBe("\n# Body\n");
+});
 it("includes article descriptions and cover references in list results", async () => {
   const report = await fixture("local");
   await createArticle(
