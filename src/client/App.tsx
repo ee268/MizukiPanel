@@ -107,8 +107,10 @@ function AppShell() {
   async function logout() { await api('/api/auth/logout', { method: 'POST' }); window.location.assign('/login'); }
   const drawer = <>
     <Toolbar sx={{ px: compact ? 1.5 : 2.5, justifyContent: compact ? 'center' : 'flex-start' }}>
-      <Avatar src={identity.logoUrl ?? undefined} alt={`${identity.title} 网站 Logo`} variant="rounded"
-        sx={{ width: 36, height: 36, mr: compact ? 0 : 1.5, bgcolor: 'primary.main', color: 'primary.contrastText', fontWeight: 800 }}>M</Avatar>
+      {identity.logoUrl
+        ? <Box component="img" src={identity.logoUrl} alt={`${identity.title} 网站 Logo`}
+            sx={{ width: 44, height: 40, mr: compact ? 0 : 1.5, display: 'block', objectFit: 'contain', bgcolor: 'transparent', flexShrink: 0 }} />
+        : <Avatar variant="rounded" sx={{ width: 36, height: 36, mr: compact ? 0 : 1.5, bgcolor: 'transparent', color: 'primary.main', fontWeight: 800 }}>M</Avatar>}
       {!compact && <Box sx={{ minWidth: 0 }}><Typography noWrap sx={{ fontWeight: 750 }}>MizukiPanel</Typography></Box>}
     </Toolbar>
     <Divider />
@@ -141,7 +143,7 @@ function AppShell() {
   </>;
   return <Box sx={{ display: 'flex', minHeight: '100vh' }}>
     <AppBar position="fixed" color="inherit" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', zIndex: theme.zIndex.drawer + 1, ml: { md: effectiveDrawerWidth + 'px' }, width: { md: 'calc(100% - ' + effectiveDrawerWidth + 'px)' }, transition: theme.transitions.create(['margin', 'width']) }}>
-      <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Box sx={{ flex: 1 }} /><Avatar src={identity.avatarUrl ?? undefined} alt={identity.title} sx={{ width: 32, height: 32, mr: 1, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: 14, fontWeight: 800 }}>M</Avatar><Typography variant="body2" color="text.secondary" title={identity.title} sx={{ display: { xs: 'none', sm: 'block' }, mr: 1, maxWidth: { sm: 220, lg: 360 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{identity.title}</Typography><ThemeSettings /><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
+      <Toolbar><IconButton onClick={() => setOpen(true)} sx={{ display: { md: 'none' }, mr: 1 }}><MenuIcon /></IconButton><Box sx={{ flex: 1 }} /><Tooltip title="编辑个人资料配置"><IconButton component={NavLink} to="/config?key=profileConfig" aria-label="编辑个人资料配置" sx={{ p: 0, mr: 1 }}><Avatar src={identity.avatarUrl ?? undefined} alt={identity.title} sx={{ width: 32, height: 32, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: 14, fontWeight: 800 }}>M</Avatar></IconButton></Tooltip><Typography variant="body2" color="text.secondary" title={identity.title} sx={{ display: { xs: 'none', sm: 'block' }, mr: 1, maxWidth: { sm: 220, lg: 360 }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{identity.title}</Typography><ThemeSettings /><IconButton aria-label="退出登录" title="退出登录" onClick={logout}><LogoutOutlined /></IconButton></Toolbar>
     </AppBar>
     <Drawer variant={desktop ? 'permanent' : 'temporary'} open={desktop || open} onClose={() => setOpen(false)}
       sx={{ width: effectiveDrawerWidth, flexShrink: 0, transition: theme.transitions.create('width'), '& .MuiDrawer-paper': { width: effectiveDrawerWidth, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', overflowX: 'hidden', borderRight: 'none', transition: theme.transitions.create('width') } }}>{drawer}</Drawer>

@@ -6,6 +6,7 @@ import {
 import SaveOutlined from '@mui/icons-material/SaveOutlined';
 import RefreshOutlined from '@mui/icons-material/RefreshOutlined';
 import RestoreOutlined from '@mui/icons-material/RestoreOutlined';
+import { useSearchParams } from 'react-router-dom';
 import { api, json } from '../api';
 import { TypeScriptEditor } from '../components/TypeScriptEditor';
 import type { ConfigDescriptor, ConfigValue, ProjectReport, SiteConfigDocument } from '../types';
@@ -13,9 +14,10 @@ import type { ConfigDescriptor, ConfigValue, ProjectReport, SiteConfigDocument }
 const formatted = (value: ConfigValue | null) => value === null ? '（未设置覆盖值）' : JSON.stringify(value, null, 2);
 
 export default function ConfigPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [configs, setConfigs] = useState<ConfigDescriptor[]>([]);
   const [report, setReport] = useState<ProjectReport | null>(null);
-  const [selected, setSelected] = useState('siteConfig');
+  const [selected, setSelected] = useState(() => searchParams.get('key') ?? 'siteConfig');
   const [document, setDocument] = useState<SiteConfigDocument | null>(null);
   const [initializer, setInitializer] = useState('');
   const [tab, setTab] = useState(0);
@@ -29,6 +31,10 @@ export default function ConfigPage() {
       .then((data) => { setConfigs(data.configs); setReport(data.report); })
       .catch((cause) => setError(cause instanceof Error ? cause.message : '配置清单读取失败'));
   }, []);
+  useEffect(() => {
+    const requested = searchParams.get('key');
+    if (requested && configs.some((item) => item.key === requested)) setSelected(requested);
+  }, [configs, searchParams]);
   const load = useCallback(async (key: string) => {
     setBusy(true);
     try {
@@ -37,10 +43,17 @@ export default function ConfigPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : '配置读取失败'); }
     finally { setBusy(false); }
   }, []);
-  useEffect(() => { if (configs.length) void load(selected); }, [configs.length, load, selected]);
+  useEffect(() => {
+    if (configs.some((item) => item.key === selected)) void load(selected);
+  }, [configs, load, selected]);
   const groups = useMemo(() => configs.reduce<Record<string, ConfigDescriptor[]>>((result, item) => {
     (result[item.group] ??= []).push(item); return result;
   }, {}), [configs]);
+
+  function selectConfig(key: string) {
+    setSelected(key);
+    setSearchParams(key === 'siteConfig' ? {} : { key }, { replace: true });
+  }
 
   async function save() {
     if (!document) return;
@@ -79,7 +92,7 @@ export default function ConfigPage() {
             {Object.entries(groups).map(([group, items], index) => <Box key={group}>
               {index > 0 && <Divider />}
               <Typography variant="overline" color="text.secondary" sx={{ display: 'block', px: 2, pt: 1.5 }}>{group}</Typography>
-              <List dense disablePadding sx={{ pb: 1 }}>{items.map((item) => <ListItemButton key={item.key} selected={selected === item.key} onClick={() => setSelected(item.key)}>
+              <List dense disablePadding sx={{ pb: 1 }}>{items.map((item) => <ListItemButton key={item.key} selected={selected === item.key} onClick={() => selectConfig(item.key)}>
                 <ListItemText primary={item.label} secondary={item.key} slotProps={{ secondary: { sx: { fontFamily: 'monospace', fontSize: 10 } } }} />
               </ListItemButton>)}</List>
             </Box>)}
