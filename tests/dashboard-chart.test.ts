@@ -1,8 +1,5 @@
 import { expect, it } from "vitest";
-import {
-  articleChartData,
-  articleRangeTotal,
-} from "../src/client/dashboard-chart-data";
+import { articleChartData, articleRangeTotal } from "../src/client/dashboard-chart-data";
 import type { DashboardDay } from "../src/client/types";
 
 function activity(length: number): DashboardDay[] {

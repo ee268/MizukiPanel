@@ -10,7 +10,7 @@ export interface SourceMapping {
 export interface ProjectReport {
   requestedPath: string;
   root: string;
-  mode: 'local' | 'external' | 'blocked';
+  mode: "local" | "external" | "blocked";
   readOnly: boolean;
   contentRoot: string | null;
   warnings: string[];
@@ -29,7 +29,7 @@ export interface ArticleListItem {
   title: string;
   published: string;
   draft: boolean;
-  format: 'md' | 'mdx';
+  format: "md" | "mdx";
   error: string | null;
   alias: string;
   permalink: string;
@@ -38,7 +38,10 @@ export interface ArticleListItem {
   category: string;
 }
 
-export interface DashboardDay { date: string; count: number }
+export interface DashboardDay {
+  date: string;
+  count: number;
+}
 
 export interface DashboardOverview {
   generatedAt: string;
@@ -51,7 +54,7 @@ export interface DashboardOverview {
     invalid: number;
     addedLast30Days: number;
     activity: DashboardDay[];
-    recent: Array<Pick<ArticleListItem, 'id' | 'title' | 'published' | 'draft' | 'format'>>;
+    recent: Array<Pick<ArticleListItem, "id" | "title" | "published" | "draft" | "format">>;
     tags: Array<{ name: string; count: number }>;
   };
   git: {
@@ -66,7 +69,11 @@ export interface DashboardOverview {
   };
 }
 
-export interface FrontmatterEntry { key: string; value: string; originalKey?: string }
+export interface FrontmatterEntry {
+  key: string;
+  value: string;
+  originalKey?: string;
+}
 
 export interface ArticleRecord extends ArticleListItem {
   source: string;
@@ -75,7 +82,7 @@ export interface ArticleRecord extends ArticleListItem {
 }
 
 export interface MediaItem {
-  scope: 'public' | 'article';
+  scope: "public" | "article";
   path: string;
   size: number;
   modified: string;
@@ -84,7 +91,7 @@ export interface MediaItem {
 }
 
 export interface PreviewStatus {
-  state: 'stopped' | 'starting' | 'running' | 'external' | 'failed';
+  state: "stopped" | "starting" | "running" | "external" | "failed";
   url: string;
   projectRoot: string | null;
   startedAt: string | null;
@@ -92,7 +99,8 @@ export interface PreviewStatus {
   error: string | null;
 }
 
-export type ConfigValue = null | boolean | number | string | ConfigValue[] | { [key: string]: ConfigValue };
+export type ConfigValue =
+  null | boolean | number | string | ConfigValue[] | { [key: string]: ConfigValue };
 
 export interface ConfigDescriptor {
   key: string;
@@ -105,7 +113,7 @@ export interface ConfigDescriptor {
 export interface SiteConfigDocument {
   report: ProjectReport;
   descriptor: ConfigDescriptor;
-  mode: ProjectReport['mode'];
+  mode: ProjectReport["mode"];
   readOnly: boolean;
   targetExists: boolean;
   version: string;
@@ -135,7 +143,7 @@ export interface FeatureDataDescriptor {
   label: string;
   file: string;
   variable: string;
-  shape: 'array' | 'object';
+  shape: "array" | "object";
 }
 
 export interface FeatureDataDocument {
@@ -158,8 +166,18 @@ export interface FeatureTextDocument {
   readOnly: boolean;
 }
 
-export interface AnimeSeason { id: string; version: string; size: number }
-export interface AnimeSeasonDocument { report: ProjectReport; id: string; content: string; version: string; readOnly: boolean }
+export interface AnimeSeason {
+  id: string;
+  version: string;
+  size: number;
+}
+export interface AnimeSeasonDocument {
+  report: ProjectReport;
+  id: string;
+  content: string;
+  version: string;
+  readOnly: boolean;
+}
 
 export interface AlbumRecord {
   id: string;
@@ -180,12 +198,12 @@ export interface PublishChange {
 export interface PublishCheck {
   key: string;
   label: string;
-  status: 'pass' | 'warning' | 'error';
+  status: "pass" | "warning" | "error";
   detail: string;
 }
 
 export interface PublishOverview {
-  mode: ProjectReport['mode'];
+  mode: ProjectReport["mode"];
   repositoryLabel: string;
   repositoryRoot: string;
   branch: string | null;
@@ -203,8 +221,8 @@ export interface PublishOverview {
 }
 
 export interface PublishOperationStatus {
-  kind: 'validate' | 'sync' | 'build' | null;
-  state: 'idle' | 'running' | 'succeeded' | 'failed';
+  kind: "validate" | "sync" | "build" | null;
+  state: "idle" | "running" | "succeeded" | "failed";
   projectRoot: string | null;
   startedAt: string | null;
   finishedAt: string | null;

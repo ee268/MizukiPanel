@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build-server/
+coverage/
+docs/
+static/
+pnpm-lock.yaml
+**/*.md

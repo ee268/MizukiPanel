@@ -23,11 +23,7 @@ const rangeLabels: Record<ArticleActivityRange, string> = {
   "12m": "12 个月",
 };
 
-export function DashboardCharts({
-  articles,
-}: {
-  articles: DashboardOverview["articles"];
-}) {
+export function DashboardCharts({ articles }: { articles: DashboardOverview["articles"] }) {
   const theme = useTheme();
   const [range, setRange] = useState<ArticleActivityRange>("30d");
   const activity = useMemo(
@@ -37,9 +33,19 @@ export function DashboardCharts({
   const activityTotal = articleRangeTotal(activity);
   const tickInterval = range === "30d" ? 5 : range === "90d" ? 15 : 1;
   const statuses = [
-    { id: "published", label: "已发布", value: articles.published, color: theme.palette.primary.main },
+    {
+      id: "published",
+      label: "已发布",
+      value: articles.published,
+      color: theme.palette.primary.main,
+    },
     { id: "drafts", label: "草稿", value: articles.drafts, color: theme.palette.secondary.main },
-    { id: "scheduled", label: "计划发布", value: articles.scheduled, color: theme.palette.warning.main },
+    {
+      id: "scheduled",
+      label: "计划发布",
+      value: articles.scheduled,
+      color: theme.palette.warning.main,
+    },
     { id: "invalid", label: "无效数据", value: articles.invalid, color: theme.palette.error.main },
   ];
 
@@ -75,18 +81,23 @@ export function DashboardCharts({
           <Box sx={{ height: 300, minWidth: 0, mt: 2, width: "100%" }}>
             <BarChart
               dataset={activity}
-              xAxis={[{
-                dataKey: "label",
-                scaleType: "band",
-                tickLabelInterval: (_, index) => index % tickInterval === 0 || index === activity.length - 1,
-              }]}
+              xAxis={[
+                {
+                  dataKey: "label",
+                  scaleType: "band",
+                  tickLabelInterval: (_, index) =>
+                    index % tickInterval === 0 || index === activity.length - 1,
+                },
+              ]}
               yAxis={[{ min: 0, tickMinStep: 1, width: 36 }]}
-              series={[{
-                dataKey: "count",
-                label: "新增文章",
-                color: theme.palette.primary.main,
-                valueFormatter: (value) => `${value ?? 0} 篇`,
-              }]}
+              series={[
+                {
+                  dataKey: "count",
+                  label: "新增文章",
+                  color: theme.palette.primary.main,
+                  valueFormatter: (value) => `${value ?? 0} 篇`,
+                },
+              ]}
               borderRadius={5}
               grid={{ horizontal: true }}
               height={300}
@@ -107,14 +118,16 @@ export function DashboardCharts({
             <>
               <Box sx={{ height: 220, mt: 1 }}>
                 <PieChart
-                  series={[{
-                    data: statuses,
-                    innerRadius: 52,
-                    outerRadius: 86,
-                    paddingAngle: 3,
-                    cornerRadius: 4,
-                    valueFormatter: (item) => `${item.value} 篇`,
-                  }]}
+                  series={[
+                    {
+                      data: statuses,
+                      innerRadius: 52,
+                      outerRadius: 86,
+                      paddingAngle: 3,
+                      cornerRadius: 4,
+                      valueFormatter: (item) => `${item.value} 篇`,
+                    },
+                  ]}
                   height={220}
                   hideLegend
                 />

@@ -1,14 +1,5 @@
 import { type FormEvent, useState } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-  useTheme,
-} from "@mui/material";
+import { Alert, Box, Button, Paper, Stack, TextField, Typography, useTheme } from "@mui/material";
 import { keyframes } from "@mui/material/styles";
 import LockOutlined from "@mui/icons-material/LockOutlined";
 import { useNavigate } from "react-router-dom";
@@ -78,7 +69,15 @@ export default function LoginPage() {
         backgroundImage: [
           "radial-gradient(circle at 16% 22%, " + primarySoft + " 0%, transparent 38%)",
           "radial-gradient(circle at 84% 18%, " + secondarySoft + " 0%, transparent 36%)",
-          "linear-gradient(125deg, " + base + " 5%, " + translucent(theme.palette.primary.main, dark ? 12 : 8) + " 40%, " + translucent(theme.palette.secondary.main, dark ? 10 : 7) + " 68%, " + base + " 96%)",
+          "linear-gradient(125deg, " +
+            base +
+            " 5%, " +
+            translucent(theme.palette.primary.main, dark ? 12 : 8) +
+            " 40%, " +
+            translucent(theme.palette.secondary.main, dark ? 10 : 7) +
+            " 68%, " +
+            base +
+            " 96%)",
         ].join(","),
         backgroundSize: "170% 170%, 180% 180%, 320% 320%",
         animation: gradientFlow + " 28s ease-in-out infinite",

@@ -33,9 +33,7 @@ describe("preview log highlighting", () => {
     );
   });
   it("assigns distinct colors to timestamps, startup words, and URLs", () => {
-    const tokens = previewLogTokens(
-      "[12:00:00] Astro ready at http://127.0.0.1:4321/",
-    );
+    const tokens = previewLogTokens("[12:00:00] Astro ready at http://127.0.0.1:4321/");
 
     expect(tokens).toEqual(
       expect.arrayContaining([

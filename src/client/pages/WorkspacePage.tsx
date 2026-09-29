@@ -122,10 +122,7 @@ export default function WorkspacePage() {
   }, [load]);
 
   async function connectProject(nextPath: string) {
-    await api(
-      "/api/workspace/connect",
-      json("POST", { projectPath: nextPath }),
-    );
+    await api("/api/workspace/connect", json("POST", { projectPath: nextPath }));
     setProjectPath(nextPath);
     await load();
     window.dispatchEvent(new Event("mizuki-site-identity-changed"));
@@ -266,10 +263,7 @@ export default function WorkspacePage() {
         {data?.report && (
           <>
             {data.report.warnings.map((warning) => (
-              <Alert
-                key={warning}
-                severity={data.report?.readOnly ? "warning" : "info"}
-              >
+              <Alert key={warning} severity={data.report?.readOnly ? "warning" : "info"}>
                 {warning}
               </Alert>
             ))}
@@ -322,16 +316,15 @@ export default function WorkspacePage() {
             )}
             {dashboard && dashboard.articles.invalid > 0 && (
               <Alert severity="warning">
-                有 {dashboard.articles.invalid} 篇文章的 Frontmatter 无法纳入统计，请在文章管理中修复。
+                有 {dashboard.articles.invalid} 篇文章的 Frontmatter
+                无法纳入统计，请在文章管理中修复。
               </Alert>
             )}
           </>
         )}
 
         {data && !data.report && !data.connectionError && (
-          <Alert severity="info">
-            连接项目后可查看内容数据总览，并管理文章、媒体和站点配置。
-          </Alert>
+          <Alert severity="info">连接项目后可查看内容数据总览，并管理文章、媒体和站点配置。</Alert>
         )}
       </Stack>
     </Container>

@@ -29,7 +29,8 @@ export function previewLogTokens(line: string): PreviewLogToken[] {
   }
 
   const baseTone = previewLogTone(rest);
-  const pattern = /(https?:\/\/[^\s"'\\]+|"(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|\b(?:astro|vite|ready|local|network|watching)\b|\b\d+(?:\.\d+)?\b|[{}[\],:]|[✓✔✗×])/gi;
+  const pattern =
+    /(https?:\/\/[^\s"'\\]+|"(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|\b(?:astro|vite|ready|local|network|watching)\b|\b\d+(?:\.\d+)?\b|[{}[\],:]|[✓✔✗×])/gi;
   let cursor = 0;
   for (const match of rest.matchAll(pattern)) {
     const index = match.index ?? 0;

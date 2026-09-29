@@ -15,10 +15,7 @@ import {
   useTheme,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
-import {
-  contributionCalendar,
-  contributionLevel,
-} from "../dashboard-contributions";
+import { contributionCalendar, contributionLevel } from "../dashboard-contributions";
 import type { DashboardOverview } from "../types";
 
 function contributionDateLabel(date: string, count: number): string {
@@ -156,7 +153,9 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
             spacing={0.75}
             sx={{ alignItems: "center", justifyContent: "flex-end", mt: 1 }}
           >
-            <Typography variant="caption" color="text.secondary">少</Typography>
+            <Typography variant="caption" color="text.secondary">
+              少
+            </Typography>
             {opacities.map((opacity, index) => (
               <Box
                 aria-hidden
@@ -171,7 +170,9 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
                 }}
               />
             ))}
-            <Typography variant="caption" color="text.secondary">多</Typography>
+            <Typography variant="caption" color="text.secondary">
+              多
+            </Typography>
           </Stack>
         </>
       ) : (
@@ -237,9 +238,7 @@ function RecentArticles({ articles }: { articles: DashboardOverview["articles"] 
           ))}
         </List>
       ) : (
-        <Box sx={{ color: "text.secondary", p: 5, textAlign: "center" }}>
-          暂无文章
-        </Box>
+        <Box sx={{ color: "text.secondary", p: 5, textAlign: "center" }}>暂无文章</Box>
       )}
     </Paper>
   );
@@ -265,19 +264,13 @@ function PopularTags({ articles }: { articles: DashboardOverview["articles"] }) 
           ))}
         </Stack>
       ) : (
-        <Box sx={{ color: "text.secondary", py: 5, textAlign: "center" }}>
-          文章尚未设置标签
-        </Box>
+        <Box sx={{ color: "text.secondary", py: 5, textAlign: "center" }}>文章尚未设置标签</Box>
       )}
     </Paper>
   );
 }
 
-export function DashboardActivityPanels({
-  dashboard,
-}: {
-  dashboard: DashboardOverview;
-}) {
+export function DashboardActivityPanels({ dashboard }: { dashboard: DashboardOverview }) {
   return (
     <Stack spacing={2}>
       <ContributionGraph git={dashboard.git} />

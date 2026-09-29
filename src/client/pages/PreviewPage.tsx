@@ -16,11 +16,7 @@ import StopOutlined from "@mui/icons-material/StopOutlined";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
 import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
-import {
-  previewLogTokens,
-  previewTargetUrl,
-  type PreviewLogTone,
-} from "../preview-log";
+import { previewLogTokens, previewTargetUrl, type PreviewLogTone } from "../preview-log";
 import type { PreviewStatus } from "../types";
 
 const labels = {
@@ -222,9 +218,7 @@ export default function PreviewPage() {
           {preview && <Chip color={colors[preview.state]} label={labels[preview.state]} />}
         </Stack>
 
-        {(error || preview?.error) && (
-          <Alert severity="warning">{error || preview?.error}</Alert>
-        )}
+        {(error || preview?.error) && <Alert severity="warning">{error || preview?.error}</Alert>}
 
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack

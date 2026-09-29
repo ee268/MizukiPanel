@@ -1,8 +1,5 @@
 import { expect, it } from "vitest";
-import {
-  contributionCalendar,
-  contributionLevel,
-} from "../src/client/dashboard-contributions";
+import { contributionCalendar, contributionLevel } from "../src/client/dashboard-contributions";
 
 it("aligns contribution days into Sunday-first weeks and labels months", () => {
   const calendar = contributionCalendar([
