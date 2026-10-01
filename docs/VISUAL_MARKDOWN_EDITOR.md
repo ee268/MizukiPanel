@@ -1,6 +1,6 @@
 # 文章正文混合编辑与单篇 Markdown 渲染设计
 
-> 状态：设计稿。第 1 阶段的独立渲染可行性验证已完成，结果见[验证报告](MARKDOWN_RENDERER_FEASIBILITY.md)；编辑器与实时预览仍待实现。
+> 状态：设计稿。第 1 阶段的独立渲染[可行性验证](MARKDOWN_RENDERER_FEASIBILITY.md)及第 2 阶段的[原文片段保护](SOURCE_FRAGMENT_PRESERVATION.md)已完成；编辑器与实时预览仍待实现。
 
 ## 目标与已确认范围
 

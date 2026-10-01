@@ -1,4 +1,5 @@
 import { isMap, isScalar, isSeq, parseDocument, stringify } from "yaml";
+import { splitArticleSource } from "../articles/article-source";
 
 export class ArticleValidationError extends Error {
   constructor(message: string) {
@@ -39,20 +40,9 @@ export interface FrontmatterEntry {
   originalKey?: string;
 }
 
-function splitFrontmatter(source: string) {
-  const match = /^(\uFEFF?---[ \t]*\r?\n)([\s\S]*?)(^---[ \t]*(?:\r?\n|$))/m.exec(source);
-  if (!match) throw new ArticleValidationError("文章必须以 --- 分隔的 YAML Frontmatter 开头");
-  return {
-    opening: match[1],
-    yaml: match[2],
-    closing: match[3],
-    body: source.slice(match[0].length),
-    newline: match[1].includes("\r\n") ? "\r\n" : "\n",
-  };
-}
-
 function parse(source: string) {
-  const parts = splitFrontmatter(source);
+  const parts = splitArticleSource(source);
+  if (!parts) throw new ArticleValidationError("文章必须以 --- 分隔的 YAML Frontmatter 开头");
   const document = parseDocument(parts.yaml, { uniqueKeys: true, strict: true });
   if (document.errors.length)
     throw new ArticleValidationError("Frontmatter YAML 无效：" + document.errors[0].message);
