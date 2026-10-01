@@ -199,7 +199,12 @@ function SegmentEditor({
           color: "text.primary",
           overflowWrap: "anywhere",
         },
-        "& .milkdown .editor:focus, & .milkdown .editor:focus-visible, & .milkdown .editor.ProseMirror-focused":
+        "& .milkdown .ProseMirror": {
+          outline: "none",
+          border: 0,
+          boxShadow: "none",
+        },
+        "& .milkdown .ProseMirror:focus, & .milkdown .ProseMirror:focus-visible, & .milkdown .ProseMirror.ProseMirror-focused":
           {
             outline: "none",
             border: 0,
