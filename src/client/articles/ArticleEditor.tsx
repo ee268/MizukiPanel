@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import type { ArticleRecord } from "../types";
 import { FrontmatterEditor } from "./FrontmatterEditor";
+import { VisualBodyEditor } from "./VisualBodyEditor";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
 
 interface ArticleEditorProps {
@@ -26,6 +27,8 @@ interface ArticleEditorProps {
   mode: ArticleEditorMode;
   busy: boolean;
   readOnly: boolean;
+  dirty: boolean;
+  sourceDirty: boolean;
   onFrontmatterChange: (rows: FrontmatterRow[]) => void;
   onSourceChange: (source: string) => void;
   onModeChange: (mode: ArticleEditorMode) => void;
@@ -34,6 +37,7 @@ interface ArticleEditorProps {
   onDelete: () => void;
   onSaveFrontmatter: () => void;
   onSaveSource: () => void;
+  onSaveBody: () => void;
 }
 
 export function ArticleEditor({
@@ -44,6 +48,8 @@ export function ArticleEditor({
   mode,
   busy,
   readOnly,
+  dirty,
+  sourceDirty,
   onFrontmatterChange,
   onSourceChange,
   onModeChange,
@@ -52,6 +58,7 @@ export function ArticleEditor({
   onDelete,
   onSaveFrontmatter,
   onSaveSource,
+  onSaveBody,
 }: ArticleEditorProps) {
   if (!article) {
     return (
@@ -74,6 +81,11 @@ export function ArticleEditor({
         >
           <Box>
             <Typography variant="h5">{article.title}</Typography>
+            {dirty && (
+              <Typography variant="caption" color="warning.main">
+                有未保存修改
+              </Typography>
+            )}
           </Box>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             {previewPath && (
@@ -100,19 +112,38 @@ export function ArticleEditor({
           onChange={(_, value: ArticleEditorMode) => onModeChange(value)}
           sx={{ px: 2 }}
         >
+          <Tab value="visual" label="可视化正文" disabled={Boolean(article.error)} />
           <Tab value="frontmatter" label="Frontmatter" disabled={Boolean(article.error)} />
           <Tab value="source" label="完整源码" />
         </Tabs>
         <Divider />
 
-        {mode === "frontmatter" && !article.error ? (
-          <FrontmatterEditor
-            rows={frontmatter}
+        {mode === "visual" && !article.error ? (
+          <VisualBodyEditor
+            key={`${article.id}:${article.version}`}
+            article={article}
+            source={source}
             busy={busy}
             readOnly={readOnly}
-            onChange={onFrontmatterChange}
-            onSave={onSaveFrontmatter}
+            onChange={onSourceChange}
+            onSave={onSaveBody}
+            onSourceMode={() => onModeChange("source")}
           />
+        ) : mode === "frontmatter" && !article.error ? (
+          <>
+            {sourceDirty && (
+              <Alert severity="info">
+                完整源码或正文另有未保存草稿。此表单仍显示独立的 Frontmatter 草稿。
+              </Alert>
+            )}
+            <FrontmatterEditor
+              rows={frontmatter}
+              busy={busy}
+              readOnly={readOnly}
+              onChange={onFrontmatterChange}
+              onSave={onSaveFrontmatter}
+            />
+          </>
         ) : (
           <Box sx={{ p: { xs: 2, md: 3 } }}>
             <TextField
@@ -122,6 +153,7 @@ export function ArticleEditor({
               fullWidth
               multiline
               minRows={24}
+              disabled={busy || readOnly}
               spellCheck={false}
               slotProps={{
                 input: { sx: { fontFamily: "monospace", fontSize: 14, lineHeight: 1.6 } },

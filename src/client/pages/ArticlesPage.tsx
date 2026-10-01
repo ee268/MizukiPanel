@@ -39,15 +39,26 @@ export default function ArticlesPage() {
             source={articles.source}
             mode={articles.mode}
             busy={articles.busy}
+            dirty={articles.dirty}
+            sourceDirty={articles.sourceDirty}
             readOnly={Boolean(articles.report?.readOnly)}
             onFrontmatterChange={articles.setFrontmatter}
             onSourceChange={articles.setSource}
             onModeChange={articles.setMode}
-            onPreview={(path) => navigate(`/preview?path=${encodeURIComponent(path)}`)}
+            onPreview={(path) => {
+              if (
+                articles.dirty &&
+                !window.confirm("当前文章有未保存的修改，确定离开并查看真实预览吗？")
+              ) {
+                return;
+              }
+              navigate(`/preview?path=${encodeURIComponent(path)}`);
+            }}
             onRename={() => articles.setRenameOpen(true)}
             onDelete={() => articles.setDeleteOpen(true)}
             onSaveFrontmatter={articles.saveFrontmatter}
             onSaveSource={articles.saveSource}
+            onSaveBody={articles.saveBody}
           />
         ) : (
           <ArticleList

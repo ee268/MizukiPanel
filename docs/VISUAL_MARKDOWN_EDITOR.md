@@ -1,6 +1,8 @@
 # 文章正文混合编辑与单篇 Markdown 渲染设计
 
-> 状态：设计稿。第 1 阶段的独立渲染[可行性验证](MARKDOWN_RENDERER_FEASIBILITY.md)、第 2 阶段的[原文片段保护](SOURCE_FRAGMENT_PRESERVATION.md)及第 3 阶段的[正文保存契约](ARTICLE_BODY_SAVE.md)已完成；编辑器与实时预览仍待实现。
+> 状态：实施中。第 1 阶段的独立渲染[可行性验证](MARKDOWN_RENDERER_FEASIBILITY.md)、第 2 阶段的[原文片段保护](SOURCE_FRAGMENT_PRESERVATION.md)、第 3 阶段的[正文保存契约](ARTICLE_BODY_SAVE.md)和第 4 阶段的基础混合编辑已完成；专用 GFM/媒体操作、工具栏、扩展语法节点与实时预览仍待实现。
+
+第 4 阶段接入 Milkdown，将标准 Markdown 正文显示为可直接编辑的排版内容。受保护的 Mizuki/MDX 片段显示为只读源码卡片，完整源码模式仍可编辑它们。可视化修改只替换发生编辑的正文片段；切换可视化正文、Frontmatter 与完整源码仅修改内存草稿。独立的 Frontmatter 表单草稿和正文草稿可分别保存，保存后会保留另一部分未保存内容；全文源码的 Frontmatter 同时修改时，正文专用保存会提示先保存源码。为避免将已有表格误解析为普通段落，本阶段已加载 GFM 基础语法；表格工具、图片与媒体库引用仍属第 5 阶段。
 
 ## 目标与已确认范围
 

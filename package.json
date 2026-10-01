@@ -32,6 +32,8 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hono/node-server": "^2.1.1",
+    "@milkdown/kit": "^7.22.2",
+    "@milkdown/react": "^7.22.2",
     "@mui/icons-material": "^9.4.0",
     "@mui/material": "^9.4.0",
     "@mui/x-charts": "^9.14.0",

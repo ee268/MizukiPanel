@@ -1,7 +1,7 @@
 import type { FrontmatterEntry } from "../types";
 
 export type ArticleFilter = "all" | "published" | "draft" | "invalid";
-export type ArticleEditorMode = "frontmatter" | "source";
+export type ArticleEditorMode = "visual" | "frontmatter" | "source";
 
 export interface FrontmatterRow extends FrontmatterEntry {
   rowId: string;

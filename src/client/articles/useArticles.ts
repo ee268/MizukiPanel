@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { ArticleListItem, ArticleRecord, ProjectReport } from "../types";
+import { draftBody, frontmatterChanged, hasSourceHeaderChange, rebaseBody } from "./article-draft";
 import {
   createFrontmatterRow,
   type ArticleEditorMode,
@@ -33,6 +34,53 @@ export function useArticles() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const listScrollPosition = useRef(0);
   const shouldRestoreListScroll = useRef(false);
+  const frontmatterDirty = article ? frontmatterChanged(frontmatter, article) : false;
+  const sourceDirty = article ? source !== article.source : false;
+  const dirty = frontmatterDirty || sourceDirty;
+
+  useEffect(() => {
+    if (!dirty) {
+      return;
+    }
+
+    const preventExit = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", preventExit);
+    return () => window.removeEventListener("beforeunload", preventExit);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!selectedId || !dirty) {
+      return;
+    }
+
+    const confirmNavigation = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const link = target.closest("a[href]");
+      if (!link || link.getAttribute("target") === "_blank") {
+        return;
+      }
+
+      const destination = new URL(link.getAttribute("href") ?? "", window.location.href);
+      if (
+        (destination.origin !== window.location.origin ||
+          destination.pathname !== window.location.pathname) &&
+        !window.confirm("当前文章有未保存的修改，确定离开吗？")
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+
+    document.addEventListener("click", confirmNavigation, true);
+    return () => document.removeEventListener("click", confirmNavigation, true);
+  }, [selectedId, dirty]);
 
   const loadList = useCallback(async () => {
     try {
@@ -59,7 +107,7 @@ export function useArticles() {
       setFrontmatter(data.article.frontmatter.map(createFrontmatterRow));
       setSource(data.article.source);
       setPreviewPath(data.previewPath);
-      setMode(data.article.error ? "source" : "frontmatter");
+      setMode(data.article.error ? "source" : "visual");
       setError("");
     } catch (cause) {
       setArticle(null);
@@ -133,6 +181,9 @@ export function useArticles() {
   }, [selectedId]);
 
   function choose(id: string) {
+    if (selectedId && dirty && !window.confirm("当前文章有未保存的修改，确定离开吗？")) {
+      return;
+    }
     if (!selectedId) {
       listScrollPosition.current = window.scrollY;
     }
@@ -141,6 +192,9 @@ export function useArticles() {
   }
 
   function showList() {
+    if (dirty && !window.confirm("当前文章有未保存的修改，确定返回文章列表吗？")) {
+      return;
+    }
     shouldRestoreListScroll.current = true;
     setParams({});
   }
@@ -162,8 +216,18 @@ export function useArticles() {
     setPreviewPath(nextPreviewPath);
   }
 
+  function changeMode(nextMode: ArticleEditorMode) {
+    setError("");
+    setMode(nextMode);
+  }
+
   async function saveFrontmatter() {
     if (!article) {
+      return;
+    }
+
+    if (sourceDirty && hasSourceHeaderChange(source, article.source)) {
+      setError("完整源码中的 Frontmatter 也已修改，请先在完整源码模式保存或撤销该修改");
       return;
     }
 
@@ -179,6 +243,9 @@ export function useArticles() {
         }),
       );
       applyArticle(data.article, data.previewPath);
+      if (sourceDirty) {
+        setSource(rebaseBody(data.article.source, source));
+      }
       setNotice("Frontmatter 已保存");
       await loadList();
     } catch (cause) {
@@ -200,11 +267,47 @@ export function useArticles() {
         "/api/article/source",
         json("PUT", { id: article.id, version: article.version, source }),
       );
+      const pendingFrontmatter = frontmatterDirty ? frontmatter : null;
       applyArticle(data.article, data.previewPath);
+      if (pendingFrontmatter) {
+        setFrontmatter(pendingFrontmatter);
+      }
       setNotice("文章源码已保存");
       await loadList();
     } catch (cause) {
       setError(errorMessage(cause, "保存失败"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveBody() {
+    if (!article) {
+      return;
+    }
+
+    const body = draftBody(source);
+    if (body === null || hasSourceHeaderChange(source, article.source)) {
+      setError("完整源码中的 Frontmatter 已修改，请先保存完整源码，再保存正文");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const data = await api<{ article: ArticleRecord; previewPath: string | null }>(
+        "/api/article/body",
+        json("PUT", { id: article.id, version: article.version, body }),
+      );
+      const pendingFrontmatter = frontmatterDirty ? frontmatter : null;
+      applyArticle(data.article, data.previewPath);
+      if (pendingFrontmatter) {
+        setFrontmatter(pendingFrontmatter);
+      }
+      setNotice("文章正文已保存");
+      await loadList();
+    } catch (cause) {
+      setError(errorMessage(cause, "正文保存失败，草稿已保留"));
     } finally {
       setBusy(false);
     }
@@ -242,6 +345,10 @@ export function useArticles() {
       return;
     }
 
+    if (dirty && !window.confirm("当前文章有未保存的修改，重命名后将放弃这些修改。确定继续吗？")) {
+      return;
+    }
+
     setBusy(true);
     setError("");
     const nextId = String(new FormData(event.currentTarget).get("nextId"));
@@ -252,7 +359,8 @@ export function useArticles() {
       );
       setRenameOpen(false);
       await loadList();
-      choose(nextId);
+      setArticle(null);
+      setParams({ post: nextId });
       setNotice("文章已重命名");
     } catch (cause) {
       setError(errorMessage(cause, "重命名失败"));
@@ -266,13 +374,18 @@ export function useArticles() {
       return;
     }
 
+    if (dirty && !window.confirm("当前文章有未保存的修改，删除后将放弃这些修改。确定继续吗？")) {
+      return;
+    }
+
     setBusy(true);
     setError("");
     try {
       await api("/api/article", json("DELETE", { id: article.id, version: article.version }));
       setDeleteOpen(false);
       setArticle(null);
-      showList();
+      shouldRestoreListScroll.current = true;
+      setParams({});
       await loadList();
       setNotice("文章已移入回收目录");
     } catch (cause) {
@@ -290,6 +403,9 @@ export function useArticles() {
     frontmatter,
     source,
     mode,
+    dirty,
+    frontmatterDirty,
+    sourceDirty,
     query,
     filter,
     page,
@@ -304,7 +420,7 @@ export function useArticles() {
     pagedArticles,
     setFrontmatter,
     setSource,
-    setMode,
+    setMode: changeMode,
     setQuery: changeQuery,
     setFilter: changeFilter,
     setPage,
@@ -317,6 +433,7 @@ export function useArticles() {
     showList,
     saveFrontmatter,
     saveSource,
+    saveBody,
     createArticle,
     renameArticle,
     removeArticle,
