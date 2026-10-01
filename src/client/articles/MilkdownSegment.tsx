@@ -42,6 +42,7 @@ function SegmentEditor({
   const onReadyRef = useRef(onReady);
   const onFormatChangeRef = useRef(onFormatChange);
   const onShortcutRef = useRef(onShortcut);
+  const formatFrame = useRef<number | null>(null);
   onChangeRef.current = onChange;
   onReadyRef.current = onReady;
   onFormatChangeRef.current = onFormatChange;
@@ -144,10 +145,22 @@ function SegmentEditor({
             }
           });
           const updateFormat = () => {
-            onFormatChangeRef.current(readFormatState(ctx.get(editorViewCtx).state));
+            if (formatFrame.current !== null) {
+              cancelAnimationFrame(formatFrame.current);
+            }
+            formatFrame.current = requestAnimationFrame(() => {
+              formatFrame.current = null;
+              onFormatChangeRef.current(readFormatState(ctx.get(editorViewCtx).state));
+            });
           };
           ctx.get(listenerCtx).selectionUpdated(updateFormat);
           ctx.get(listenerCtx).updated(updateFormat);
+          ctx.get(listenerCtx).destroy(() => {
+            if (formatFrame.current !== null) {
+              cancelAnimationFrame(formatFrame.current);
+              formatFrame.current = null;
+            }
+          });
         })
         .use(commonmark)
         .use(gfm)
