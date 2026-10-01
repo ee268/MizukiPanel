@@ -7,6 +7,7 @@
     "dev": "node scripts/run.mjs dev",
     "build": "vite build && vite build --config vite.server.config.ts",
     "start": "node scripts/run.mjs start",
+    "probe:markdown": "tsx scripts/probe-markdown-renderer.mjs",
     "check": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"*.{ts,js,mjs,json,html}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\" \"tests/**/*.ts\" \"scripts/**/*.mjs\" \"*.{ts,js,mjs,json,html}\"",
