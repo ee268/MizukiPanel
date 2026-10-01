@@ -1,4 +1,4 @@
-# 文章正文混合编辑与离线真实渲染设计
+# 文章正文混合编辑与单篇 Markdown 渲染设计
 
 > 状态：设计稿。本文只确定方案和实施顺序，尚未开始代码实现。
 
@@ -9,8 +9,8 @@
 - Frontmatter 继续使用现有的独立键值行编辑区；可视化模式只编辑正文。
 - 保留“完整源码”入口，直接编辑原始 Markdown/MDX，包括 Frontmatter。
 - `.md` 和 `.mdx` 均可在同一正文编辑区编辑。已适配的语法显示为可视化节点；任意组件、表达式及未知语法显示为保留原文的源码卡片，允许局部源码编辑。完整源码入口始终可用。
-- 编辑区域提供即时排版。未保存草稿暂停输入约 1 秒后，面板开始后台编译当前快照，并在编译完成的数秒后更新只读的“真实正文效果”；保存后也重新验证。范围只包括文章正文，不包含站点页眉、侧栏和完整文章页布局。
-- 为取得相同的实际渲染输出，离线构建读取当前连接项目的配置、渲染插件、组件、CSS 与内容。这里的“不依赖 Mizuki”指不依赖其运行中的服务；并不表示脱离项目源码仍能保证效果相同。
+- 编辑区域提供即时排版。仅对 `.md` 的未保存草稿，在暂停输入约 1 秒后单篇渲染，并尽可能复用 Mizuki 的 Markdown 插件与正文样式；`.mdx` 仍可混合编辑，但不进入此实时渲染流程。
+- 面板不启动 Mizuki 服务，也不调用 Astro 全站构建。单篇渲染只处理文章正文，不包含站点页眉、侧栏和完整文章页布局；它依赖当前连接项目的 Markdown 配置与插件源码，不能宣称和 Mizuki 最终页面在所有情况下完全相同。
 - 沿用显式保存及原有的文章版本冲突、备份机制，不在本次增加自动保存。
 
 ## 当前基础与技术选型
@@ -24,15 +24,15 @@ MizukiPanel 目前使用 React、Material UI、TypeScript、Hono 和本地文件
 | 完整与局部源码编辑 | 保留现有入口，后续改用 CodeMirror Markdown/MDX 语言支持 | 任意复杂语法始终可以原样编辑；不要求所有 JSX 表达式都具备表单式编辑。 |
 | 内容读写 | 现有 Hono API 与 `src/lib/server/articles.ts` 写入机制 | 新增只替换正文的服务能力；继续使用同一文件事实来源、路径校验、版本冲突和备份。 |
 | 媒体引用 | 现有媒体管理与文章资源路径解析 | 插入现有资源或 URL，并生成 Mizuki 可识别的 Markdown 图片引用。 |
-| 离线真实正文效果 | 面板管理不对外监听端口的草稿编译工作进程，复用当前 Mizuki 项目的处理链；面板负责快照、产物缓存与展示 | 无常驻 Mizuki HTTP 预览服务；HTML、CSS、组件和资源须来自同一次编译。旧的 Astro 真实预览功能仍可用于完整站点检查。 |
+| 单篇 `.md` 渲染 | 优先验证项目已安装的 `@astrojs/markdown-remark` 单篇处理器或等价 unified 管线，按 Mizuki 顺序加载 remark/rehype 插件；代码块另接 Expressive Code 核心能力 | 只处理当前正文草稿，无 Astro 服务和全站构建。结果是接近站点的预览，不能覆盖 `.mdx` 组件运行效果；现有 Astro 真实预览仍可用于最终检查。 |
 
-Milkdown 官方资料：[React 集成](https://milkdown.dev/docs/recipes/react)、[自定义节点与 remark 扩展](https://milkdown.dev/docs/api/utils)、[GFM preset](https://milkdown.dev/docs/api/preset-gfm)、[命令](https://milkdown.dev/docs/guide/commands)、[快捷键](https://milkdown.dev/docs/guide/keyboard-shortcuts)。MDX 解析须处理 [JSX、表达式和 ESM 节点](https://mdxjs.com/packages/mdx/)；[Astro 构建 API](https://docs.astro.build/en/reference/programmatic-reference/)可用于无 HTTP 服务的基线渲染，但官方程序化 API 属实验性接口，不能假定完整构建足以满足数秒内的草稿刷新。开始实现时必须先做不监听 HTTP 端口的增量编译原型，再固定依赖版本和时延目标。
+Milkdown 官方资料：[React 集成](https://milkdown.dev/docs/recipes/react)、[自定义节点与 remark 扩展](https://milkdown.dev/docs/api/utils)、[GFM preset](https://milkdown.dev/docs/api/preset-gfm)、[命令](https://milkdown.dev/docs/guide/commands)、[快捷键](https://milkdown.dev/docs/guide/keyboard-shortcuts)。MDX 解析须处理 [JSX、表达式和 ESM 节点](https://mdxjs.com/packages/mdx/)。单篇 `.md` 渲染可使用 [remark/rehype 管线](https://github.com/remarkjs/remark/blob/main/packages/remark-parse/readme.md)；Mizuki 当前安装的 `@astrojs/markdown-remark` 导出了 `createMarkdownProcessor()`，但该工厂尚非稳定的公开集成契约，应在首阶段做兼容原型并固定版本。代码块可使用 [Expressive Code 核心引擎](https://expressive-code.com/reference/core-api/)单独渲染。
 
 ## 页面交互
 
 文章内容页提供三个明确入口：“可视化正文”“Frontmatter”“完整源码”。普通 Markdown 直接编辑；已适配的提示块、Wiki Link、图表、代码组和 MDX 组件以专用节点显示。组件卡片可展示组件名、已识别的静态属性及一个“编辑该片段源码”入口；动态表达式、导入导出和未知结构显示为源码卡片。任何卡片都不能静默丢弃原始属性或子内容。
 
-“真实正文效果”是另一个只读视图，不与可写的编辑 DOM 混用，也不采用固定的左右分栏。它在输入暂停后编译当前未保存快照，展示结果时标明草稿修订号、编译状态和时间。编辑区即时排版，真实效果允许在数秒后更新；尚未完成的草稿显示“正在编译”。新修订产生后，旧任务应取消或让其结果失效，不得以旧结果覆盖新草稿。编译失败时展示错误与上次成功结果的过期状态；不以近似渲染冒充真实结果。
+“单篇 Markdown 预览”是 `.md` 文章的只读视图，不与可写的编辑 DOM 混用，也不采用固定的左右分栏。它在输入暂停后渲染当前未保存正文，展示结果时标明草稿修订号与时间。新修订产生后，旧任务应取消或让其结果失效；失败时展示错误与上次成功结果的过期状态。`.mdx` 文章显示“此预览仅支持 .md”，仍保留现有 Astro 真实预览入口供用户按需启动和检查。
 
 可视化编辑器上方的固定工具栏包括标题级别、粗体、斜体、链接、无序/有序/任务列表、引用、代码块、表格、图片、撤销/重做和保存。按钮根据光标处的格式呈现选中状态；禁用状态、提示文字和快捷键在窄屏下仍可访问。图片支持选择当前媒体库中的资源，或填写 HTTP(S) / 项目内路径；生成引用时遵循 Mizuki 的相对路径与 `/images/` 规则。代码块编辑区保留语言标识与等宽排版；代码高亮仅作为编辑辅助。
 
@@ -55,9 +55,9 @@ Milkdown 官方资料：[React 集成](https://milkdown.dev/docs/recipes/react)�
 
 解析以源码语法树及节点位置为准，不能从 Astro 渲染后的 HTML 反推 Markdown/MDX。对不支持的节点保存原始文本片段与来源位置；编辑周围的普通正文时，这些片段必须逐字节保持。已修改的标准 Markdown 区域可规范化空白或围栏形式，但内容与结构必须保持；不能承诺改动区域字节级一致。MDX 卡片内编辑源码时，应只替换该片段，不重排邻近代码。未修改的文章不得因为打开页面、切换模式或生成预览而写回文件。
 
-可写前先用 `.md`/`.mdx` 解析器及 Mizuki 扩展规则做节点识别和往返检查。未知语法、重叠的源码范围、无法确定边界的 JSX/表达式或检查失败时，局部卡片保持源码模式；如果整篇文档无法安全分段，则退回完整源码模式。不能只靠全局正则扫描，也不能让 Milkdown 对未知节点执行默认序列化。保存候选正文还须由与连接项目相同的 Astro/MDX 处理链编译验证，失败时保留草稿和原文件，不提交写入。
+可写前先用 `.md`/`.mdx` 解析器及 Mizuki 扩展规则做节点识别和往返检查。未知语法、重叠的源码范围、无法确定边界的 JSX/表达式或检查失败时，局部卡片保持源码模式；如果整篇文档无法安全分段，则退回完整源码模式。不能只靠全局正则扫描，也不能让 Milkdown 对未知节点执行默认序列化。`.md` 保存前执行单篇 Markdown 管线校验；`.mdx` 只做 MDX 语法与原文保护检查，组件导入、运行和 Astro 集成的最终正确性须由现有真实预览或发布检查确认，不能在本功能中保证。
 
-真实效果有明确边界：使用相同项目源码、配置、依赖、正文样式、浏览器环境、主题状态、内容宽度与资源版本时，离线构建产物应与 Mizuki 的对应正文一致。依赖外部服务的 PlantUML、远程图片或动态组件，其结果可能随网络、时间和浏览器状态变化。对于任意第三方组件，不承诺编辑区内像素级一致；“真实正文效果”只指同一项目构建产物的只读显示。无法完成同源构建时应报告不支持或失败，不能退化成自制渲染后仍标称一致。
+预览有明确边界：`.md` 处理器尽量沿用相同插件顺序、配置、正文 CSS、主题变量和资源路径；对代码块、图片、Mermaid、PlantUML 等按真实文章逐项比对。Astro 集成在构建时追加的处理、资源打包、运行脚本和外部服务可能产生差异，因此界面将其称为“单篇 Markdown 预览”，不标称与 Mizuki 页面逐像素完全一致。差异清单和不支持语法须可见，不能静默显示错误效果。
 
 ## 数据与保存流程
 
@@ -66,21 +66,22 @@ Milkdown 官方资料：[React 集成](https://milkdown.dev/docs/recipes/react)�
   ├─ Frontmatter 编辑：沿用现有键值行与保存接口
   ├─ 完整源码编辑：沿用原始全文与保存接口
   └─ 混合正文：提取 body → 解析为可视化节点/原文卡片 → 编辑草稿
-                      ├─ 暂停输入约 1 秒 → 隔离快照 → 无 HTTP 端口的后台编译
-                      │                     → 版本化 HTML/CSS/资源 → 只读正文视图
+                      ├─ 若为 .md：暂停输入约 1 秒 → 单篇 Markdown 管线
+                      │            → HTML + 正文样式与资源解析 → 只读预览
                       └─ 显式保存 → 局部序列化与原文片段复检
-                                    → 同源编译校验 → version 检查
+                                    → .md 单篇渲染校验 / .mdx 语法校验
+                                    → version 检查
                                     → 原 Frontmatter 字节 + 新 body
                                     → 备份/原子写入 → 新 version
 ```
 
-新增正文专用保存接口，例如 `PUT /api/article/body`，请求携带文章 ID、读取时的 `version` 和新正文。服务端须从当前原文分割 Frontmatter 与正文，确认版本未变化后只替换正文，保留 BOM、Frontmatter、换行约定和未修改字段；继续走现有的项目路径校验、备份和原子写入。源码保存仍使用当前全文接口。独立内容仓库模式复用同一内容路径解析规则，不能只针对 Mizuki 内置 `src/content/posts/` 实现。候选文章先在隔离快照中通过同源编译，再执行最终版本复检与写入；若依赖或版本在此期间变化，应报告过期并重试校验，不覆盖原文件。
+新增正文专用保存接口，例如 `PUT /api/article/body`，请求携带文章 ID、读取时的 `version` 和新正文。服务端须从当前原文分割 Frontmatter 与正文，确认版本未变化后只替换正文，保留 BOM、Frontmatter、换行约定和未修改字段；继续走现有的项目路径校验、备份和原子写入。源码保存仍使用当前全文接口。独立内容仓库模式复用同一内容路径解析规则，不能只针对 Mizuki 内置 `src/content/posts/` 实现。`.md` 候选正文经单篇渲染器校验、`.mdx` 经语法解析后，再做最终版本复检与写入；失败时保留草稿和原文件。
 
 前端分别保存 Frontmatter、正文和源码的草稿与脏状态。模式切换只改变视图，不隐式保存或丢弃草稿；混合编辑与源码切换应局部序列化到内存全文草稿并重新解析。保存成功后用服务端返回的全文、`version` 和文章记录刷新基线；遇到版本冲突时保留用户草稿，给出重新加载或复制内容的选择，不自动覆盖外部改动。离开文章或关闭页面时提示未保存变更。
 
-草稿编译器为每次输入生成递增修订号；只编译最新的稳定快照，取消或忽略过期任务。构建产物放入面板管理的缓存目录，由面板现有服务只读提供；不能覆盖 Mizuki 的 `dist`，也不能让内容同步脚本把未保存草稿写入真实仓库。独立内容仓库要在隔离快照中按 Mizuki 的同步契约组装内容。编译任务必须记录输入文件、配置与依赖指纹，避免展示对应其他项目、旧配置或旧草稿的结果。
+`.md` 预览为每次输入生成递增修订号；只渲染最新的稳定正文，取消或忽略过期任务。结果由面板现有服务只读提供，或在受限 iframe 中展示；相对图片、Wiki Link 等需要通过当前文章路径及本地/独立内容仓库映射解析。未保存内容仅在内存中传给单篇渲染器，不改 Mizuki 的 `dist` 和任何真实文章。处理器缓存要按项目、配置与依赖指纹失效，避免展示旧主题或旧插件效果。
 
-该工作进程不能监听 Mizuki HTTP 预览端口；复用 Astro/MDX 编译器、渲染插件和组件并不等于自行重写另一套渲染器。完整构建作为对照基线；数秒级草稿刷新需要可复用的编译上下文与缓存。Astro 官方程序化接口仍属实验性，因此首阶段必须证明当前 Mizuki 版本能在此约束下编译 `.md`、`.mdx` 与项目组件，并测量延迟。原型达不到条件时应暂停“完全一致且数秒更新”的承诺，向用户报告，不以近似渲染替代。
+此流程不调用 Astro `build()`、`dev()` 或 `preview()`。单篇渲染器复用或适配 Mizuki 的 Markdown 插件、配置和样式，不执行 MDX 项目组件。首阶段要证明当前版本的插件能在独立的 `.md` 管线中加载，并测量实际输入到预览更新的延迟；遇到只能在 Astro 环境中工作的插件，应记录差异并提供受控降级，不声称完全一致。
 
 ## 模块边界
 
@@ -90,41 +91,38 @@ Milkdown 官方资料：[React 集成](https://milkdown.dev/docs/recipes/react)�
 - 文章格式纯逻辑：Frontmatter/正文分割与合并、语法树分段、原始片段保持和结构往返检查；可独立测试，不依赖 React 或文件系统。
 - `src/server/routes/articles.ts`：正文接口的参数与错误映射。
 - `src/lib/server/articles.ts`：按版本替换正文并复用备份/写入流程。
-- 独立的草稿编译服务模块：隔离项目快照、任务调度、同源编译、缓存与只读产物路由；不把任务管理写进 React 页面或文章保存服务。
-- 现有 `FrontmatterEditor` 和完整源码入口保留。真实正文效果使用 Mizuki 的原有处理链，不嵌入第二套自行维护的渲染规则。
+- 单篇 Markdown 渲染服务模块：插件适配、处理器缓存、修订调度、资源路径解析和受限预览输出；不把任务管理写进 React 页面或文章保存服务。
+- 现有 `FrontmatterEditor`、完整源码入口和可选的 Astro 真实预览保留；单篇 `.md` 预览尽量复用 Mizuki 的处理链，并明确其与最终站点之间的差异。
 
 ## 难点与工程约束
 
-1. **无服务的增量编译，难度很高。** Astro 的公开构建 API 可做完整离线构建，但每次输入后完整构建全站不具备可靠的数秒响应。要复用编译上下文、只更新受影响文章及其依赖，需要先验证当前 Astro/Vite 版本在不监听 HTTP 端口时可行；不能根据普通 Markdown 的速度推断复杂 MDX 的速度。
+1. **单篇插件兼容，难度高。** Mizuki 的 Markdown 配置包含自定义 remark/rehype 插件及站点参数，部分插件读取项目文件或期待特定上下文。需要在不运行 Astro 的条件下加载相同顺序与配置，并对不兼容项明确降级。`createMarkdownProcessor()` 虽存在于当前安装包，仍需验证版本稳定性。
 2. **原文安全，难度很高。** MDX 表达式与 JSX 可嵌套 Markdown，Mizuki 指令与代码元数据也有专用语义。节点位置、局部修改范围和原文保留必须通过真实样本与往返测试，否则保存可能改写未触及的组件或属性。
-3. **正文视觉一致，难度高。** CSS 变量、主题、字体、内容宽度、相对图片、代码块脚本、图表与组件水合需要来自同一次 Mizuki 构建。单独复制 CSS 或只运行 remark/rehype，均不足以证明与最终正文一致。
-4. **隔离和更新，难度高。** 未保存草稿要在独立快照中解析相对导入与媒体；独立内容仓库还要在快照中按同步契约映射。缓存和任务取消必须防止旧文章、旧配置或旧修订的结果误显示。
-5. **外部依赖无法绝对锁定。** PlantUML 服务、远程图片和运行时第三方组件的内容可能变化。验收以固定环境和固定资源的 Mizuki 构建结果为对照；无法控制的外部差异应明确显示，不作为面板编辑原文的依据。
+3. **正文视觉一致，难度高。** 正文 CSS、Tailwind/Stylus 产物、主题变量、字体、相对图片、Expressive Code、图表和交互脚本可能不属于纯 remark/rehype 输出。单篇预览需要逐项适配与对照，接受已知差异。
+4. **路径和更新，难度中高。** Wiki Link、图片与附件依赖文章路径和本地/独立仓库模式；处理器缓存和任务取消要避免旧配置或旧草稿结果误显示。
+5. **MDX 最终运行不在此范围。** MDX 混合编辑只保证原文片段安全及语法检查；组件导入、JSX 表达式和客户端行为仍须通过 Mizuki 的真实预览或发布检查验证。
 
-## 实施计划：暂估 16 个阶段
+## 实施计划：暂估 13 个阶段
 
-此前只覆盖标准 Markdown 的方案为 5 个阶段；加入 Mizuki 扩展语法和 MDX 混合编辑后约为 10 个阶段，再加入“未保存草稿数秒内生成同源正文效果、且不启动 Mizuki 服务”约需 6 个阶段，故暂估 16 个阶段。草稿编译的可行性和时延须在第 1 阶段实测，阶段数可能随原型结果调整。每个阶段以可验证的功能边界结束，并按 Conventional Commits 单独提交；提交标题不写 `stage-1` 等工程周期字眼。
+此前只覆盖标准 Markdown 的方案为 5 个阶段；加入 Mizuki 扩展语法和 MDX 混合编辑后约为 10 个阶段，再加入“仅 `.md` 单篇实时渲染”约需 3 个阶段，故暂估 13 个阶段。无需 Astro 全站构建及隔离项目快照。插件兼容性和时延须在第 1 阶段实测，阶段数可能随原型结果调整。每个阶段以可验证的功能边界结束，并按 Conventional Commits 单独提交；提交标题不写 `stage-1` 等工程周期字眼。
 
 | 阶段 | 重点实现 | 验收条件 | 提交示例 |
 | --- | --- | --- | --- |
-| 1. 离线编译可行性 | 为当前 Astro 版本做无 HTTP 端口的 `.md`/`.mdx` 草稿编译原型与耗时测量。 | 组件、插件、CSS 和资源能从隔离快照生成；与同一快照的 Mizuki 构建结果对照；记录冷/热启动延迟和阻碍。 | `chore(preview): validate offline Astro compilation` |
+| 1. 单篇渲染可行性 | 以真实 `.md` 样本验证 Markdown 处理器、Mizuki 插件顺序与草稿耗时。 | 不启动 Astro、不构建全站；记录可复用插件、差异及更新延迟。 | `chore(preview): validate single article rendering` |
 | 2. 原文保护 | Frontmatter/正文分割、MDX 与扩展语法树分段、原文卡片和来源范围。 | 未修改片段逐字节一致；未知节点不能被默认序列化吞掉。 | `feat(articles): preserve custom source fragments` |
-| 3. 保存契约 | 正文专用 API、版本冲突、候选编译校验与备份。 | Frontmatter/BOM/换行保留；编译失败或版本冲突不写入原文件。 | `feat(articles): validate body before saving` |
+| 3. 保存契约 | 正文专用 API、版本冲突、`.md` 渲染校验、`.mdx` 语法校验与备份。 | Frontmatter/BOM/换行保留；校验失败或版本冲突不写入原文件。 | `feat(articles): validate body before saving` |
 | 4. 基础混合编辑 | Milkdown、标准 Markdown、模式切换和草稿状态。 | 输入后即时排版；源码来回切换不丢内容。 | `feat(articles): add visual Markdown editing` |
 | 5. GFM 与媒体 | 表格、任务列表、链接、图片和媒体库引用。 | 保存重开后结构、资源路径与内容一致。 | `feat(articles): support tables and media` |
 | 6. 工具与快捷键 | MUI 工具栏、格式状态、输入规则、撤销/重做和快捷键。 | `Ctrl+B`、`Ctrl+Shift+K`、中文输入法及窄屏交互正常。 | `feat(articles): add formatting shortcuts` |
 | 7. 指令块 | Mizuki 提示块、GitHub 卡片和图片网格节点。 | 属性与子内容可编辑；未触及源码片段原样保留。 | `feat(articles): edit directive blocks visually` |
 | 8. 行内扩展 | Wiki Link、Spoiler 与 GitHub 风格提示块。 | 文本和目标可编辑，保存后由 Mizuki 正常解析。 | `feat(articles): edit custom inline syntax` |
-| 9. 数学与图表 | 行内/块级公式、Mermaid 和 PlantUML 节点。 | 源码、主题与资源引用保持；编译失败给出原位置。 | `feat(articles): edit math and diagram blocks` |
-| 10. 代码增强 | 语言标识、Expressive Code 参数与代码组。 | 代码内容和元数据不丢失，离线结果与 Mizuki 对照。 | `feat(articles): preserve enhanced code blocks` |
-| 11. MDX 结构 | 解析 `import`/`export`、JSX、表达式与 HTML，接入原文卡片。 | 任意未知组件与表达式可与普通段落同页编辑，原文保持。 | `feat(articles): support MDX source islands` |
-| 12. MDX 组件卡片 | 对已识别组件提供可视化卡片与静态属性编辑。 | 动态属性仍用局部源码；改动不能重排其他 MDX 代码。 | `feat(articles): add MDX component cards` |
-| 13. 草稿快照 | 在面板缓存中组装本地/独立仓库内容，隔离未保存草稿和项目源文件。 | 输入或预览不会修改真实文章、Mizuki `dist` 或独立内容仓库。 | `feat(preview): isolate article draft builds` |
-| 14. 同源正文展示 | 将编译 HTML、CSS、脚本、字体和图片作为版本化产物交给面板只读展示。 | 同视口、主题和资源条件下，样本正文与 Mizuki 构建结果一致。 | `feat(preview): display compiled article body` |
-| 15. 增量刷新 | 输入暂停后调度、缓存复用、修订号校验、过期任务取消和错误状态。 | 不启动 Mizuki HTTP 服务；代表性样本在暂停输入后数秒更新，旧结果不能覆盖新草稿。 | `perf(preview): refresh compiled drafts incrementally` |
-| 16. 发布回归 | 真实文章、本地/独立仓库、主题、MDX、外部资源、失败恢复与截图对照。 | `pnpm check`、`pnpm test`、`pnpm build` 通过；未触及原文不变；候选文章在 Mizuki 同源编译中通过。 | `test(articles): verify mixed editor parity` |
+| 9. 数学、图表与代码 | 行内/块级公式、Mermaid、PlantUML、Expressive Code 参数和代码组节点。 | 源码与元数据保持；已支持效果和 Mizuki 对照，差异明确。 | `feat(articles): edit rich Markdown blocks` |
+| 10. MDX 结构 | 解析 `import`/`export`、JSX、表达式与 HTML，接入原文卡片。 | 任意未知组件与表达式可与普通段落同页编辑，原文保持。 | `feat(articles): support MDX source islands` |
+| 11. MDX 组件卡片 | 对已识别组件提供可视化卡片与静态属性编辑。 | 动态属性仍用局部源码；改动不能重排其他 MDX 代码。 | `feat(articles): add MDX component cards` |
+| 12. `.md` 即时预览 | 单篇 Markdown 管线、正文样式与资源解析、输入防抖、过期结果取消。 | 暂停输入后数秒显示当前 `.md` 草稿；不启动 Astro；`.mdx` 明示不可用。 | `feat(preview): render Markdown drafts individually` |
+| 13. 发布回归 | 真实文章、本地/独立仓库、主题、MDX 原文、失败恢复与截图对照。 | `pnpm check`、`pnpm test`、`pnpm build` 通过；未触及原文不变；`.md` 已知差异有记录。 | `test(articles): verify mixed editor safety` |
 
-第 1 阶段是可行性门槛。若当前 Astro 版本无法在不提供 HTTP 服务的条件下实现同源且数秒级的草稿编译，应先报告实测结果并修订目标与阶段，而不是继续实现一个声称“完全一致”的替代渲染器。第 16 阶段验收通过后才把本功能视作可发布。开发实现主要位于 MizukiPanel；测试使用隔离快照，不修改真实 Mizuki 文章。
+第 1 阶段是单篇插件兼容性门槛。若部分 Mizuki 插件无法脱离 Astro 运行，应报告具体差异并明确预览范围；不得把不一致结果标称为最终站点效果。第 13 阶段验收通过后才把本功能视作可发布。开发实现主要位于 MizukiPanel；测试不会修改真实 Mizuki 文章。
 
 ## 主要验收样本
 
@@ -132,5 +130,5 @@ Milkdown 官方资料：[React 集成](https://milkdown.dev/docs/recipes/react)�
 2. 一篇含未知 Frontmatter 字段、注释、`tags: [a, b]` 与正文图片的 `.md`：只改正文后 Frontmatter 原样保留。
 3. 一篇含 `:::warning`、Wiki Link、数学公式、Mermaid 的文章，以及一篇有 `import`、组件和动态表达式的 `.mdx`：已适配节点可视化，未知片段保留局部源码；切换或查看不会改写原文件。
 4. 编辑期间由外部修改同一文章：保存报版本冲突，原文件与用户草稿都不丢失。
-5. 本地内容和独立内容仓库各验证读取、正文保存、资源引用与隔离草稿编译；桌面/窄屏和浅色/深色主题截图检查编辑区与同源正文效果。
-6. 连续输入、编译中再次修改、失败后修正、切换项目与断网：显示草稿修订与过期状态，不覆盖新草稿，不把旧结果误标为当前真实效果。
+5. 本地内容和独立内容仓库各验证读取、正文保存、资源引用与单篇 `.md` 预览；桌面/窄屏和浅色/深色主题截图检查编辑区与预览差异。
+6. 连续输入、渲染中再次修改、失败后修正、切换项目与断网：显示草稿修订与过期状态，不覆盖新草稿；`.mdx` 不显示错误的 Markdown 预览。
