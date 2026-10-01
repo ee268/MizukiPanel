@@ -11,8 +11,9 @@ interface ArticlePageHeaderProps {
   onCreate: () => void;
 }
 
-const positionTransition =
-  "left 360ms cubic-bezier(0.2, 0, 0, 1), transform 360ms cubic-bezier(0.2, 0, 0, 1)";
+const positionTransition = "transform 360ms cubic-bezier(0.2, 0, 0, 1)";
+const toRight = "translate(calc(100cqw - 100%), -50%)";
+const toLeft = "translate(0, -50%)";
 
 export function ArticlePageHeader({
   editing,
@@ -23,25 +24,33 @@ export function ArticlePageHeader({
   onCreate,
 }: ArticlePageHeaderProps) {
   return (
-    <Box sx={{ position: "relative", minHeight: { xs: 80, sm: 72 } }}>
+    <Box sx={{ position: "relative", containerType: "inline-size", minHeight: 88 }}>
       <Box
         sx={{
           position: "absolute",
           top: "50%",
-          left: editing ? "100%" : 0,
-          transform: editing ? "translate(-100%, -50%)" : "translateY(-50%)",
-          textAlign: editing ? "right" : "left",
+          left: 0,
+          transform: editing ? toRight : toLeft,
           whiteSpace: "nowrap",
           transition: positionTransition,
           "@media (prefers-reduced-motion: reduce)": { transition: "none" },
         }}
       >
         <Typography variant="h4">文章管理</Typography>
-        {!editing && (
-          <Typography color="text.secondary">
-            {mode === "external" ? "独立内容仓库" : "本地内容"} · {count} 篇文章
-          </Typography>
-        )}
+        <Typography
+          color="text.secondary"
+          aria-hidden={editing}
+          sx={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            opacity: editing ? 0 : 1,
+            transition: "opacity 180ms ease",
+            "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+          }}
+        >
+          {mode === "external" ? "独立内容仓库" : "本地内容"} · {count} 篇文章
+        </Typography>
       </Box>
 
       <Button
@@ -55,8 +64,8 @@ export function ArticlePageHeader({
         sx={{
           position: "absolute",
           top: "50%",
-          left: editing ? 0 : "100%",
-          transform: editing ? "translateY(-50%)" : "translate(-100%, -50%)",
+          left: 0,
+          transform: editing ? toLeft : toRight,
           opacity: editing ? 1 : 0,
           pointerEvents: editing ? "auto" : "none",
           whiteSpace: "nowrap",
