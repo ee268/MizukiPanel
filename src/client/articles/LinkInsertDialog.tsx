@@ -14,20 +14,27 @@ import { validLinkReference } from "./article-link";
 interface LinkInsertDialogProps {
   open: boolean;
   selectedText: string;
+  selectedHref: string;
   onClose: () => void;
   onInsert: (label: string, href: string) => void;
 }
 
-export function LinkInsertDialog({ open, selectedText, onClose, onInsert }: LinkInsertDialogProps) {
+export function LinkInsertDialog({
+  open,
+  selectedText,
+  selectedHref,
+  onClose,
+  onInsert,
+}: LinkInsertDialogProps) {
   const [label, setLabel] = useState("");
   const [href, setHref] = useState("");
 
   useEffect(() => {
     if (open) {
       setLabel(selectedText);
-      setHref("");
+      setHref(selectedHref);
     }
-  }, [open, selectedText]);
+  }, [open, selectedText, selectedHref]);
 
   const valid = Boolean(label.trim()) && validLinkReference(href);
 

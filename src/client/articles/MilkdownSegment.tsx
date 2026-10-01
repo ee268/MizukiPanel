@@ -1,12 +1,21 @@
-import { Editor, defaultValueCtx, editorViewOptionsCtx, rootCtx } from "@milkdown/kit/core";
+import {
+  Editor,
+  defaultValueCtx,
+  editorViewCtx,
+  editorViewOptionsCtx,
+  rootCtx,
+} from "@milkdown/kit/core";
+import { history } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { Box, Typography } from "@mui/material";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { SourceSegment } from "../../lib/articles/source-islands";
 import { mediaPreviewUrl } from "./article-media";
+import { readFormatState, type EditorFormatState } from "./editor-format";
+import { articleShortcut, type EditorShortcut } from "./editor-shortcuts";
 
 interface MilkdownSegmentProps {
   articleId: string;
@@ -15,6 +24,8 @@ interface MilkdownSegmentProps {
   onChange: (markdown: string) => void;
   onFocus: () => void;
   onReady: (editor: Editor | null) => void;
+  onFormatChange: (format: EditorFormatState) => void;
+  onShortcut: (shortcut: EditorShortcut) => void;
 }
 
 function SegmentEditor({
@@ -24,11 +35,17 @@ function SegmentEditor({
   onChange,
   onFocus,
   onReady,
+  onFormatChange,
+  onShortcut,
 }: MilkdownSegmentProps) {
   const onChangeRef = useRef(onChange);
   const onReadyRef = useRef(onReady);
+  const onFormatChangeRef = useRef(onFormatChange);
+  const onShortcutRef = useRef(onShortcut);
   onChangeRef.current = onChange;
   onReadyRef.current = onReady;
+  onFormatChangeRef.current = onFormatChange;
+  onShortcutRef.current = onShortcut;
   const currentMarkdown = useRef(segment.raw);
   const { get, loading } = useEditor(
     (root) =>
@@ -126,9 +143,15 @@ function SegmentEditor({
               onChangeRef.current(markdown);
             }
           });
+          const updateFormat = () => {
+            onFormatChangeRef.current(readFormatState(ctx.get(editorViewCtx).state));
+          };
+          ctx.get(listenerCtx).selectionUpdated(updateFormat);
+          ctx.get(listenerCtx).updated(updateFormat);
         })
         .use(commonmark)
         .use(gfm)
+        .use(history)
         .use(listener),
     [articleId, readOnly],
   );
@@ -144,9 +167,27 @@ function SegmentEditor({
     return () => onReadyRef.current(null);
   }, [loading]);
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (
+      (event.nativeEvent.isComposing || event.keyCode === 229) &&
+      (event.ctrlKey || event.metaKey)
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    const shortcut = articleShortcut(event);
+    if (shortcut && shortcut !== "save") {
+      event.preventDefault();
+      event.stopPropagation();
+      onShortcutRef.current(shortcut);
+    }
+  }
+
   return (
     <Box
       onFocusCapture={onFocus}
+      onKeyDownCapture={handleKeyDown}
       sx={{
         "& .milkdown .editor": {
           minHeight: 56,

@@ -1,5 +1,4 @@
 import type { Editor } from "@milkdown/kit/core";
-import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import { useRef, useState } from "react";
 import {
@@ -8,15 +7,25 @@ import {
   type SourceSegment,
 } from "../../lib/articles/source-islands";
 import type { ArticleRecord } from "../types";
-import { ArticleInsertBar } from "./ArticleInsertBar";
+import { ArticleFormatToolbar } from "./ArticleFormatToolbar";
 import { preserveSegmentBoundary } from "./article-draft";
 import {
   insertArticleImage,
   insertArticleLink,
   insertArticleTable,
   insertArticleTask,
+  selectedEditorLink,
   selectedEditorText,
 } from "./editor-commands";
+import {
+  editorFormatState,
+  emptyFormatState,
+  runFormatAction,
+  setArticleHeading,
+  type EditorFormatState,
+  type FormatAction,
+} from "./editor-format";
+import type { EditorShortcut } from "./editor-shortcuts";
 import { ImagePickerDialog } from "./ImagePickerDialog";
 import { LinkInsertDialog } from "./LinkInsertDialog";
 import { MilkdownSegment } from "./MilkdownSegment";
@@ -50,11 +59,43 @@ export function VisualBodyEditor({
   const [linkOpen, setLinkOpen] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
   const [selectedText, setSelectedText] = useState("");
+  const [selectedHref, setSelectedHref] = useState("");
   const [insertError, setInsertError] = useState("");
+  const [formats, setFormats] = useState(new Map<number, EditorFormatState>());
+  const format =
+    activeSegmentId === null
+      ? emptyFormatState
+      : (formats.get(activeSegmentId) ?? emptyFormatState);
+
+  function updateFormat(id: number, next: EditorFormatState) {
+    setFormats((current) => {
+      const previous = current.get(id);
+      if (
+        previous &&
+        Object.keys(next).every(
+          (key) =>
+            previous[key as keyof EditorFormatState] === next[key as keyof EditorFormatState],
+        )
+      ) {
+        return current;
+      }
+      const updated = new Map(current);
+      updated.set(id, next);
+      return updated;
+    });
+  }
+
+  function refreshFormat(id: number, editor: Editor) {
+    updateFormat(id, editorFormatState(editor));
+  }
 
   function selectSegment(id: number) {
     setActiveSegmentId(id);
-    setActiveEditor(editors.current.get(id) ?? null);
+    const editor = editors.current.get(id) ?? null;
+    setActiveEditor(editor);
+    if (editor) {
+      refreshFormat(id, editor);
+    }
   }
 
   function registerSegment(id: number, editor: Editor | null) {
@@ -65,6 +106,38 @@ export function VisualBodyEditor({
     }
     if (id === activeSegmentId) {
       setActiveEditor(editor);
+    }
+    if (editor) {
+      refreshFormat(id, editor);
+    }
+  }
+
+  function formatAction(action: FormatAction) {
+    if (!activeEditor || busy || readOnly) {
+      return;
+    }
+    if (runFormatAction(activeEditor, action) && activeSegmentId !== null) {
+      refreshFormat(activeSegmentId, activeEditor);
+    }
+  }
+
+  function headingAction(level: number) {
+    if (activeEditor && !busy && !readOnly) {
+      setArticleHeading(activeEditor, level);
+      if (activeSegmentId !== null) {
+        refreshFormat(activeSegmentId, activeEditor);
+      }
+    }
+  }
+
+  function handleShortcut(shortcut: EditorShortcut) {
+    if (busy || readOnly) {
+      return;
+    }
+    if (shortcut === "link") {
+      openLink();
+    } else if (shortcut !== "save") {
+      formatAction(shortcut);
     }
   }
 
@@ -85,7 +158,9 @@ export function VisualBodyEditor({
 
   function openLink() {
     if (activeEditor) {
-      setSelectedText(selectedEditorText(activeEditor));
+      const existing = selectedEditorLink(activeEditor);
+      setSelectedText(selectedEditorText(activeEditor) || existing?.label || "");
+      setSelectedHref(existing?.href ?? "");
       setLinkOpen(true);
     }
   }
@@ -136,12 +211,17 @@ export function VisualBodyEditor({
       <Alert severity="info">
         普通 Markdown 可直接编辑。Mizuki 扩展语法与 MDX 暂以原文卡片保护；编辑它们请切换完整源码。
       </Alert>
-      <ArticleInsertBar
+      <ArticleFormatToolbar
         disabled={!activeEditor || busy || readOnly}
+        saving={busy || readOnly}
+        format={format}
+        onAction={formatAction}
+        onHeading={headingAction}
         onTable={insertTable}
         onTask={insertTask}
         onLink={openLink}
         onImage={() => setImageOpen(true)}
+        onSave={onSave}
       />
       {insertError && (
         <Alert severity="warning" onClose={() => setInsertError("")}>
@@ -160,6 +240,8 @@ export function VisualBodyEditor({
                 onChange={(markdown) => updateSegment(segment, markdown)}
                 onFocus={() => selectSegment(segment.id)}
                 onReady={(editor) => registerSegment(segment.id, editor)}
+                onFormatChange={(next) => updateFormat(segment.id, next)}
+                onShortcut={handleShortcut}
               />
             ) : (
               <Paper
@@ -179,19 +261,10 @@ export function VisualBodyEditor({
           )}
         </Stack>
       </Paper>
-      <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
-        <Button
-          variant="contained"
-          startIcon={<SaveOutlined />}
-          onClick={onSave}
-          disabled={busy || readOnly}
-        >
-          保存正文
-        </Button>
-      </Stack>
       <LinkInsertDialog
         open={linkOpen}
         selectedText={selectedText}
+        selectedHref={selectedHref}
         onClose={() => setLinkOpen(false)}
         onInsert={addLink}
       />

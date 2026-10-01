@@ -2,6 +2,7 @@ import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import DriveFileRenameOutline from "@mui/icons-material/DriveFileRenameOutline";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
+import type { KeyboardEvent } from "react";
 import {
   Alert,
   Box,
@@ -17,6 +18,7 @@ import {
 import type { ArticleRecord } from "../types";
 import { FrontmatterEditor } from "./FrontmatterEditor";
 import { VisualBodyEditor } from "./VisualBodyEditor";
+import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
 
 interface ArticleEditorProps {
@@ -60,6 +62,23 @@ export function ArticleEditor({
   onSaveSource,
   onSaveBody,
 }: ArticleEditorProps) {
+  function handleSaveShortcut(event: KeyboardEvent<HTMLDivElement>) {
+    if (!event.currentTarget.contains(event.target as Node) || articleShortcut(event) !== "save") {
+      return;
+    }
+    event.preventDefault();
+    if (busy || readOnly) {
+      return;
+    }
+    if (mode === "frontmatter" && !article?.error) {
+      onSaveFrontmatter();
+    } else if (mode === "visual" && !article?.error) {
+      onSaveBody();
+    } else {
+      onSaveSource();
+    }
+  }
+
   if (!article) {
     return (
       <Paper variant="outlined" sx={{ p: 8, textAlign: "center" }}>
@@ -72,8 +91,8 @@ export function ArticleEditor({
   }
 
   return (
-    <Stack spacing={2}>
-      <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+    <Stack spacing={2} onKeyDownCapture={handleSaveShortcut}>
+      <Paper variant="outlined" sx={{ overflow: "clip" }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
