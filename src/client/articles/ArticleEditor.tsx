@@ -74,9 +74,6 @@ export function ArticleEditor({
         >
           <Box>
             <Typography variant="h5">{article.title}</Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
-              {article.id} · {article.format.toUpperCase()}
-            </Typography>
           </Box>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             {previewPath && (

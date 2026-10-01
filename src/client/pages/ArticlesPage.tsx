@@ -21,11 +21,12 @@ export default function ArticlesPage() {
         >
           <Box>
             <Typography variant="h4">文章管理</Typography>
-            <Typography color="text.secondary">
-              {articles.selectedId && articles.article
-                ? articles.article.title
-                : `${articles.report?.mode === "external" ? "独立内容仓库" : "本地内容"} · ${articles.articles.length} 篇文章`}
-            </Typography>
+            {!articles.selectedId && (
+              <Typography color="text.secondary">
+                {articles.report?.mode === "external" ? "独立内容仓库" : "本地内容"} ·{" "}
+                {articles.articles.length} 篇文章
+              </Typography>
+            )}
           </Box>
           {articles.selectedId ? (
             <Button startIcon={<ArrowBackOutlined />} onClick={articles.showList}>
