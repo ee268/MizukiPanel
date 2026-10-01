@@ -1,10 +1,9 @@
-import AddOutlined from "@mui/icons-material/AddOutlined";
-import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
-import { Alert, Box, Button, Container, Snackbar, Stack, Typography } from "@mui/material";
+import { Alert, Container, Snackbar, Stack } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { ArticleDialogs } from "../articles/ArticleDialogs";
 import { ArticleEditor } from "../articles/ArticleEditor";
 import { ArticleList } from "../articles/ArticleList";
+import { ArticlePageHeader } from "../articles/ArticlePageHeader";
 import { useArticles } from "../articles/useArticles";
 
 export default function ArticlesPage() {
@@ -14,35 +13,14 @@ export default function ArticlesPage() {
   return (
     <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, lg: 3 } }}>
       <Stack spacing={2}>
-        <Stack
-          direction={{ xs: "column", sm: "row" }}
-          spacing={2}
-          sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", sm: "center" } }}
-        >
-          <Box>
-            <Typography variant="h4">文章管理</Typography>
-            {!articles.selectedId && (
-              <Typography color="text.secondary">
-                {articles.report?.mode === "external" ? "独立内容仓库" : "本地内容"} ·{" "}
-                {articles.articles.length} 篇文章
-              </Typography>
-            )}
-          </Box>
-          {articles.selectedId ? (
-            <Button startIcon={<ArrowBackOutlined />} onClick={articles.showList}>
-              返回文章列表
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              startIcon={<AddOutlined />}
-              onClick={() => articles.setCreateOpen(true)}
-              disabled={articles.report?.readOnly}
-            >
-              新建文章
-            </Button>
-          )}
-        </Stack>
+        <ArticlePageHeader
+          editing={Boolean(articles.selectedId)}
+          mode={articles.report?.mode}
+          count={articles.articles.length}
+          readOnly={Boolean(articles.report?.readOnly)}
+          onBack={articles.showList}
+          onCreate={() => articles.setCreateOpen(true)}
+        />
 
         {articles.error && (
           <Alert severity="error" onClose={() => articles.setError("")}>

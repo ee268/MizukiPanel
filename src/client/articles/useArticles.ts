@@ -136,6 +136,7 @@ export function useArticles() {
     if (!selectedId) {
       listScrollPosition.current = window.scrollY;
     }
+    window.scrollTo({ top: 0, behavior: "auto" });
     setParams({ post: id });
   }
 
