@@ -172,6 +172,37 @@ it("leaves the file and version unchanged for a no-op save", async () => {
   expect(await readFile(filename, "utf8")).toBe(source);
 });
 
+it("saves and reloads GFM tables, tasks, links and image references", async () => {
+  const source = "---\ntitle: GFM\npublished: 2026-09-27\n---\n\n# Before\n";
+  const body = [
+    "",
+    "| Name | Value |",
+    "| --- | --- |",
+    "| one | two |",
+    "",
+    "- [x] Finished",
+    "- [ ] Pending",
+    "",
+    "[Guide](https://example.com/guide)",
+    "",
+    "![Local](./assets/photo.png)",
+    "![Public](/images/banner.png)",
+    "",
+  ].join("\n");
+  const { report, filename } = await fixture("external", "nested/gfm.md", source);
+  const initial = await readArticle(report, "nested/gfm.md");
+  const saved = await saveArticleBody(report, initial.id, body, initial.version);
+  const reopened = await readArticle(report, initial.id);
+
+  expect(reopened.source).toBe(source.slice(0, source.indexOf("\n# Before")) + body);
+  expect(reopened.source).toContain("| one | two |");
+  expect(reopened.source).toContain("- [x] Finished");
+  expect(reopened.source).toContain("![Local](./assets/photo.png)");
+  expect(segmentArticleSource(reopened.source, "md").mode).toBe("hybrid");
+  expect(await readFile(filename, "utf8")).toBe(reopened.source);
+  await rm(saved.backupPath!, { force: true });
+});
+
 const realPost = path.resolve(process.cwd(), "../Mizuki/src/content/posts/Qt框架功能概述.md");
 it.skipIf(!existsSync(realPost))("validates a copy of a real Mizuki Markdown article", async () => {
   const original = await readFile(realPost, "utf8");

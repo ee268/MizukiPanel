@@ -1,10 +1,6 @@
-import { Editor, defaultValueCtx, editorViewOptionsCtx, rootCtx } from "@milkdown/kit/core";
-import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
-import { commonmark } from "@milkdown/kit/preset/commonmark";
-import { gfm } from "@milkdown/kit/preset/gfm";
-import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
+import type { Editor } from "@milkdown/kit/core";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
-import { Alert, Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import { useRef, useState } from "react";
 import {
   replaceArticleSegments,
@@ -12,7 +8,18 @@ import {
   type SourceSegment,
 } from "../../lib/articles/source-islands";
 import type { ArticleRecord } from "../types";
+import { ArticleInsertBar } from "./ArticleInsertBar";
 import { preserveSegmentBoundary } from "./article-draft";
+import {
+  insertArticleImage,
+  insertArticleLink,
+  insertArticleTable,
+  insertArticleTask,
+  selectedEditorText,
+} from "./editor-commands";
+import { ImagePickerDialog } from "./ImagePickerDialog";
+import { LinkInsertDialog } from "./LinkInsertDialog";
+import { MilkdownSegment } from "./MilkdownSegment";
 
 interface VisualBodyEditorProps {
   article: ArticleRecord;
@@ -22,83 +29,6 @@ interface VisualBodyEditorProps {
   onChange: (source: string) => void;
   onSave: () => void;
   onSourceMode: () => void;
-}
-
-interface MarkdownSegmentProps {
-  segment: SourceSegment;
-  readOnly: boolean;
-  onChange: (markdown: string) => void;
-}
-
-function MarkdownSegment({ segment, readOnly, onChange }: MarkdownSegmentProps) {
-  const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
-  const initialValue = useRef(segment.raw);
-  const { loading } = useEditor(
-    (root) =>
-      Editor.make()
-        .config((ctx) => {
-          ctx.set(rootCtx, root);
-          ctx.set(defaultValueCtx, initialValue.current);
-          ctx.set(editorViewOptionsCtx, { editable: () => !readOnly });
-          ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, previous) => {
-            if (markdown !== previous) {
-              initialValue.current = markdown;
-              onChangeRef.current(markdown);
-            }
-          });
-        })
-        .use(commonmark)
-        .use(gfm)
-        .use(listener),
-    [readOnly],
-  );
-
-  return (
-    <Box
-      sx={{
-        "& .milkdown .editor": {
-          minHeight: 56,
-          outline: "none",
-          fontSize: "1rem",
-          lineHeight: 1.85,
-          color: "text.primary",
-          overflowWrap: "anywhere",
-        },
-        "& .milkdown .editor > :first-of-type": { mt: 0 },
-        "& .milkdown .editor > :last-child": { mb: 0 },
-        "& .milkdown h1, & .milkdown h2, & .milkdown h3": { lineHeight: 1.35 },
-        "& .milkdown h1": { fontSize: "2rem" },
-        "& .milkdown h2": { fontSize: "1.6rem" },
-        "& .milkdown h3": { fontSize: "1.3rem" },
-        "& .milkdown blockquote": {
-          borderLeft: "3px solid",
-          borderColor: "primary.main",
-          pl: 2,
-          ml: 0,
-          color: "text.secondary",
-        },
-        "& .milkdown pre": {
-          p: 2,
-          borderRadius: 1,
-          overflowX: "auto",
-          backgroundColor: "action.hover",
-        },
-        "& .milkdown code": { fontFamily: "monospace" },
-        "& .milkdown img": { maxWidth: "100%" },
-        "& .milkdown table": { borderCollapse: "collapse", display: "block", overflowX: "auto" },
-        "& .milkdown td, & .milkdown th": {
-          border: "1px solid",
-          borderColor: "divider",
-          px: 1.5,
-          py: 0.75,
-        },
-      }}
-    >
-      {loading && <Typography color="text.secondary">正在加载编辑器…</Typography>}
-      <Milkdown />
-    </Box>
-  );
 }
 
 export function VisualBodyEditor({
@@ -112,6 +42,69 @@ export function VisualBodyEditor({
 }: VisualBodyEditorProps) {
   const [snapshot] = useState(() => segmentArticleSource(source, article.format));
   const replacements = useRef(new Map<number, string>());
+  const editors = useRef(new Map<number, Editor>());
+  const [activeSegmentId, setActiveSegmentId] = useState<number | null>(
+    snapshot.segments.find((segment) => segment.mode === "editable")?.id ?? null,
+  );
+  const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const [insertError, setInsertError] = useState("");
+
+  function selectSegment(id: number) {
+    setActiveSegmentId(id);
+    setActiveEditor(editors.current.get(id) ?? null);
+  }
+
+  function registerSegment(id: number, editor: Editor | null) {
+    if (editor) {
+      editors.current.set(id, editor);
+    } else {
+      editors.current.delete(id);
+    }
+    if (id === activeSegmentId) {
+      setActiveEditor(editor);
+    }
+  }
+
+  function insertTable() {
+    if (activeEditor && !insertArticleTable(activeEditor)) {
+      setInsertError("当前光标位置无法插入表格，请选择正文中的普通段落。");
+    } else {
+      setInsertError("");
+    }
+  }
+
+  function insertTask() {
+    if (activeEditor) {
+      insertArticleTask(activeEditor);
+      setInsertError("");
+    }
+  }
+
+  function openLink() {
+    if (activeEditor) {
+      setSelectedText(selectedEditorText(activeEditor));
+      setLinkOpen(true);
+    }
+  }
+
+  function addLink(label: string, href: string) {
+    if (activeEditor) {
+      insertArticleLink(activeEditor, label, href);
+      setLinkOpen(false);
+    }
+  }
+
+  function addImage(alt: string, src: string) {
+    if (activeEditor && insertArticleImage(activeEditor, alt, src)) {
+      setImageOpen(false);
+      setInsertError("");
+    } else {
+      setInsertError("当前光标位置无法插入图片，请选择正文中的普通段落。");
+    }
+  }
 
   function updateSegment(segment: SourceSegment, markdown: string) {
     const leftInline = segment.start > 0 && !/[\r\n]/.test(snapshot.body[segment.start - 1]);
@@ -143,17 +136,31 @@ export function VisualBodyEditor({
       <Alert severity="info">
         普通 Markdown 可直接编辑。Mizuki 扩展语法与 MDX 暂以原文卡片保护；编辑它们请切换完整源码。
       </Alert>
+      <ArticleInsertBar
+        disabled={!activeEditor || busy || readOnly}
+        onTable={insertTable}
+        onTask={insertTask}
+        onLink={openLink}
+        onImage={() => setImageOpen(true)}
+      />
+      {insertError && (
+        <Alert severity="warning" onClose={() => setInsertError("")}>
+          {insertError}
+        </Alert>
+      )}
       <Paper variant="outlined" inert={busy} sx={{ p: { xs: 2, md: 3 } }}>
         <Stack spacing={1.5}>
           {snapshot.segments.map((segment) =>
             segment.mode === "editable" ? (
-              <MilkdownProvider key={segment.id}>
-                <MarkdownSegment
-                  segment={segment}
-                  readOnly={readOnly}
-                  onChange={(markdown) => updateSegment(segment, markdown)}
-                />
-              </MilkdownProvider>
+              <MilkdownSegment
+                key={segment.id}
+                articleId={article.id}
+                segment={segment}
+                readOnly={readOnly}
+                onChange={(markdown) => updateSegment(segment, markdown)}
+                onFocus={() => selectSegment(segment.id)}
+                onReady={(editor) => registerSegment(segment.id, editor)}
+              />
             ) : (
               <Paper
                 key={segment.id}
@@ -182,6 +189,18 @@ export function VisualBodyEditor({
           保存正文
         </Button>
       </Stack>
+      <LinkInsertDialog
+        open={linkOpen}
+        selectedText={selectedText}
+        onClose={() => setLinkOpen(false)}
+        onInsert={addLink}
+      />
+      <ImagePickerDialog
+        open={imageOpen}
+        articleId={article.id}
+        onClose={() => setImageOpen(false)}
+        onInsert={addImage}
+      />
     </Stack>
   );
 }

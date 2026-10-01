@@ -1,0 +1,212 @@
+import { Editor, defaultValueCtx, editorViewOptionsCtx, rootCtx } from "@milkdown/kit/core";
+import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
+import { commonmark } from "@milkdown/kit/preset/commonmark";
+import { gfm } from "@milkdown/kit/preset/gfm";
+import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
+import { Box, Typography } from "@mui/material";
+import { useEffect, useRef } from "react";
+import type { SourceSegment } from "../../lib/articles/source-islands";
+import { mediaPreviewUrl } from "./article-media";
+
+interface MilkdownSegmentProps {
+  articleId: string;
+  segment: SourceSegment;
+  readOnly: boolean;
+  onChange: (markdown: string) => void;
+  onFocus: () => void;
+  onReady: (editor: Editor | null) => void;
+}
+
+function SegmentEditor({
+  articleId,
+  segment,
+  readOnly,
+  onChange,
+  onFocus,
+  onReady,
+}: MilkdownSegmentProps) {
+  const onChangeRef = useRef(onChange);
+  const onReadyRef = useRef(onReady);
+  onChangeRef.current = onChange;
+  onReadyRef.current = onReady;
+  const currentMarkdown = useRef(segment.raw);
+  const { get, loading } = useEditor(
+    (root) =>
+      Editor.make()
+        .config((ctx) => {
+          ctx.set(rootCtx, root);
+          ctx.set(defaultValueCtx, currentMarkdown.current);
+          ctx.set(editorViewOptionsCtx, {
+            editable: () => !readOnly,
+            nodeViews: {
+              image: (node) => {
+                const dom = document.createElement("img");
+                dom.loading = "lazy";
+
+                function updateImage(src: string, alt: string, title: string) {
+                  const preview = mediaPreviewUrl(articleId, src);
+                  if (preview) {
+                    dom.src = preview;
+                  } else {
+                    dom.removeAttribute("src");
+                  }
+                  dom.alt = alt;
+                  dom.title = title;
+                }
+
+                updateImage(node.attrs.src, node.attrs.alt, node.attrs.title);
+                return {
+                  dom,
+                  update(next) {
+                    if (next.type !== node.type) {
+                      return false;
+                    }
+                    updateImage(next.attrs.src, next.attrs.alt, next.attrs.title);
+                    return true;
+                  },
+                };
+              },
+              list_item: (node, view, getPos) => {
+                const dom = document.createElement("li");
+                const contentDOM = document.createElement("div");
+                const checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.setAttribute("aria-label", "切换任务完成状态");
+                dom.append(contentDOM);
+                let current = node;
+
+                function updateItem(next: typeof node) {
+                  current = next;
+                  const task = next.attrs.checked !== null;
+                  if (task) {
+                    dom.dataset.itemType = "task";
+                    checkbox.checked = Boolean(next.attrs.checked);
+                    if (!checkbox.isConnected) {
+                      dom.insertBefore(checkbox, contentDOM);
+                    }
+                  } else {
+                    delete dom.dataset.itemType;
+                    checkbox.remove();
+                  }
+                }
+
+                checkbox.addEventListener("change", () => {
+                  const position = getPos();
+                  if (typeof position !== "number") {
+                    return;
+                  }
+                  view.dispatch(
+                    view.state.tr.setNodeMarkup(position, undefined, {
+                      ...current.attrs,
+                      checked: checkbox.checked,
+                    }),
+                  );
+                });
+                updateItem(node);
+                return {
+                  dom,
+                  contentDOM,
+                  update(next) {
+                    if (next.type !== node.type) {
+                      return false;
+                    }
+                    updateItem(next);
+                    return true;
+                  },
+                  stopEvent(event) {
+                    return event.target === checkbox;
+                  },
+                };
+              },
+            },
+          });
+          ctx.get(listenerCtx).markdownUpdated((_ctx, markdown, previous) => {
+            if (markdown !== previous) {
+              currentMarkdown.current = markdown;
+              onChangeRef.current(markdown);
+            }
+          });
+        })
+        .use(commonmark)
+        .use(gfm)
+        .use(listener),
+    [articleId, readOnly],
+  );
+  const getRef = useRef(get);
+  getRef.current = get;
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    onReadyRef.current(getRef.current() ?? null);
+    return () => onReadyRef.current(null);
+  }, [loading]);
+
+  return (
+    <Box
+      onFocusCapture={onFocus}
+      sx={{
+        "& .milkdown .editor": {
+          minHeight: 56,
+          outline: "none",
+          fontSize: "1rem",
+          lineHeight: 1.85,
+          color: "text.primary",
+          overflowWrap: "anywhere",
+        },
+        "& .milkdown .editor > :first-of-type": { mt: 0 },
+        "& .milkdown .editor > :last-child": { mb: 0 },
+        "& .milkdown h1, & .milkdown h2, & .milkdown h3": { lineHeight: 1.35 },
+        "& .milkdown h1": { fontSize: "2rem" },
+        "& .milkdown h2": { fontSize: "1.6rem" },
+        "& .milkdown h3": { fontSize: "1.3rem" },
+        "& .milkdown blockquote": {
+          borderLeft: "3px solid",
+          borderColor: "primary.main",
+          pl: 2,
+          ml: 0,
+          color: "text.secondary",
+        },
+        "& .milkdown pre": {
+          p: 2,
+          borderRadius: 1,
+          overflowX: "auto",
+          backgroundColor: "action.hover",
+        },
+        "& .milkdown code": { fontFamily: "monospace" },
+        "& .milkdown img": { maxWidth: "100%" },
+        "& .milkdown table": { borderCollapse: "collapse", display: "block", overflowX: "auto" },
+        "& .milkdown td, & .milkdown th": {
+          border: "1px solid",
+          borderColor: "divider",
+          px: 1.5,
+          py: 0.75,
+        },
+        '& .milkdown li[data-item-type="task"]': {
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 1,
+          listStyle: "none",
+        },
+        '& .milkdown li[data-item-type="task"] > input': {
+          mt: "0.45em",
+          accentColor: "primary.main",
+        },
+        '& .milkdown li[data-item-type="task"] > div > p': { my: 0 },
+      }}
+    >
+      {loading && <Typography color="text.secondary">正在加载编辑器…</Typography>}
+      <Milkdown />
+    </Box>
+  );
+}
+
+export function MilkdownSegment(props: MilkdownSegmentProps) {
+  return (
+    <MilkdownProvider>
+      <SegmentEditor {...props} />
+    </MilkdownProvider>
+  );
+}
