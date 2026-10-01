@@ -7,6 +7,7 @@ import type { ProjectReport } from "./project";
 import { assertManagedRealPath, resolveManagedPath } from "./path-guard";
 import { defaultStateDir } from "./workspace";
 import { readManagedFile, StorageConflict, writeManagedFile } from "./storage";
+import { validateArticleBody, type SourceIslandEdit } from "./article-body-validation";
 import {
   articleFields,
   ArticleValidationError,
@@ -301,6 +302,25 @@ export async function saveArticleSource(
   const { root } = writable(report);
   await assertUnique(report, validateArticleId(id), source, id);
   return writeManagedFile(root, relativePost(report, id), source, version, backupDir());
+}
+
+export async function saveArticleBody(
+  report: ProjectReport,
+  id: string,
+  body: string,
+  version: string,
+  sourceEdits: readonly SourceIslandEdit[] = [],
+) {
+  const { root } = writable(report);
+  const relative = relativePost(report, id);
+  const current = await readManagedFile(root, relative);
+  if (current.version !== version) throw new StorageConflict("文章已在其他位置修改，请重新加载");
+  parseArticleSource(current.content);
+
+  const format = id.toLowerCase().endsWith(".mdx") ? "mdx" : "md";
+  const source = await validateArticleBody(current.content, body, format, sourceEdits);
+  if (source === current.content) return { version, backupPath: null };
+  return writeManagedFile(root, relative, source, version, backupDir());
 }
 
 export async function saveArticleFields(

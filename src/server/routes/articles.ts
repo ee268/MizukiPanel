@@ -8,8 +8,10 @@ import {
   readArticle,
   renameArticle,
   saveArticleFrontmatter,
+  saveArticleBody,
   saveArticleSource,
 } from "../../lib/server/articles";
+import type { SourceIslandEdit } from "../../lib/server/article-body-validation";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
 
@@ -87,6 +89,34 @@ export function registerArticleRoutes(app: Hono) {
     try {
       const report = await currentProject();
       await saveArticleSource(report, body.id, body.source, body.version);
+      const article = await readArticle(report, body.id);
+      return context.json({
+        article,
+        previewPath: article.error ? null : articlePreviewPath(article),
+      });
+    } catch (error) {
+      mapError(error);
+    }
+  });
+
+  app.put("/api/article/body", async (context) => {
+    const body = await context.req.json<{
+      id?: string;
+      version?: string;
+      body?: string;
+      sourceEdits?: SourceIslandEdit[];
+    }>();
+    if (
+      !body.id ||
+      !body.version ||
+      typeof body.body !== "string" ||
+      (body.sourceEdits !== undefined && !Array.isArray(body.sourceEdits))
+    ) {
+      throw new ApiError(400, "正文保存参数不完整");
+    }
+    try {
+      const report = await currentProject();
+      await saveArticleBody(report, body.id, body.body, body.version, body.sourceEdits);
       const article = await readArticle(report, body.id);
       return context.json({
         article,

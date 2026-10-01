@@ -50,5 +50,17 @@ describe("server application", () => {
     });
     expect(invalidArticle.status).toBe(400);
     expect(await invalidArticle.json()).toEqual({ message: "缺少文章路径" });
+
+    const invalidBody = await app.request(`${origin}/api/article/body`, {
+      method: "PUT",
+      headers: {
+        cookie: cookie!,
+        origin,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ id: "post.md", version: "v1", body: 12 }),
+    });
+    expect(invalidBody.status).toBe(400);
+    expect(await invalidBody.json()).toEqual({ message: "正文保存参数不完整" });
   });
 });
