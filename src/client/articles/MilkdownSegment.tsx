@@ -192,11 +192,19 @@ function SegmentEditor({
         "& .milkdown .editor": {
           minHeight: 56,
           outline: "none",
+          border: 0,
+          boxShadow: "none",
           fontSize: "1rem",
           lineHeight: 1.85,
           color: "text.primary",
           overflowWrap: "anywhere",
         },
+        "& .milkdown .editor:focus, & .milkdown .editor:focus-visible, & .milkdown .editor.ProseMirror-focused":
+          {
+            outline: "none",
+            border: 0,
+            boxShadow: "none",
+          },
         "& .milkdown .editor > :first-of-type": { mt: 0 },
         "& .milkdown .editor > :last-child": { mb: 0 },
         "& .milkdown h1, & .milkdown h2, & .milkdown h3": { lineHeight: 1.35 },
