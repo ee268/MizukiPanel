@@ -1,6 +1,7 @@
 import type { Editor } from "@milkdown/kit/core";
 import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { parseMizukiDirective } from "../../lib/articles/mizuki-directives";
 import {
   replaceArticleSegments,
   segmentArticleSource,
@@ -8,6 +9,7 @@ import {
 } from "../../lib/articles/source-islands";
 import type { ArticleRecord } from "../types";
 import { ArticleFormatToolbar } from "./ArticleFormatToolbar";
+import { DirectiveBlock } from "./DirectiveBlock";
 import { preserveSegmentBoundary } from "./article-draft";
 import {
   insertArticleImage,
@@ -38,6 +40,7 @@ interface VisualBodyEditorProps {
   onChange: (source: string) => void;
   onSave: () => void;
   onSourceMode: () => void;
+  onValidityChange: (valid: boolean) => void;
 }
 
 export function VisualBodyEditor({
@@ -48,8 +51,18 @@ export function VisualBodyEditor({
   onChange,
   onSave,
   onSourceMode,
+  onValidityChange,
 }: VisualBodyEditorProps) {
   const [snapshot] = useState(() => segmentArticleSource(source, article.format));
+  const directives = useMemo(
+    () =>
+      new Map(
+        snapshot.segments
+          .filter((segment) => segment.mode === "source")
+          .map((segment) => [segment.id, parseMizukiDirective(segment.raw)]),
+      ),
+    [snapshot],
+  );
   const replacements = useRef(new Map<number, string>());
   const editors = useRef(new Map<number, Editor>());
   const [activeSegmentId, setActiveSegmentId] = useState<number | null>(
@@ -62,6 +75,8 @@ export function VisualBodyEditor({
   const [selectedHref, setSelectedHref] = useState("");
   const [insertError, setInsertError] = useState("");
   const [formats, setFormats] = useState(new Map<number, EditorFormatState>());
+  const invalidDirectives = useRef(new Set<number>());
+  const [directivesValid, setDirectivesValid] = useState(true);
   const format =
     activeSegmentId === null
       ? emptyFormatState
@@ -186,12 +201,27 @@ export function VisualBodyEditor({
     const rightInline =
       segment.end < snapshot.body.length && !/[\r\n]/.test(snapshot.body[segment.end]);
     const replacement = preserveSegmentBoundary(segment.raw, markdown, leftInline, rightInline);
+    replaceSegment(segment, replacement);
+  }
+
+  function replaceSegment(segment: SourceSegment, replacement: string) {
     if (replacement === segment.raw) {
       replacements.current.delete(segment.id);
     } else {
       replacements.current.set(segment.id, replacement);
     }
     onChange(replaceArticleSegments(snapshot, replacements.current));
+  }
+
+  function updateDirectiveValidity(id: number, valid: boolean) {
+    if (valid) {
+      invalidDirectives.current.delete(id);
+    } else {
+      invalidDirectives.current.add(id);
+    }
+    const nextValid = invalidDirectives.current.size === 0;
+    setDirectivesValid(nextValid);
+    onValidityChange(nextValid);
   }
 
   if (snapshot.mode === "source") {
@@ -209,11 +239,12 @@ export function VisualBodyEditor({
   return (
     <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
       <Alert severity="info">
-        普通 Markdown 可直接编辑。Mizuki 扩展语法与 MDX 暂以原文卡片保护；编辑它们请切换完整源码。
+        普通 Markdown 可直接编辑；提示块、GitHub 卡片和图片网格可在下方编辑。其他扩展语法与 MDX
+        仍保留原文，请切换完整源码修改。
       </Alert>
       <ArticleFormatToolbar
         disabled={!activeEditor || busy || readOnly}
-        saving={busy || readOnly}
+        saving={busy || readOnly || !directivesValid}
         format={format}
         onAction={formatAction}
         onHeading={headingAction}
@@ -221,7 +252,11 @@ export function VisualBodyEditor({
         onTask={insertTask}
         onLink={openLink}
         onImage={() => setImageOpen(true)}
-        onSave={onSave}
+        onSave={() => {
+          if (invalidDirectives.current.size === 0) {
+            onSave();
+          }
+        }}
       />
       {insertError && (
         <Alert severity="warning" onClose={() => setInsertError("")}>
@@ -230,20 +265,36 @@ export function VisualBodyEditor({
       )}
       <Paper variant="outlined" inert={busy} sx={{ p: { xs: 2, md: 3 } }}>
         <Stack spacing={1.5}>
-          {snapshot.segments.map((segment) =>
-            segment.mode === "editable" ? (
-              <MilkdownSegment
-                key={segment.id}
-                articleId={article.id}
-                segment={segment}
-                readOnly={readOnly}
-                onChange={(markdown) => updateSegment(segment, markdown)}
-                onFocus={() => selectSegment(segment.id)}
-                onReady={(editor) => registerSegment(segment.id, editor)}
-                onFormatChange={(next) => updateFormat(segment.id, next)}
-                onShortcut={handleShortcut}
-              />
-            ) : (
+          {snapshot.segments.map((segment) => {
+            if (segment.mode === "editable") {
+              return (
+                <MilkdownSegment
+                  key={segment.id}
+                  articleId={article.id}
+                  segment={segment}
+                  readOnly={readOnly}
+                  onChange={(markdown) => updateSegment(segment, markdown)}
+                  onFocus={() => selectSegment(segment.id)}
+                  onReady={(editor) => registerSegment(segment.id, editor)}
+                  onFormatChange={(next) => updateFormat(segment.id, next)}
+                  onShortcut={handleShortcut}
+                />
+              );
+            }
+            const directive = directives.get(segment.id);
+            if (directive) {
+              return (
+                <DirectiveBlock
+                  key={segment.id}
+                  articleId={article.id}
+                  directive={directive}
+                  readOnly={readOnly}
+                  onChange={(raw) => replaceSegment(segment, raw)}
+                  onValidityChange={(valid) => updateDirectiveValidity(segment.id, valid)}
+                />
+              );
+            }
+            return (
               <Paper
                 key={segment.id}
                 variant="outlined"
@@ -257,8 +308,8 @@ export function VisualBodyEditor({
                   {segment.raw}
                 </Typography>
               </Paper>
-            ),
-          )}
+            );
+          })}
         </Stack>
       </Paper>
       <LinkInsertDialog

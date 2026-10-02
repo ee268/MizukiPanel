@@ -2,7 +2,7 @@ import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import DriveFileRenameOutline from "@mui/icons-material/DriveFileRenameOutline";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
-import type { KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import {
   Alert,
   Box,
@@ -62,6 +62,12 @@ export function ArticleEditor({
   onSaveSource,
   onSaveBody,
 }: ArticleEditorProps) {
+  const [visualValid, setVisualValid] = useState(true);
+
+  useEffect(() => {
+    setVisualValid(true);
+  }, [article?.id, article?.version]);
+
   function handleSaveShortcut(event: KeyboardEvent<HTMLDivElement>) {
     if (!event.currentTarget.contains(event.target as Node) || articleShortcut(event) !== "save") {
       return;
@@ -72,9 +78,9 @@ export function ArticleEditor({
     }
     if (mode === "frontmatter" && !article?.error) {
       onSaveFrontmatter();
-    } else if (mode === "visual" && !article?.error) {
+    } else if (mode === "visual" && !article?.error && visualValid) {
       onSaveBody();
-    } else {
+    } else if (mode === "source" || article?.error) {
       onSaveSource();
     }
   }
@@ -147,6 +153,7 @@ export function ArticleEditor({
             onChange={onSourceChange}
             onSave={onSaveBody}
             onSourceMode={() => onModeChange("source")}
+            onValidityChange={setVisualValid}
           />
         ) : mode === "frontmatter" && !article.error ? (
           <>
