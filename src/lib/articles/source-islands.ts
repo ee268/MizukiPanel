@@ -5,6 +5,7 @@ import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { splitArticleSource } from "./article-source";
+import { findCodeGroupRanges } from "./code-groups";
 
 export type ArticleFormat = "md" | "mdx";
 export type SegmentMode = "editable" | "source";
@@ -232,8 +233,14 @@ export function segmentArticleSource(source: string, format: ArticleFormat): Seg
   try {
     const parser = format === "mdx" ? mdxParser : markdownParser;
     const tree = parser.parse(body) as SyntaxNode;
-    const ranges: ProtectedRange[] = [];
-    collectRanges(tree, body, ranges);
+    const ranges: ProtectedRange[] = findCodeGroupRanges(tree, body);
+    for (const child of tree.children ?? []) {
+      const childRange = offsets(child);
+      if (ranges.some((range) => range.start <= childRange.start && childRange.end <= range.end)) {
+        continue;
+      }
+      collectRanges(child, body, ranges);
+    }
     return {
       format,
       mode: "hybrid",
