@@ -1,6 +1,8 @@
 import type { Editor } from "@milkdown/kit/core";
 import { Alert, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import { useMemo, useRef, useState } from "react";
+import { parseGithubAlert } from "../../lib/articles/github-alerts";
+import { parseInlineExtension } from "../../lib/articles/inline-extensions";
 import { parseMizukiDirective } from "../../lib/articles/mizuki-directives";
 import {
   replaceArticleSegments,
@@ -10,6 +12,8 @@ import {
 import type { ArticleRecord } from "../types";
 import { ArticleFormatToolbar } from "./ArticleFormatToolbar";
 import { DirectiveBlock } from "./DirectiveBlock";
+import { GithubAlertBlock } from "./GithubAlertBlock";
+import { InlineExtensionCard } from "./InlineExtensionCard";
 import { preserveSegmentBoundary } from "./article-draft";
 import {
   insertArticleImage,
@@ -63,6 +67,24 @@ export function VisualBodyEditor({
       ),
     [snapshot],
   );
+  const inlineExtensions = useMemo(
+    () =>
+      new Map(
+        snapshot.segments
+          .filter((segment) => segment.syntax === "wikiLink" || segment.syntax === "textDirective")
+          .map((segment) => [segment.id, parseInlineExtension(segment.raw)]),
+      ),
+    [snapshot],
+  );
+  const githubAlerts = useMemo(
+    () =>
+      new Map(
+        snapshot.segments
+          .filter((segment) => segment.syntax === "githubAdmonition")
+          .map((segment) => [segment.id, parseGithubAlert(segment.raw)]),
+      ),
+    [snapshot],
+  );
   const replacements = useRef(new Map<number, string>());
   const editors = useRef(new Map<number, Editor>());
   const [activeSegmentId, setActiveSegmentId] = useState<number | null>(
@@ -75,8 +97,8 @@ export function VisualBodyEditor({
   const [selectedHref, setSelectedHref] = useState("");
   const [insertError, setInsertError] = useState("");
   const [formats, setFormats] = useState(new Map<number, EditorFormatState>());
-  const invalidDirectives = useRef(new Set<number>());
-  const [directivesValid, setDirectivesValid] = useState(true);
+  const invalidExtensions = useRef(new Set<number>());
+  const [extensionsValid, setExtensionsValid] = useState(true);
   const format =
     activeSegmentId === null
       ? emptyFormatState
@@ -213,14 +235,14 @@ export function VisualBodyEditor({
     onChange(replaceArticleSegments(snapshot, replacements.current));
   }
 
-  function updateDirectiveValidity(id: number, valid: boolean) {
+  function updateExtensionValidity(id: number, valid: boolean) {
     if (valid) {
-      invalidDirectives.current.delete(id);
+      invalidExtensions.current.delete(id);
     } else {
-      invalidDirectives.current.add(id);
+      invalidExtensions.current.add(id);
     }
-    const nextValid = invalidDirectives.current.size === 0;
-    setDirectivesValid(nextValid);
+    const nextValid = invalidExtensions.current.size === 0;
+    setExtensionsValid(nextValid);
     onValidityChange(nextValid);
   }
 
@@ -239,12 +261,12 @@ export function VisualBodyEditor({
   return (
     <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
       <Alert severity="info">
-        普通 Markdown 可直接编辑；提示块、GitHub 卡片和图片网格可在下方编辑。其他扩展语法与 MDX
-        仍保留原文，请切换完整源码修改。
+        普通 Markdown、已识别的 Mizuki 指令、Wiki Link、Spoiler 和 GitHub
+        风格提示块可在此编辑。其他扩展语法与 MDX 仍保留原文，请切换完整源码修改。
       </Alert>
       <ArticleFormatToolbar
         disabled={!activeEditor || busy || readOnly}
-        saving={busy || readOnly || !directivesValid}
+        saving={busy || readOnly || !extensionsValid}
         format={format}
         onAction={formatAction}
         onHeading={headingAction}
@@ -253,7 +275,7 @@ export function VisualBodyEditor({
         onLink={openLink}
         onImage={() => setImageOpen(true)}
         onSave={() => {
-          if (invalidDirectives.current.size === 0) {
+          if (invalidExtensions.current.size === 0) {
             onSave();
           }
         }}
@@ -290,7 +312,31 @@ export function VisualBodyEditor({
                   directive={directive}
                   readOnly={readOnly}
                   onChange={(raw) => replaceSegment(segment, raw)}
-                  onValidityChange={(valid) => updateDirectiveValidity(segment.id, valid)}
+                  onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
+                />
+              );
+            }
+            const inline = inlineExtensions.get(segment.id);
+            if (inline) {
+              return (
+                <InlineExtensionCard
+                  key={segment.id}
+                  extension={inline}
+                  readOnly={readOnly}
+                  onChange={(raw) => replaceSegment(segment, raw)}
+                  onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
+                />
+              );
+            }
+            const githubAlert = githubAlerts.get(segment.id);
+            if (githubAlert) {
+              return (
+                <GithubAlertBlock
+                  key={segment.id}
+                  alert={githubAlert}
+                  readOnly={readOnly}
+                  onChange={(raw) => replaceSegment(segment, raw)}
+                  onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
                 />
               );
             }

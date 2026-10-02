@@ -1,8 +1,10 @@
 import { expect, it } from "vitest";
 import { parseMizukiDirective, updateMizukiDirective } from "../src/lib/articles/mizuki-directives";
 import { replaceArticleSegments, segmentArticleSource } from "../src/lib/articles/source-islands";
+import { collectSourceIslandEdits } from "../src/lib/articles/source-island-edits";
+import { validateArticleBody } from "../src/lib/server/article-body-validation";
 
-it("edits a callout title and body without touching adjacent article bytes", () => {
+it("edits and saves a callout without touching adjacent article bytes", async () => {
   const source = [
     "---\r\ntitle: Directives\r\n---\r\n",
     "\r\nBefore.\r\n\r\n",
@@ -25,6 +27,12 @@ it("edits a callout title and body without touching adjacent article bytes", () 
     source.replace(segment!.raw, changed!),
   );
   expect(replaceArticleSegments(article, new Map())).toBe(source);
+  const draft = replaceArticleSegments(article, new Map([[segment!.id, changed!]]));
+  const edits = collectSourceIslandEdits(source, draft, "md");
+  expect(edits).toEqual([{ id: segment!.id, source: changed }]);
+  await expect(
+    validateArticleBody(source, draft.slice(article.bodyStart), "md", edits),
+  ).resolves.toBe(draft);
 });
 
 it("edits leaf and empty container GitHub cards in their original marker form", () => {

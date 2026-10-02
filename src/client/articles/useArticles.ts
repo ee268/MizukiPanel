@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
+import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import { errorMessage } from "../shared/errors";
 import type { ArticleListItem, ArticleRecord, ProjectReport } from "../types";
 import { draftBody, frontmatterChanged, hasSourceHeaderChange, rebaseBody } from "./article-draft";
@@ -295,9 +296,10 @@ export function useArticles() {
     setBusy(true);
     setError("");
     try {
+      const sourceEdits = collectSourceIslandEdits(article.source, source, article.format);
       const data = await api<{ article: ArticleRecord; previewPath: string | null }>(
         "/api/article/body",
-        json("PUT", { id: article.id, version: article.version, body }),
+        json("PUT", { id: article.id, version: article.version, body, sourceEdits }),
       );
       const pendingFrontmatter = frontmatterDirty ? frontmatter : null;
       applyArticle(data.article, data.previewPath);

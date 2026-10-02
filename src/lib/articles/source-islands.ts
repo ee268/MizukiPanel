@@ -128,6 +128,11 @@ function collectRanges(node: SyntaxNode, body: string, ranges: ProtectedRange[])
     return;
   }
 
+  // Mizuki's Wiki Link plugin skips ordinary Markdown links and link references.
+  if (node.type === "link" || node.type === "linkReference") {
+    return;
+  }
+
   if (node.type === "text") {
     const { start, end } = offsets(node);
     const raw = body.slice(start, end);
