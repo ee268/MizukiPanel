@@ -1,26 +1,16 @@
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import DriveFileRenameOutline from "@mui/icons-material/DriveFileRenameOutline";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
-import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import { useEffect, useState, type KeyboardEvent } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  Divider,
-  Paper,
-  Stack,
-  Tab,
-  Tabs,
-  TextField,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Paper, Stack, Tab, Tabs, Typography } from "@mui/material";
 import type { ArticleRecord } from "../types";
+import { ArticleSourceEditor } from "./ArticleSourceEditor";
 import { FrontmatterEditor } from "./FrontmatterEditor";
 import { MarkdownDraftPreview } from "./MarkdownDraftPreview";
 import { VisualBodyEditor } from "./VisualBodyEditor";
 import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
+import { useArticleModeScroll } from "./useArticleModeScroll";
 
 interface ArticleEditorProps {
   article: ArticleRecord | null;
@@ -66,6 +56,7 @@ export function ArticleEditor({
   onSaveBody,
 }: ArticleEditorProps) {
   const [visualValid, setVisualValid] = useState(true);
+  const { visualRef, sourceRef, changeMode } = useArticleModeScroll(mode, onModeChange);
 
   useEffect(() => {
     setVisualValid(true);
@@ -135,30 +126,32 @@ export function ArticleEditor({
             Frontmatter 需要修复：{article.error}。请使用源码模式编辑。
           </Alert>
         )}
-        <Tabs
-          value={article.error ? "source" : mode}
-          onChange={(_, value: ArticleEditorMode) => onModeChange(value)}
-          sx={{ px: 2 }}
-        >
-          <Tab value="visual" label="可视化正文" disabled={Boolean(article.error)} />
-          <Tab value="frontmatter" label="Frontmatter" disabled={Boolean(article.error)} />
-          <Tab value="source" label="完整源码" />
-        </Tabs>
-        <Divider />
+        {mode !== "source" && (
+          <Tabs
+            value={mode}
+            onChange={(_, value: ArticleEditorMode) => changeMode(value)}
+            sx={{ px: 2 }}
+          >
+            <Tab value="visual" label="可视化正文" disabled={Boolean(article.error)} />
+            <Tab value="frontmatter" label="Frontmatter" disabled={Boolean(article.error)} />
+          </Tabs>
+        )}
 
         {mode === "visual" && !article.error ? (
           <>
-            <VisualBodyEditor
-              key={`${projectRoot}:${article.id}:${article.version}`}
-              article={article}
-              source={source}
-              busy={busy}
-              readOnly={readOnly}
-              onChange={onSourceChange}
-              onSave={onSaveBody}
-              onSourceMode={() => onModeChange("source")}
-              onValidityChange={setVisualValid}
-            />
+            <Box ref={visualRef}>
+              <VisualBodyEditor
+                key={`${projectRoot}:${article.id}:${article.version}`}
+                article={article}
+                source={source}
+                busy={busy}
+                readOnly={readOnly}
+                onChange={onSourceChange}
+                onSave={onSaveBody}
+                onSourceMode={() => changeMode("source")}
+                onValidityChange={setVisualValid}
+              />
+            </Box>
             <Box sx={{ p: { xs: 2, md: 3 }, pt: 0 }}>
               <MarkdownDraftPreview
                 key={`${projectRoot}:${article.id}`}
@@ -184,31 +177,16 @@ export function ArticleEditor({
             />
           </>
         ) : (
-          <Box sx={{ p: { xs: 2, md: 3 } }}>
-            <TextField
-              label="完整文章源码"
-              value={source}
-              onChange={(event) => onSourceChange(event.target.value)}
-              fullWidth
-              multiline
-              minRows={24}
-              disabled={busy || readOnly}
-              spellCheck={false}
-              slotProps={{
-                input: { sx: { fontFamily: "monospace", fontSize: 14, lineHeight: 1.6 } },
-              }}
-            />
-            <Stack direction="row" sx={{ mt: 2, justifyContent: "flex-end" }}>
-              <Button
-                variant="contained"
-                startIcon={<SaveOutlined />}
-                onClick={onSaveSource}
-                disabled={busy || readOnly}
-              >
-                保存源码
-              </Button>
-            </Stack>
-          </Box>
+          <ArticleSourceEditor
+            source={source}
+            busy={busy}
+            readOnly={readOnly}
+            canUseVisual={!article.error}
+            contentRef={sourceRef}
+            onChange={onSourceChange}
+            onVisualMode={() => changeMode("visual")}
+            onSave={onSaveSource}
+          />
         )}
       </Paper>
     </Stack>

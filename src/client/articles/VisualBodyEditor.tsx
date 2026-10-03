@@ -242,6 +242,7 @@ export function VisualBodyEditor({
         onTask={insertTask}
         onLink={openLink}
         onImage={() => setImageOpen(true)}
+        onSourceMode={onSourceMode}
         onSave={() => {
           if (invalidExtensions.current.size === 0) {
             onSave();

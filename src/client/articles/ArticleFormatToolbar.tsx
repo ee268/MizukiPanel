@@ -11,6 +11,7 @@ import ImageOutlined from "@mui/icons-material/ImageOutlined";
 import LinkOutlined from "@mui/icons-material/LinkOutlined";
 import TableChartOutlined from "@mui/icons-material/TableChartOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
+import DescriptionOutlined from "@mui/icons-material/DescriptionOutlined";
 import {
   Box,
   Button,
@@ -36,6 +37,7 @@ interface ArticleFormatToolbarProps {
   onTask: () => void;
   onLink: () => void;
   onImage: () => void;
+  onSourceMode: () => void;
   onSave: () => void;
 }
 
@@ -78,6 +80,7 @@ export function ArticleFormatToolbar({
   onTask,
   onLink,
   onImage,
+  onSourceMode,
   onSave,
 }: ArticleFormatToolbarProps) {
   return (
@@ -198,6 +201,14 @@ export function ArticleFormatToolbar({
         onClick={() => onAction("redo")}
       />
       <Stack direction="row" sx={{ ml: "auto", alignItems: "center" }}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<DescriptionOutlined />}
+          onClick={onSourceMode}
+        >
+          完整源码
+        </Button>
         <Typography
           variant="caption"
           color="text.secondary"
