@@ -11,7 +11,6 @@ import ImageOutlined from "@mui/icons-material/ImageOutlined";
 import LinkOutlined from "@mui/icons-material/LinkOutlined";
 import TableChartOutlined from "@mui/icons-material/TableChartOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
-import DescriptionOutlined from "@mui/icons-material/DescriptionOutlined";
 import {
   Box,
   Button,
@@ -25,6 +24,7 @@ import {
   Typography,
 } from "@mui/material";
 import type { ReactNode } from "react";
+import { ArticleModeSelect } from "./ArticleModeSelect";
 import type { EditorFormatState, FormatAction } from "./editor-format";
 
 interface ArticleFormatToolbarProps {
@@ -103,6 +103,15 @@ export function ArticleFormatToolbar({
         borderRadius: 1,
       }}
     >
+      <ArticleModeSelect
+        mode="visual"
+        onChange={(mode) => {
+          if (mode === "source") {
+            onSourceMode();
+          }
+        }}
+      />
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
       <FormControl size="small" sx={{ minWidth: 105, mr: 0.5 }}>
         <Select
           value={format.heading}
@@ -201,14 +210,6 @@ export function ArticleFormatToolbar({
         onClick={() => onAction("redo")}
       />
       <Stack direction="row" sx={{ ml: "auto", alignItems: "center" }}>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<DescriptionOutlined />}
-          onClick={onSourceMode}
-        >
-          完整源码
-        </Button>
         <Typography
           variant="caption"
           color="text.secondary"

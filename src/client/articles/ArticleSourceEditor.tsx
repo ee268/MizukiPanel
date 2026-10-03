@@ -1,7 +1,7 @@
-import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import { Box, Button, Stack, TextField } from "@mui/material";
 import type { RefObject } from "react";
+import { ArticleModeSelect } from "./ArticleModeSelect";
 
 interface ArticleSourceEditorProps {
   source: string;
@@ -28,6 +28,8 @@ export function ArticleSourceEditor({
     <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
       <Stack
         direction="row"
+        role="toolbar"
+        aria-label="文章源码工具栏"
         sx={{
           justifyContent: "space-between",
           position: "sticky",
@@ -40,14 +42,15 @@ export function ArticleSourceEditor({
           p: 1,
         }}
       >
-        <Button
-          size="small"
-          startIcon={<ArrowBackOutlined />}
-          onClick={onVisualMode}
-          disabled={!canUseVisual}
-        >
-          返回可视化正文
-        </Button>
+        <ArticleModeSelect
+          mode="source"
+          canUseVisual={canUseVisual}
+          onChange={(mode) => {
+            if (mode === "visual") {
+              onVisualMode();
+            }
+          }}
+        />
         <Button
           size="small"
           variant="contained"
