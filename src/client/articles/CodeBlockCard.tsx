@@ -36,6 +36,7 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
 
   return (
     <Paper
+      className="mizuki-code-card"
       variant="outlined"
       sx={{
         p: 2,

@@ -44,6 +44,7 @@ export function MdxSourceCard({
 
   return (
     <Paper
+      className="mizuki-code-card"
       variant="outlined"
       sx={{
         p: 2,

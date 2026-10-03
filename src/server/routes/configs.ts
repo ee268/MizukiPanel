@@ -7,10 +7,35 @@ import {
   restoreConfig,
   saveConfig,
 } from "../../lib/server/configs";
+import { readEditorFont, readEditorFontMode } from "../../lib/server/editor-fonts";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
 
 export function registerConfigRoutes(app: Hono) {
+  app.get("/api/editor-fonts", async (context) => {
+    try {
+      return context.json({ mode: await readEditorFontMode(await currentProject()) });
+    } catch (error) {
+      mapError(error);
+    }
+  });
+  app.get("/api/editor-fonts/:name", async (context) => {
+    const name = context.req.param("name");
+    if (name !== "body" && name !== "cjk" && name !== "code") {
+      throw new ApiError(404, "字体不存在");
+    }
+    try {
+      const bytes = await readEditorFont(await currentProject(), name);
+      if (!bytes) throw new ApiError(404, "字体尚未缓存");
+      return context.body(Uint8Array.from(bytes), 200, {
+        "content-type": "font/woff2",
+        "cache-control": "private, max-age=300",
+        "x-content-type-options": "nosniff",
+      });
+    } catch (error) {
+      mapError(error);
+    }
+  });
   app.get("/api/site-identity", async (context) => {
     try {
       return context.json(await readSiteIdentity(await currentProject()));

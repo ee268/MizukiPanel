@@ -4,19 +4,26 @@ import { useMemo } from "react";
 import { usePanelTheme } from "../theme";
 import { markdownPreviewDocument } from "./markdown-preview-document";
 import { useMarkdownDraftPreview } from "./useMarkdownDraftPreview";
+import type { EditorFontMode } from "../../lib/server/editor-fonts";
 
 interface MarkdownDraftPreviewProps {
   articleId: string;
   format: "md" | "mdx";
   source: string;
+  fontMode: EditorFontMode;
 }
 
-export function MarkdownDraftPreview({ articleId, format, source }: MarkdownDraftPreviewProps) {
+export function MarkdownDraftPreview({
+  articleId,
+  format,
+  source,
+  fontMode,
+}: MarkdownDraftPreviewProps) {
   const { resolvedMode } = usePanelTheme();
   const { phase, result, error } = useMarkdownDraftPreview(articleId, format, source);
   const document = useMemo(
-    () => (result ? markdownPreviewDocument(result, resolvedMode, katexCssUrl) : ""),
-    [result, resolvedMode],
+    () => (result ? markdownPreviewDocument(result, resolvedMode, katexCssUrl, fontMode) : ""),
+    [result, resolvedMode, fontMode],
   );
   const status = {
     waiting: result ? "等待更新 · 上次结果" : "等待输入暂停",

@@ -38,6 +38,7 @@ export function MathBlock({ fragment, readOnly, onChange, onValidityChange }: Ma
 
   return (
     <Paper
+      className="mizuki-code-card"
       variant="outlined"
       sx={{
         p: 2,

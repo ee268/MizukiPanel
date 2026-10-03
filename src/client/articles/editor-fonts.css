@@ -1,0 +1,67 @@
+@font-face {
+  font-family: MizukiEditorBody;
+  src: url("/api/editor-fonts/body") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: MizukiEditorCjk;
+  src: url("/api/editor-fonts/cjk") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: MizukiEditorCode;
+  src: url("/api/editor-fonts/code") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+.mizuki-document-content[data-font-mode="system"],
+.mizuki-document-content[data-font-mode="system"] .milkdown .editor,
+.mizuki-document-content[data-font-mode="system"] .MuiTypography-root,
+.mizuki-document-content[data-font-mode="system"] .MuiFormLabel-root,
+.mizuki-document-content[data-font-mode="system"] .MuiButton-root,
+.mizuki-document-content[data-font-mode="system"] .MuiChip-label,
+.mizuki-document-content[data-font-mode="system"] .MuiInputBase-input {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mizuki-document-content[data-font-mode="system"] :is(code, pre),
+.mizuki-document-content[data-font-mode="system"] .milkdown code,
+.mizuki-document-content[data-font-mode="system"] pre.MuiTypography-root,
+.mizuki-document-content[data-font-mode="system"] .mizuki-code-card .MuiInputBase-input,
+.mizuki-document-source[data-font-mode="system"] .MuiInputBase-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.mizuki-document-content[data-font-mode="custom"],
+.mizuki-document-content[data-font-mode="custom"] .milkdown .editor,
+.mizuki-document-content[data-font-mode="custom"] .MuiTypography-root,
+.mizuki-document-content[data-font-mode="custom"] .MuiFormLabel-root,
+.mizuki-document-content[data-font-mode="custom"] .MuiButton-root,
+.mizuki-document-content[data-font-mode="custom"] .MuiChip-label,
+.mizuki-document-content[data-font-mode="custom"] .MuiInputBase-input {
+  font-family: MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
+}
+
+.mizuki-document-content[data-font-mode="custom"] :is(code, pre),
+.mizuki-document-content[data-font-mode="custom"] .milkdown code,
+.mizuki-document-content[data-font-mode="custom"] pre.MuiTypography-root,
+.mizuki-document-content[data-font-mode="custom"] .mizuki-code-card .MuiInputBase-input,
+.mizuki-document-source[data-font-mode="custom"] .MuiInputBase-input {
+  font-family:
+    MizukiEditorCode, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, monospace;
+}
+
+.mizuki-document-content[data-font-mode="custom"] .milkdown .editor :not(pre) > code {
+  font-family:
+    MizukiEditorCode, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular,
+    Menlo, Monaco, Consolas, monospace;
+}

@@ -104,6 +104,7 @@ export function MdxComponentCard({
 
   return (
     <Paper
+      className="mizuki-code-card"
       variant="outlined"
       sx={{
         p: 2,

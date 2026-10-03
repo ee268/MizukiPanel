@@ -4,12 +4,14 @@ import { ArticleFormatToolbar } from "./ArticleFormatToolbar";
 import { ImagePickerDialog } from "./ImagePickerDialog";
 import { LinkInsertDialog } from "./LinkInsertDialog";
 import { useSourceTextEditor } from "./useSourceTextEditor";
+import type { EditorFontMode } from "../../lib/server/editor-fonts";
 
 interface ArticleSourceEditorProps {
   articleId: string;
   source: string;
   busy: boolean;
   readOnly: boolean;
+  fontMode: EditorFontMode;
   canUseVisual: boolean;
   contentRef: RefObject<HTMLDivElement | null>;
   onChange: (source: string) => void;
@@ -22,6 +24,7 @@ export function ArticleSourceEditor({
   source,
   busy,
   readOnly,
+  fontMode,
   canUseVisual,
   contentRef,
   onChange,
@@ -64,7 +67,11 @@ export function ArticleSourceEditor({
         onImage={() => setImageOpen(true)}
         onSave={onSave}
       />
-      <Box ref={contentRef}>
+      <Box
+        ref={contentRef}
+        className="mizuki-document-content mizuki-document-source"
+        data-font-mode={fontMode}
+      >
         <TextField
           label="完整文章源码"
           value={source}

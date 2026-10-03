@@ -30,12 +30,14 @@ import { ImagePickerDialog } from "./ImagePickerDialog";
 import { LinkInsertDialog } from "./LinkInsertDialog";
 import { MilkdownSegment } from "./MilkdownSegment";
 import { SourceSegmentEditor } from "./SourceSegmentEditor";
+import type { EditorFontMode } from "../../lib/server/editor-fonts";
 
 interface VisualBodyEditorProps {
   article: ArticleRecord;
   source: string;
   busy: boolean;
   readOnly: boolean;
+  fontMode: EditorFontMode;
   onChange: (source: string) => void;
   onSave: () => void;
   onSourceMode: () => void;
@@ -47,6 +49,7 @@ export function VisualBodyEditor({
   source,
   busy,
   readOnly,
+  fontMode,
   onChange,
   onSave,
   onSourceMode,
@@ -259,7 +262,13 @@ export function VisualBodyEditor({
           {insertError}
         </Alert>
       )}
-      <Paper variant="outlined" inert={busy} sx={{ p: { xs: 2, md: 3 } }}>
+      <Paper
+        variant="outlined"
+        inert={busy}
+        className="mizuki-document-content"
+        data-font-mode={fontMode}
+        sx={{ p: { xs: 2, md: 3 } }}
+      >
         <Stack spacing={1.5}>
           {snapshot.segments.map((segment) => {
             if (segment.mode === "editable") {

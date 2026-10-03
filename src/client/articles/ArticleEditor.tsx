@@ -11,6 +11,8 @@ import { VisualBodyEditor } from "./VisualBodyEditor";
 import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
 import { useArticleModeScroll } from "./useArticleModeScroll";
+import { useEditorFontMode } from "./useEditorFontMode";
+import "./editor-fonts.css";
 
 interface ArticleEditorProps {
   article: ArticleRecord | null;
@@ -56,6 +58,7 @@ export function ArticleEditor({
   onSaveBody,
 }: ArticleEditorProps) {
   const [visualValid, setVisualValid] = useState(true);
+  const fontMode = useEditorFontMode(projectRoot);
   const { visualRef, sourceRef, changeMode } = useArticleModeScroll(mode, onModeChange);
 
   useEffect(() => {
@@ -146,6 +149,7 @@ export function ArticleEditor({
                 source={source}
                 busy={busy}
                 readOnly={readOnly}
+                fontMode={fontMode}
                 onChange={onSourceChange}
                 onSave={onSaveBody}
                 onSourceMode={() => changeMode("source")}
@@ -158,6 +162,7 @@ export function ArticleEditor({
                 articleId={article.id}
                 format={article.format}
                 source={source}
+                fontMode={fontMode}
               />
             </Box>
           </>
@@ -183,6 +188,7 @@ export function ArticleEditor({
             source={source}
             busy={busy}
             readOnly={readOnly}
+            fontMode={fontMode}
             canUseVisual={!article.error}
             contentRef={sourceRef}
             onChange={onSourceChange}
