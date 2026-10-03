@@ -18,6 +18,18 @@ function visit(node: HtmlNode, articleId: string): void {
     }
   }
   for (const child of node.children ?? []) visit(child, articleId);
+  if (
+    node.type === "element" &&
+    node.tagName === "a" &&
+    node.properties &&
+    Array.isArray(node.properties.className) &&
+    node.properties.className.includes("image-grid__link")
+  ) {
+    const image = node.children?.find((child) => child.tagName === "img");
+    if (typeof image?.properties?.src === "string") {
+      node.properties.href = image.properties.src;
+    }
+  }
 }
 
 /** Rewrite images through the existing guarded media route in either content mode. */
