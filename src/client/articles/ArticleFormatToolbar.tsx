@@ -24,10 +24,12 @@ import {
   Typography,
 } from "@mui/material";
 import type { ReactNode } from "react";
-import { ArticleModeSelect } from "./ArticleModeSelect";
+import { ArticleModeSelect, type ArticleBodyMode } from "./ArticleModeSelect";
 import type { EditorFormatState, FormatAction } from "./editor-format";
 
 interface ArticleFormatToolbarProps {
+  mode: ArticleBodyMode;
+  canUseVisual?: boolean;
   disabled: boolean;
   saving: boolean;
   format: EditorFormatState;
@@ -37,7 +39,7 @@ interface ArticleFormatToolbarProps {
   onTask: () => void;
   onLink: () => void;
   onImage: () => void;
-  onSourceMode: () => void;
+  onModeChange: (mode: ArticleBodyMode) => void;
   onSave: () => void;
 }
 
@@ -71,6 +73,8 @@ function FormatButton({ label, icon, selected, disabled, onClick }: FormatButton
 }
 
 export function ArticleFormatToolbar({
+  mode,
+  canUseVisual = true,
   disabled,
   saving,
   format,
@@ -80,14 +84,14 @@ export function ArticleFormatToolbar({
   onTask,
   onLink,
   onImage,
-  onSourceMode,
+  onModeChange,
   onSave,
 }: ArticleFormatToolbarProps) {
   return (
     <Box
       component="div"
       role="toolbar"
-      aria-label="文章正文格式工具栏"
+      aria-label={mode === "visual" ? "文章正文格式工具栏" : "文章源码格式工具栏"}
       sx={{
         display: "flex",
         alignItems: "center",
@@ -103,14 +107,7 @@ export function ArticleFormatToolbar({
         borderRadius: 1,
       }}
     >
-      <ArticleModeSelect
-        mode="visual"
-        onChange={(mode) => {
-          if (mode === "source") {
-            onSourceMode();
-          }
-        }}
-      />
+      <ArticleModeSelect mode={mode} canUseVisual={canUseVisual} onChange={onModeChange} />
       <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
       <FormControl size="small" sx={{ minWidth: 105, mr: 0.5 }}>
         <Select
@@ -225,7 +222,7 @@ export function ArticleFormatToolbar({
           onClick={onSave}
           onMouseDown={(event) => event.preventDefault()}
         >
-          保存正文
+          {mode === "visual" ? "保存正文" : "保存源码"}
         </Button>
       </Stack>
     </Box>

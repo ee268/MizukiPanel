@@ -132,7 +132,7 @@ export function ArticleEditor({
             onChange={(_, value: ArticleEditorMode) => changeMode(value)}
             sx={{ px: 2 }}
           >
-            <Tab value="visual" label="可视化正文" disabled={Boolean(article.error)} />
+            <Tab value="visual" label="文档编辑" disabled={Boolean(article.error)} />
             <Tab value="frontmatter" label="Frontmatter" disabled={Boolean(article.error)} />
           </Tabs>
         )}
@@ -178,6 +178,8 @@ export function ArticleEditor({
           </>
         ) : (
           <ArticleSourceEditor
+            key={`${projectRoot}:${article.id}:${article.version}`}
+            articleId={article.id}
             source={source}
             busy={busy}
             readOnly={readOnly}

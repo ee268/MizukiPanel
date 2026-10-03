@@ -1,9 +1,12 @@
-import SaveOutlined from "@mui/icons-material/SaveOutlined";
-import { Box, Button, Stack, TextField } from "@mui/material";
-import type { RefObject } from "react";
-import { ArticleModeSelect } from "./ArticleModeSelect";
+import { Box, Stack, TextField } from "@mui/material";
+import { useState, type RefObject } from "react";
+import { ArticleFormatToolbar } from "./ArticleFormatToolbar";
+import { ImagePickerDialog } from "./ImagePickerDialog";
+import { LinkInsertDialog } from "./LinkInsertDialog";
+import { useSourceTextEditor } from "./useSourceTextEditor";
 
 interface ArticleSourceEditorProps {
+  articleId: string;
   source: string;
   busy: boolean;
   readOnly: boolean;
@@ -15,6 +18,7 @@ interface ArticleSourceEditorProps {
 }
 
 export function ArticleSourceEditor({
+  articleId,
   source,
   busy,
   readOnly,
@@ -24,48 +28,51 @@ export function ArticleSourceEditor({
   onVisualMode,
   onSave,
 }: ArticleSourceEditorProps) {
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const [selectedHref, setSelectedHref] = useState("");
+  const editor = useSourceTextEditor(source, onChange, openLink);
+
+  function openLink() {
+    const { start, end } = editor.readSourceSelection();
+    const selected = source.slice(start, end);
+    const existing = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(selected);
+    setSelectedText(existing?.[1] ?? selected);
+    setSelectedHref(existing?.[2] ?? "");
+    setLinkOpen(true);
+  }
+
   return (
     <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
-      <Stack
-        direction="row"
-        role="toolbar"
-        aria-label="文章源码工具栏"
-        sx={{
-          justifyContent: "space-between",
-          position: "sticky",
-          top: { xs: 56, sm: 64 },
-          zIndex: 2,
-          backgroundColor: "background.paper",
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 1,
-          p: 1,
+      <ArticleFormatToolbar
+        mode="source"
+        canUseVisual={canUseVisual}
+        disabled={busy || readOnly}
+        saving={busy || readOnly}
+        format={editor.format}
+        onModeChange={(mode) => {
+          if (mode === "visual") {
+            onVisualMode();
+          }
         }}
-      >
-        <ArticleModeSelect
-          mode="source"
-          canUseVisual={canUseVisual}
-          onChange={(mode) => {
-            if (mode === "visual") {
-              onVisualMode();
-            }
-          }}
-        />
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={<SaveOutlined />}
-          onClick={onSave}
-          disabled={busy || readOnly}
-        >
-          保存源码
-        </Button>
-      </Stack>
+        onAction={editor.action}
+        onHeading={editor.setHeading}
+        onTable={editor.insertTable}
+        onTask={editor.toggleTask}
+        onLink={openLink}
+        onImage={() => setImageOpen(true)}
+        onSave={onSave}
+      />
       <Box ref={contentRef}>
         <TextField
           label="完整文章源码"
           value={source}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={editor.handleChange}
+          onSelect={editor.handleSelect}
+          onClick={editor.handleSelect}
+          onKeyDown={editor.handleKeyDown}
+          inputRef={editor.textareaRef}
           fullWidth
           multiline
           minRows={24}
@@ -76,6 +83,25 @@ export function ArticleSourceEditor({
           }}
         />
       </Box>
+      <LinkInsertDialog
+        open={linkOpen}
+        selectedText={selectedText}
+        selectedHref={selectedHref}
+        onClose={() => setLinkOpen(false)}
+        onInsert={(label, href) => {
+          editor.insertLink(label, href);
+          setLinkOpen(false);
+        }}
+      />
+      <ImagePickerDialog
+        open={imageOpen}
+        articleId={articleId}
+        onClose={() => setImageOpen(false)}
+        onInsert={(alt, src) => {
+          editor.insertImage(alt, src);
+          setImageOpen(false);
+        }}
+      />
     </Stack>
   );
 }

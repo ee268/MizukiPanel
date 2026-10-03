@@ -233,6 +233,7 @@ export function VisualBodyEditor({
         片段可局部编辑源码，MDX 组件的静态属性可在卡片中修改；未识别的扩展语法请切换完整源码修改。
       </Alert>
       <ArticleFormatToolbar
+        mode="visual"
         disabled={!activeEditor || busy || readOnly}
         saving={busy || readOnly || !extensionsValid}
         format={format}
@@ -242,7 +243,11 @@ export function VisualBodyEditor({
         onTask={insertTask}
         onLink={openLink}
         onImage={() => setImageOpen(true)}
-        onSourceMode={onSourceMode}
+        onModeChange={(mode) => {
+          if (mode === "source") {
+            onSourceMode();
+          }
+        }}
         onSave={() => {
           if (invalidExtensions.current.size === 0) {
             onSave();
