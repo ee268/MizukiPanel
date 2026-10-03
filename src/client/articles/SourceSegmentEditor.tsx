@@ -5,17 +5,20 @@ import { parseFencedCode } from "../../lib/articles/fenced-code";
 import { parseGithubAlert } from "../../lib/articles/github-alerts";
 import { parseInlineExtension } from "../../lib/articles/inline-extensions";
 import { parseMathFragment } from "../../lib/articles/math-fragments";
+import { isSourceCardSyntax } from "../../lib/articles/mdx-source-edit";
 import { parseMizukiDirective } from "../../lib/articles/mizuki-directives";
-import type { SourceSegment } from "../../lib/articles/source-islands";
+import type { SegmentedArticle, SourceSegment } from "../../lib/articles/source-islands";
 import { CodeBlockCard } from "./CodeBlockCard";
 import { CodeGroupCard } from "./CodeGroupCard";
 import { DirectiveBlock } from "./DirectiveBlock";
 import { GithubAlertBlock } from "./GithubAlertBlock";
 import { InlineExtensionCard } from "./InlineExtensionCard";
 import { MathBlock } from "./MathBlock";
+import { MdxSourceCard } from "./MdxSourceCard";
 
 interface SourceSegmentEditorProps {
   articleId: string;
+  article: SegmentedArticle;
   segment: SourceSegment;
   readOnly: boolean;
   onChange: (raw: string) => void;
@@ -24,6 +27,7 @@ interface SourceSegmentEditorProps {
 
 export function SourceSegmentEditor({
   articleId,
+  article,
   segment,
   readOnly,
   onChange,
@@ -102,6 +106,18 @@ export function SourceSegmentEditor({
     return (
       <CodeGroupCard
         group={parsed.group}
+        readOnly={readOnly}
+        onChange={onChange}
+        onValidityChange={onValidityChange}
+      />
+    );
+  }
+
+  if (isSourceCardSyntax(segment.syntax)) {
+    return (
+      <MdxSourceCard
+        article={article}
+        segment={segment}
         readOnly={readOnly}
         onChange={onChange}
         onValidityChange={onValidityChange}

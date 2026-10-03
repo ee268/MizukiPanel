@@ -229,9 +229,8 @@ export function VisualBodyEditor({
   return (
     <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
       <Alert severity="info">
-        普通 Markdown、已识别的 Mizuki
-        指令、链接扩展、公式、图表源码和代码组可在此编辑。其他扩展语法与 MDX
-        仍保留原文，请切换完整源码修改。
+        普通 Markdown、已识别的 Mizuki 指令、链接扩展、公式、图表源码和代码组可在此编辑。MDX 与 HTML
+        片段可局部编辑源码；未识别的扩展语法请切换完整源码修改。
       </Alert>
       <ArticleFormatToolbar
         disabled={!activeEditor || busy || readOnly}
@@ -276,6 +275,7 @@ export function VisualBodyEditor({
               <SourceSegmentEditor
                 key={segment.id}
                 articleId={article.id}
+                article={snapshot}
                 segment={segment}
                 readOnly={readOnly}
                 onChange={(raw) => replaceSegment(segment, raw)}
