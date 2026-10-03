@@ -16,6 +16,7 @@ import type { SourceSegment } from "../../lib/articles/source-islands";
 import { mediaPreviewUrl } from "./article-media";
 import { readFormatState, type EditorFormatState } from "./editor-format";
 import { articleShortcut, type EditorShortcut } from "./editor-shortcuts";
+import { remarkImageTitle } from "./remark-image-title";
 
 interface MilkdownSegmentProps {
   articleId: string;
@@ -164,6 +165,7 @@ function SegmentEditor({
         })
         .use(commonmark)
         .use(gfm)
+        .use(remarkImageTitle)
         .use(history)
         .use(listener),
     [articleId, readOnly],
