@@ -9,6 +9,7 @@ import { registerAuthRoutes } from "./routes/auth";
 import { registerConfigRoutes } from "./routes/configs";
 import { registerFeatureRoutes } from "./routes/features";
 import { registerMediaRoutes } from "./routes/media";
+import { registerMarkdownPreviewRoutes } from "./routes/markdown-preview";
 import { registerPreviewRoutes } from "./routes/preview";
 import { registerPublishRoutes } from "./routes/publish";
 import { registerWorkspaceRoutes } from "./routes/workspace";
@@ -33,6 +34,7 @@ export function createApp(options: AppOptions = {}) {
   registerConfigRoutes(app);
   registerFeatureRoutes(app);
   registerMediaRoutes(app);
+  registerMarkdownPreviewRoutes(app);
   registerPreviewRoutes(app);
   registerPublishRoutes(app);
 

@@ -34,6 +34,7 @@ export default function ArticlesPage() {
         {articles.selectedId ? (
           <ArticleEditor
             article={articles.article}
+            projectRoot={articles.report?.root ?? ""}
             previewPath={articles.previewPath}
             frontmatter={articles.frontmatter}
             source={articles.source}

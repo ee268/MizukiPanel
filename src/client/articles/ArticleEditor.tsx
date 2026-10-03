@@ -17,12 +17,14 @@ import {
 } from "@mui/material";
 import type { ArticleRecord } from "../types";
 import { FrontmatterEditor } from "./FrontmatterEditor";
+import { MarkdownDraftPreview } from "./MarkdownDraftPreview";
 import { VisualBodyEditor } from "./VisualBodyEditor";
 import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
 
 interface ArticleEditorProps {
   article: ArticleRecord | null;
+  projectRoot: string;
   previewPath: string | null;
   frontmatter: FrontmatterRow[];
   source: string;
@@ -44,6 +46,7 @@ interface ArticleEditorProps {
 
 export function ArticleEditor({
   article,
+  projectRoot,
   previewPath,
   frontmatter,
   source,
@@ -144,17 +147,27 @@ export function ArticleEditor({
         <Divider />
 
         {mode === "visual" && !article.error ? (
-          <VisualBodyEditor
-            key={`${article.id}:${article.version}`}
-            article={article}
-            source={source}
-            busy={busy}
-            readOnly={readOnly}
-            onChange={onSourceChange}
-            onSave={onSaveBody}
-            onSourceMode={() => onModeChange("source")}
-            onValidityChange={setVisualValid}
-          />
+          <>
+            <VisualBodyEditor
+              key={`${projectRoot}:${article.id}:${article.version}`}
+              article={article}
+              source={source}
+              busy={busy}
+              readOnly={readOnly}
+              onChange={onSourceChange}
+              onSave={onSaveBody}
+              onSourceMode={() => onModeChange("source")}
+              onValidityChange={setVisualValid}
+            />
+            <Box sx={{ p: { xs: 2, md: 3 }, pt: 0 }}>
+              <MarkdownDraftPreview
+                key={`${projectRoot}:${article.id}`}
+                articleId={article.id}
+                format={article.format}
+                source={source}
+              />
+            </Box>
+          </>
         ) : mode === "frontmatter" && !article.error ? (
           <>
             {sourceDirty && (

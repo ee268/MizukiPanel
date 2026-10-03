@@ -1,5 +1,7 @@
 # 单篇 Markdown 渲染可行性验证
 
+> 后续进展：单篇草稿渲染现已接入文章编辑页；当前实现范围与已知差异见[正文混合编辑设计](VISUAL_MARKDOWN_EDITOR.md)。本页保留最初探针的测量结果。
+
 ## 结论
 
 当前 Mizuki 项目安装的 `@astrojs/markdown-remark@7.2.1` 可以在不启动 Astro 服务、也不构建站点的情况下处理单篇 `.md` 正文。面板中的只读探针按 `astro.config.mjs` 的顺序装载了 12 个 remark 和 10 个 rehype 插件，并在内存里渲染未保存草稿。已验证的扩展包括提示块、Wiki Link、数学公式、Mermaid、PlantUML、表格和图片的 HTML 结构。
