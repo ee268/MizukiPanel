@@ -5,6 +5,7 @@ import { parseFencedCode } from "../../lib/articles/fenced-code";
 import { parseGithubAlert } from "../../lib/articles/github-alerts";
 import { parseInlineExtension } from "../../lib/articles/inline-extensions";
 import { parseMathFragment } from "../../lib/articles/math-fragments";
+import { parseMdxComponent } from "../../lib/articles/mdx-components";
 import { isSourceCardSyntax } from "../../lib/articles/mdx-source-edit";
 import { parseMizukiDirective } from "../../lib/articles/mizuki-directives";
 import type { SegmentedArticle, SourceSegment } from "../../lib/articles/source-islands";
@@ -14,6 +15,7 @@ import { DirectiveBlock } from "./DirectiveBlock";
 import { GithubAlertBlock } from "./GithubAlertBlock";
 import { InlineExtensionCard } from "./InlineExtensionCard";
 import { MathBlock } from "./MathBlock";
+import { MdxComponentCard } from "./MdxComponentCard";
 import { MdxSourceCard } from "./MdxSourceCard";
 
 interface SourceSegmentEditorProps {
@@ -48,6 +50,7 @@ export function SourceSegmentEditor({
           : null,
       code: segment.syntax?.startsWith("code:") ? parseFencedCode(raw) : null,
       group: segment.syntax === "codeGroup" ? parseCodeGroup(raw) : null,
+      component: parseMdxComponent(segment),
     };
   }, [segment.raw, segment.syntax]);
 
@@ -114,6 +117,18 @@ export function SourceSegmentEditor({
   }
 
   if (isSourceCardSyntax(segment.syntax)) {
+    if (parsed.component) {
+      return (
+        <MdxComponentCard
+          article={article}
+          segment={segment}
+          component={parsed.component}
+          readOnly={readOnly}
+          onChange={onChange}
+          onValidityChange={onValidityChange}
+        />
+      );
+    }
     return (
       <MdxSourceCard
         article={article}

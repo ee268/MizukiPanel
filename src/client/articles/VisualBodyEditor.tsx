@@ -230,7 +230,7 @@ export function VisualBodyEditor({
     <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
       <Alert severity="info">
         普通 Markdown、已识别的 Mizuki 指令、链接扩展、公式、图表源码和代码组可在此编辑。MDX 与 HTML
-        片段可局部编辑源码；未识别的扩展语法请切换完整源码修改。
+        片段可局部编辑源码，MDX 组件的静态属性可在卡片中修改；未识别的扩展语法请切换完整源码修改。
       </Alert>
       <ArticleFormatToolbar
         disabled={!activeEditor || busy || readOnly}
