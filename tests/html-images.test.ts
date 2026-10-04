@@ -78,6 +78,7 @@ it("shows malformed image HTML as body text without an image", () => {
   const article = segmentArticleSource(`---\ntitle: Invalid image\n---\n\n${raw}\n`, "md");
   const fragment = article.segments.find((part) => part.raw.includes("<img"));
   expect(fragment).toBeDefined();
+  expect(fragment?.mode).toBe("source");
   const markup = renderToStaticMarkup(
     createElement(SourceSegmentEditor, {
       articleId: "post.md",
@@ -90,4 +91,6 @@ it("shows malformed image HTML as body text without an image", () => {
   );
   expect(markup).toContain(raw.replaceAll("<", "&lt;").replaceAll('"', "&quot;"));
   expect(markup).not.toContain("<img");
+  expect(markup).not.toContain("图片 HTML 源码");
+  expect(markup).not.toContain("warning");
 });

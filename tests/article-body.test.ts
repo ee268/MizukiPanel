@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { segmentArticleSource } from "../src/lib/articles/source-islands";
 import { ArticleValidationError } from "../src/lib/server/article-format";
-import { readArticle, saveArticleBody } from "../src/lib/server/articles";
+import { readArticle, saveArticleBody, saveArticleSource } from "../src/lib/server/articles";
 import type { ProjectReport } from "../src/lib/server/project";
 import { StorageConflict } from "../src/lib/server/storage";
 
@@ -201,6 +201,42 @@ it("saves and reloads GFM tables, tasks, links and image references", async () =
   expect(segmentArticleSource(reopened.source, "md").mode).toBe("hybrid");
   expect(await readFile(filename, "utf8")).toBe(reopened.source);
   await rm(saved.backupPath!, { force: true });
+});
+
+it("saves malformed image HTML as literal body text and renders it after correction", async () => {
+  const valid = '<img src="https://example.com/photo.png" alt="A" />';
+  const invalid = valid.slice(0, -1);
+  const source = `---\ntitle: Image\npublished: 2026-09-27\n---\n\n${valid}\n`;
+  const { report, filename } = await fixture("local", "image.md", source);
+  const initial = await readArticle(report, "image.md");
+
+  const saved = await saveArticleSource(
+    report,
+    initial.id,
+    source.replace(valid, invalid),
+    initial.version,
+  );
+  const reopened = await readArticle(report, initial.id);
+  const draft = segmentArticleSource(reopened.source, "md").segments.find(
+    (segment) => segment.syntax === "htmlImageDraft",
+  );
+  expect(draft?.raw).toBe(invalid);
+  expect(await readFile(filename, "utf8")).toBe(source.replace(valid, invalid));
+
+  const corrected = await saveArticleSource(
+    report,
+    reopened.id,
+    reopened.source.replace(invalid, valid),
+    reopened.version,
+  );
+  const final = await readArticle(report, reopened.id);
+  expect(
+    segmentArticleSource(final.source, "md").segments.some(
+      (segment) => segment.syntax === "html" && segment.raw === valid,
+    ),
+  ).toBe(true);
+  await rm(saved.backupPath!, { force: true });
+  await rm(corrected.backupPath!, { force: true });
 });
 
 const realPost = path.resolve(process.cwd(), "../Mizuki/src/content/posts/Qt框架功能概述.md");

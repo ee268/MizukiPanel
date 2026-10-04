@@ -1,33 +1,40 @@
-import { Alert, Box, Stack, TextField, Typography } from "@mui/material";
-import { useEffect, useRef, useState } from "react";
+import { Box, Stack, TextField, Typography } from "@mui/material";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parseHtmlImages } from "../../lib/articles/html-images";
-import { validateSourceCardEdit } from "../../lib/articles/mdx-source-edit";
-import type { SegmentedArticle, SourceSegment } from "../../lib/articles/source-islands";
+import type { SourceSegment } from "../../lib/articles/source-islands";
 import { mediaPreviewUrl } from "./article-media";
+import { LiteralSourceEditor } from "./LiteralSourceEditor";
 
 interface HtmlImageCardProps {
   articleId: string;
-  article: SegmentedArticle;
   segment: SourceSegment;
   readOnly: boolean;
   onChange: (raw: string) => void;
-  onValidityChange: (valid: boolean) => void;
 }
 
-export function HtmlImageCard({
-  articleId,
-  article,
-  segment,
-  readOnly,
-  onChange,
-  onValidityChange,
-}: HtmlImageCardProps) {
+export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlImageCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(segment.raw);
-  const [reason, setReason] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const images = reason === null ? (parseHtmlImages(draft) ?? []) : [];
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const pendingSelection = useRef<number | null>(null);
+  const wasImage = useRef(Boolean(parseHtmlImages(segment.raw)));
+  const images = parseHtmlImages(draft);
+
+  useLayoutEffect(() => {
+    if (wasImage.current && !images && bodyRef.current && !readOnly) {
+      bodyRef.current.focus();
+      const position = Math.min(pendingSelection.current ?? draft.length, draft.length);
+      bodyRef.current.setSelectionRange(position, position);
+    } else if (!wasImage.current && images && editing && inputRef.current) {
+      inputRef.current.focus();
+      const position = Math.min(pendingSelection.current ?? draft.length, draft.length);
+      inputRef.current.setSelectionRange(position, position);
+    }
+    wasImage.current = Boolean(images);
+    pendingSelection.current = null;
+  }, [draft, images, readOnly]);
 
   useEffect(() => {
     if (!editing) return;
@@ -41,108 +48,93 @@ export function HtmlImageCard({
     return () => document.removeEventListener("pointerdown", closeOutside, true);
   }, [editing]);
 
-  function change(next: string) {
+  function change(next: string, selectionStart: number) {
+    pendingSelection.current = selectionStart;
     setDraft(next);
-    const parsed = parseHtmlImages(next);
-    const result = parsed
-      ? validateSourceCardEdit(article, segment, next)
-      : { source: null, reason: "请保留有效的独立 <img> 标签" };
-    setReason(result.reason);
-    onValidityChange(result.reason === null);
-    onChange(result.source ?? next);
+    const valid = Boolean(parseHtmlImages(next));
+    if (!valid) {
+      setEditing(false);
+    } else if (!images) {
+      setEditing(true);
+    }
+    onChange(next);
   }
 
   return (
     <Stack spacing={1}>
-      {editing && !readOnly && (
-        <Stack spacing={1}>
-          <Box ref={editorRef}>
-            <TextField
-              label="图片 HTML 源码"
-              value={draft}
-              onChange={(event) => change(event.target.value)}
-              inputRef={inputRef}
-              error={reason !== null}
-              fullWidth
-              multiline
-              minRows={2}
-              slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 14 } } }}
-            />
-          </Box>
-          {reason && <Alert severity="warning">{reason}。修正前无法保存正文。</Alert>}
-        </Stack>
-      )}
-      {!editing && reason && (
-        <Alert severity="warning">{reason}。草稿已保留，请点击 HTML 原文继续修改。</Alert>
-      )}
-      {reason !== null && (
-        <Box
-          component="button"
-          type="button"
-          aria-label="编辑图片 HTML 原文"
-          disabled={readOnly}
-          onClick={() => setEditing(true)}
-          sx={{
-            display: "block",
-            width: "100%",
-            minHeight: "1.85em",
-            p: 0,
-            border: 0,
-            background: "transparent",
-            color: draft ? "text.primary" : "text.secondary",
-            font: "inherit",
-            fontSize: "1rem",
-            lineHeight: 1.85,
-            whiteSpace: "pre-wrap",
-            overflowWrap: "anywhere",
-            textAlign: "left",
-            cursor: readOnly ? "default" : "text",
-          }}
-        >
-          {draft || "（HTML 已清空，点击继续编辑）"}
-        </Box>
-      )}
-      {images.map((image, index) => {
-        const src = mediaPreviewUrl(articleId, image.src);
-        return (
-          <Box
-            key={`${image.src}:${index}`}
-            component="button"
-            type="button"
-            aria-label={`编辑图片源码：${image.alt || image.src}`}
-            onClick={() => !readOnly && setEditing(true)}
-            sx={{
-              display: "block",
-              p: 0,
-              border: 0,
-              background: "transparent",
-              cursor: readOnly ? "default" : "pointer",
-              textAlign: "left",
-              width: "fit-content",
-              maxWidth: "100%",
-            }}
-          >
-            {src ? (
+      {!images ? (
+        <LiteralSourceEditor
+          segment={segment}
+          value={draft}
+          textareaRef={bodyRef}
+          ariaLabel="图片 HTML 正文"
+          readOnly={readOnly}
+          onChange={change}
+        />
+      ) : (
+        <>
+          {editing && !readOnly && (
+            <Box ref={editorRef}>
+              <TextField
+                label="图片 HTML 源码"
+                value={draft}
+                onChange={(event) =>
+                  change(
+                    event.target.value,
+                    event.target.selectionStart ?? event.target.value.length,
+                  )
+                }
+                inputRef={inputRef}
+                fullWidth
+                multiline
+                minRows={2}
+                slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 14 } } }}
+              />
+            </Box>
+          )}
+          {images.map((image, index) => {
+            const src = mediaPreviewUrl(articleId, image.src);
+            return (
               <Box
-                component="img"
-                src={src}
-                alt={image.alt}
-                title={image.title}
-                loading="lazy"
+                key={`${image.src}:${index}`}
+                component="button"
+                type="button"
+                aria-label={`编辑图片源码：${image.alt || image.src}`}
+                onClick={() => !readOnly && setEditing(true)}
                 sx={{
                   display: "block",
+                  p: 0,
+                  border: 0,
+                  background: "transparent",
+                  cursor: readOnly ? "default" : "pointer",
+                  textAlign: "left",
+                  width: "fit-content",
                   maxWidth: "100%",
-                  height: "auto",
-                  zoom: image.zoom ?? 1,
-                  borderRadius: 1,
                 }}
-              />
-            ) : (
-              <Typography>{image.alt || "图片地址不可用"}</Typography>
-            )}
-          </Box>
-        );
-      })}
+              >
+                {src ? (
+                  <Box
+                    component="img"
+                    src={src}
+                    alt={image.alt}
+                    title={image.title}
+                    loading="lazy"
+                    sx={{
+                      display: "block",
+                      maxWidth: "100%",
+                      height: "auto",
+                      zoom: image.zoom ?? 1,
+                      borderRadius: 1,
+                    }}
+                  />
+                ) : (
+                  <Typography>{image.alt || "图片地址不可用"}</Typography>
+                )}
+              </Box>
+            );
+          })}
+        </>
+      )}
     </Stack>
   );
 }

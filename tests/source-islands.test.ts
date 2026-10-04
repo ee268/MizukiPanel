@@ -138,6 +138,24 @@ it("keeps inline MDX expressions and raw HTML out of editable Markdown spans", (
   expect(replaceArticleSegments(md, new Map())).toBe(md.source);
 });
 
+it("keeps a malformed standalone image tag together across parsed URL nodes", () => {
+  const raw = '<img src="https://example.com/photo.png" alt="A" /';
+  const source = `---\ntitle: Image draft\n---\n\nBefore.\n\n${raw}\n\nAfter.\n`;
+  const article = segmentArticleSource(source, "md");
+  const draft = article.segments.find((segment) => segment.syntax === "htmlImageDraft");
+
+  expect(article.mode).toBe("hybrid");
+  expect(draft?.raw).toBe(raw);
+  expect(replaceArticleSegments(article, new Map())).toBe(source);
+
+  const code = segmentArticleSource(`---\ntitle: Code\n---\n\n\`\`\`html\n${raw}\n\`\`\`\n`, "md");
+  expect(code.segments.some((segment) => segment.syntax === "htmlImageDraft")).toBe(false);
+
+  const crlf = segmentArticleSource(`---\r\ntitle: Image draft\r\n---\r\n\r\n${raw}\r\n`, "md");
+  expect(crlf.segments.find((segment) => segment.syntax === "htmlImageDraft")?.raw).toBe(raw);
+  expect(replaceArticleSegments(crlf, new Map())).toBe(crlf.source);
+});
+
 it("rejects replacements for unknown or tampered ranges", () => {
   const article = segmentArticleSource("---\ntitle: Safe\n---\n\nHello.", "md");
   expect(() => replaceArticleSegments(article, new Map([[99, "oops"]]))).toThrow();

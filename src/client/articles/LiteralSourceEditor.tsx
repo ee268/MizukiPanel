@@ -1,15 +1,26 @@
 import { Box } from "@mui/material";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type RefObject } from "react";
 import type { SourceSegment } from "../../lib/articles/source-islands";
 
 interface LiteralSourceEditorProps {
   segment: SourceSegment;
+  value?: string;
+  textareaRef?: RefObject<HTMLTextAreaElement | null>;
+  ariaLabel?: string;
   readOnly: boolean;
-  onChange: (raw: string) => void;
+  onChange: (raw: string, selectionStart: number) => void;
 }
 
-export function LiteralSourceEditor({ segment, readOnly, onChange }: LiteralSourceEditorProps) {
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+export function LiteralSourceEditor({
+  segment,
+  value,
+  textareaRef,
+  ariaLabel = "未识别正文原文",
+  readOnly,
+  onChange,
+}: LiteralSourceEditorProps) {
+  const localRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = textareaRef ?? localRef;
 
   function fitHeight(input: HTMLTextAreaElement) {
     input.style.height = "auto";
@@ -18,18 +29,19 @@ export function LiteralSourceEditor({ segment, readOnly, onChange }: LiteralSour
 
   useLayoutEffect(() => {
     if (inputRef.current) fitHeight(inputRef.current);
-  }, []);
+  }, [inputRef, value]);
 
   return (
     <Box
       component="textarea"
       ref={inputRef}
-      aria-label="未识别正文原文"
-      defaultValue={segment.raw}
+      aria-label={ariaLabel}
+      value={value}
+      defaultValue={value === undefined ? segment.raw : undefined}
       readOnly={readOnly}
       onChange={(event) => {
         fitHeight(event.target);
-        onChange(event.target.value);
+        onChange(event.target.value, event.target.selectionStart);
       }}
       spellCheck={false}
       sx={{

@@ -116,15 +116,13 @@ export function SourceSegmentEditor({
     );
   }
 
-  if (parseHtmlImages(segment.raw)) {
+  if (parseHtmlImages(segment.raw) || /^\s*<img\b/i.test(segment.raw)) {
     return (
       <HtmlImageCard
         articleId={articleId}
-        article={article}
         segment={segment}
         readOnly={readOnly}
         onChange={onChange}
-        onValidityChange={onValidityChange}
       />
     );
   }

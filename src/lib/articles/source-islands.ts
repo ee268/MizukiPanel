@@ -122,7 +122,12 @@ function protectedSyntax(node: SyntaxNode, body: string): string | null {
   return null;
 }
 
-function collectRanges(node: SyntaxNode, body: string, ranges: ProtectedRange[]): void {
+function collectRanges(
+  node: SyntaxNode,
+  body: string,
+  ranges: ProtectedRange[],
+  imageDrafts: ProtectedRange[],
+): void {
   const syntax = protectedSyntax(node, body);
   if (syntax) {
     ranges.push({ ...offsets(node), syntax });
@@ -137,6 +142,19 @@ function collectRanges(node: SyntaxNode, body: string, ranges: ProtectedRange[])
   if (node.type === "text") {
     const { start, end } = offsets(node);
     const raw = body.slice(start, end);
+    for (const match of raw.matchAll(/<img\b/gi)) {
+      const matchStart = start + match.index;
+      const lineStart = body.lastIndexOf("\n", matchStart - 1) + 1;
+      if (body.slice(lineStart, matchStart).trim()) continue;
+
+      const lineEnd = body.indexOf("\n", matchStart);
+      const end = lineEnd === -1 ? body.length : body[lineEnd - 1] === "\r" ? lineEnd - 1 : lineEnd;
+      imageDrafts.push({
+        start: matchStart,
+        end,
+        syntax: "htmlImageDraft",
+      });
+    }
     const wikiRanges: ProtectedRange[] = [];
     for (const match of raw.matchAll(/!?\[\[[^\]\r\n]+\]\]/g)) {
       const matchStart = start + match.index;
@@ -158,7 +176,7 @@ function collectRanges(node: SyntaxNode, body: string, ranges: ProtectedRange[])
     }
   }
 
-  for (const child of node.children ?? []) collectRanges(child, body, ranges);
+  for (const child of node.children ?? []) collectRanges(child, body, ranges, imageDrafts);
 }
 
 function segment(body: string, bodyStart: number, ranges: ProtectedRange[]): SourceSegment[] {
@@ -234,12 +252,23 @@ export function segmentArticleSource(source: string, format: ArticleFormat): Seg
     const parser = format === "mdx" ? mdxParser : markdownParser;
     const tree = parser.parse(body) as SyntaxNode;
     const ranges: ProtectedRange[] = findCodeGroupRanges(tree, body);
+    const imageDrafts: ProtectedRange[] = [];
     for (const child of tree.children ?? []) {
       const childRange = offsets(child);
       if (ranges.some((range) => range.start <= childRange.start && childRange.end <= range.end)) {
         continue;
       }
-      collectRanges(child, body, ranges);
+      collectRanges(child, body, ranges, imageDrafts);
+    }
+    for (const draft of imageDrafts) {
+      const overlaps = ranges.filter((range) => range.start < draft.end && range.end > draft.start);
+      if (overlaps.some((range) => range.start < draft.start || range.end > draft.end)) {
+        continue;
+      }
+      for (const overlap of overlaps) {
+        ranges.splice(ranges.indexOf(overlap), 1);
+      }
+      ranges.push(draft);
     }
     return {
       format,
