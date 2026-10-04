@@ -10,12 +10,13 @@ import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, useTheme } from "@mui/material";
 import { useEffect, useRef, type KeyboardEvent } from "react";
 import type { SourceSegment } from "../../lib/articles/source-islands";
 import { mediaPreviewUrl } from "./article-media";
 import { readFormatState, type EditorFormatState } from "./editor-format";
 import { articleShortcut, type EditorShortcut } from "./editor-shortcuts";
+import { createMilkdownCodeBlock } from "./MilkdownCodeBlock";
 import { remarkImageTitle } from "./remark-image-title";
 
 interface MilkdownSegmentProps {
@@ -39,6 +40,7 @@ function SegmentEditor({
   onFormatChange,
   onShortcut,
 }: MilkdownSegmentProps) {
+  const theme = useTheme();
   const onChangeRef = useRef(onChange);
   const onReadyRef = useRef(onReady);
   const onFormatChangeRef = useRef(onFormatChange);
@@ -58,6 +60,7 @@ function SegmentEditor({
           ctx.set(editorViewOptionsCtx, {
             editable: () => !readOnly,
             nodeViews: {
+              code_block: createMilkdownCodeBlock,
               image: (node) => {
                 const dom = document.createElement("img");
                 dom.loading = "lazy";
@@ -238,13 +241,67 @@ function SegmentEditor({
           ml: 0,
           color: "text.secondary",
         },
-        "& .milkdown pre": {
-          p: 2,
-          borderRadius: 1,
+        "& .mizuki-inserted-code-card": {
+          position: "relative",
+          display: "flex",
+          alignItems: "flex-start",
+          py: 2.5,
+          px: 2,
+          my: 1.5,
+          border: 0,
+          borderRadius: "15px",
           overflowX: "auto",
-          backgroundColor: "action.hover",
+          backgroundColor: theme.palette.mode === "dark" ? "#0b110e" : "#e5e9ed",
+          color: "text.primary",
+          fontSize: "1rem",
+          lineHeight: 1.6,
+        },
+        "& .mizuki-inserted-code-gutter": {
+          flex: "none",
+          width: 26,
+          mr: 2.5,
+          pr: 0.5,
+          borderRight: "1px solid",
+          borderColor: "divider",
+          color: "text.secondary",
+          textAlign: "right",
+          whiteSpace: "pre",
+          pointerEvents: "none",
+        },
+        "& .mizuki-inserted-code-card pre": {
+          flex: "1 0 auto",
+          m: 0,
+          pr: 7,
+          backgroundColor: "transparent",
+          color: "inherit",
+          fontSize: "inherit",
+          lineHeight: "inherit",
+          whiteSpace: "pre-wrap",
+          overflowWrap: "anywhere",
+        },
+        "& .mizuki-inserted-code-language": {
+          position: "absolute",
+          top: 8,
+          right: 10,
+          px: 1,
+          py: 0.4,
+          borderRadius: "0.375rem",
+          backgroundColor: `color-mix(in srgb, ${theme.palette.primary.main} 25%, transparent)`,
+          color: "primary.main",
+          fontFamily: "var(--mizuki-panel-font-mono)",
+          fontSize: 12,
+          fontWeight: 700,
+          lineHeight: 1.2,
+          textTransform: "uppercase",
+          pointerEvents: "none",
         },
         "& .milkdown code": { fontFamily: "var(--mizuki-panel-font-mono)" },
+        "& .mizuki-inserted-code-card code": {
+          fontFamily: "MizukiEditorBody, MizukiEditorCjk, var(--mizuki-panel-font-sans)",
+          fontSize: "inherit",
+          lineHeight: "inherit",
+          whiteSpace: "inherit",
+        },
         "& .milkdown :not(pre) > code": {
           backgroundColor: "color-mix(in srgb, var(--mui-palette-primary-main) 25%, transparent)",
           borderRadius: "0.375rem",
