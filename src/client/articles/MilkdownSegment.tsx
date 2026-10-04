@@ -60,7 +60,8 @@ function SegmentEditor({
           ctx.set(editorViewOptionsCtx, {
             editable: () => !readOnly,
             nodeViews: {
-              code_block: createMilkdownCodeBlock,
+              code_block: (node, view, getPos) =>
+                createMilkdownCodeBlock(node, view, getPos, readOnly),
               image: (node) => {
                 const dom = document.createElement("img");
                 dom.loading = "lazy";
@@ -187,6 +188,12 @@ function SegmentEditor({
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (
+      event.target instanceof HTMLElement &&
+      event.target.closest(".mizuki-inserted-code-toolbar")
+    ) {
+      return;
+    }
+    if (
       (event.nativeEvent.isComposing || event.keyCode === 229) &&
       (event.ctrlKey || event.metaKey)
     ) {
@@ -243,8 +250,6 @@ function SegmentEditor({
         },
         "& .mizuki-inserted-code-card": {
           position: "relative",
-          display: "flex",
-          alignItems: "flex-start",
           py: 2.5,
           px: 2,
           my: 1.5,
@@ -255,6 +260,41 @@ function SegmentEditor({
           color: "text.primary",
           fontSize: "1rem",
           lineHeight: 1.6,
+        },
+        "& .mizuki-inserted-code-card.is-editing": { py: 2 },
+        "& .mizuki-inserted-code-content": {
+          display: "flex",
+          alignItems: "flex-start",
+        },
+        "& .mizuki-inserted-code-toolbar": {
+          display: "none",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: 1.5,
+          mb: 1.5,
+        },
+        "& .mizuki-inserted-code-card.is-editing .mizuki-inserted-code-toolbar": {
+          display: "flex",
+        },
+        "& .mizuki-inserted-code-toolbar input": {
+          width: 180,
+          maxWidth: "100%",
+          p: 1,
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 1,
+          outline: "none",
+          backgroundColor: "transparent",
+          color: "text.primary",
+          font: "inherit",
+        },
+        "& .mizuki-inserted-code-toolbar input:focus": { borderColor: "primary.main" },
+        "& .mizuki-inserted-code-toolbar button": {
+          border: 0,
+          backgroundColor: "transparent",
+          color: "error.main",
+          font: "inherit",
+          cursor: "pointer",
         },
         "& .mizuki-inserted-code-gutter": {
           flex: "none",
@@ -294,6 +334,9 @@ function SegmentEditor({
           lineHeight: 1.2,
           textTransform: "uppercase",
           pointerEvents: "none",
+        },
+        "& .mizuki-inserted-code-card.is-editing .mizuki-inserted-code-language": {
+          display: "none",
         },
         "& .milkdown code": { fontFamily: "var(--mizuki-panel-font-mono)" },
         "& .mizuki-inserted-code-card code": {
