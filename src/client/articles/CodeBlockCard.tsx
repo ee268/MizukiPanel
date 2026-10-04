@@ -46,7 +46,6 @@ const languageOptions = [
 export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: CodeBlockCardProps) {
   const theme = useTheme();
   const [language, setLanguage] = useState(block.lang);
-  const [meta, setMeta] = useState(block.meta);
   const [body, setBody] = useState(block.body);
   const [editing, setEditing] = useState(false);
   const [removed, setRemoved] = useState(false);
@@ -69,17 +68,14 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
     return () => document.removeEventListener("pointerdown", closeOutside, true);
   }, [editing]);
 
-  function change(next: { language?: string; meta?: string; body?: string }) {
+  function change(next: { language?: string; body?: string }) {
     const nextLanguage = next.language ?? language;
-    const nextMeta = next.meta ?? meta;
     const nextBody = next.body ?? body;
     const raw = updateFencedCode(block, {
       ...(nextLanguage !== block.lang ? { lang: nextLanguage } : {}),
-      ...(nextMeta !== block.meta ? { meta: nextMeta } : {}),
       ...(nextBody !== block.body ? { body: nextBody } : {}),
     });
     setLanguage(nextLanguage);
-    setMeta(nextMeta);
     setBody(nextBody);
     setInvalid(raw === null);
     onValidityChange(raw !== null);
@@ -97,14 +93,13 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
   function restore() {
     setRemoved(false);
     setLanguage(block.lang);
-    setMeta(block.meta);
     setBody(block.body);
     onChange(block.raw);
   }
 
   if (removed) {
     return (
-      <Paper className="mizuki-code-card" variant="outlined" sx={{ p: 2 }}>
+      <Paper className="mizuki-code-card" variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
           <Typography color="text.secondary">代码块已删除，保存正文后生效。</Typography>
           <Button disabled={readOnly} onClick={restore}>
@@ -128,7 +123,7 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
         py: editing ? 2 : 1.5,
         px: 2,
         border: 0,
-        borderRadius: 4,
+        borderRadius: 2,
         backgroundColor:
           theme.palette.mode === "dark" ? "#0b110e" : alpha(theme.palette.primary.main, 0.065),
         boxShadow: "none",
@@ -147,11 +142,8 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
               px: 1,
               py: 0.4,
               borderRadius: 1.5,
-              bgcolor: alpha(
-                theme.palette.primary.main,
-                theme.palette.mode === "dark" ? 0.2 : 0.13,
-              ),
-              color: theme.palette.mode === "dark" ? "primary.light" : "primary.dark",
+              bgcolor: alpha(theme.palette.primary.main, 0.18),
+              color: "primary.main",
               fontFamily: "monospace",
               fontSize: 12,
               fontWeight: 700,
@@ -181,13 +173,6 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
               renderInput={(params) => <TextField {...params} label="语言" size="small" />}
               sx={{ minWidth: 180, flex: 1 }}
             />
-            <TextField
-              label="代码块参数"
-              value={meta}
-              onChange={(event) => change({ meta: event.target.value })}
-              size="small"
-              sx={{ flex: 2 }}
-            />
             <Button
               color="error"
               size="small"
@@ -211,9 +196,7 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
             if (editing && !readOnly) view.focus();
           }}
         />
-        {invalid && (
-          <Alert severity="warning">围栏语法无效，请调整语言、参数或代码内容后保存。</Alert>
-        )}
+        {invalid && <Alert severity="warning">围栏语法无效，请调整语言或代码内容后保存。</Alert>}
       </Stack>
     </Paper>
   );
