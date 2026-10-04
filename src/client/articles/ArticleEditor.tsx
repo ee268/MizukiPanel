@@ -6,7 +6,6 @@ import { Alert, Box, Button, Paper, Stack, Tab, Tabs, Typography } from "@mui/ma
 import type { ArticleRecord } from "../types";
 import { ArticleSourceEditor } from "./ArticleSourceEditor";
 import { FrontmatterEditor } from "./FrontmatterEditor";
-import { MarkdownDraftPreview } from "./MarkdownDraftPreview";
 import { VisualBodyEditor } from "./VisualBodyEditor";
 import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
@@ -153,31 +152,20 @@ export function ArticleEditor({
         )}
 
         {mode === "visual" && !article.error ? (
-          <>
-            <Box ref={visualRef}>
-              <VisualBodyEditor
-                key={`${projectRoot}:${article.id}:${article.version}`}
-                article={article}
-                source={source}
-                busy={busy}
-                readOnly={readOnly}
-                fontMode={fontMode}
-                onChange={onSourceChange}
-                onSave={saveVisualBody}
-                onSourceMode={() => changeMode("source")}
-                onValidityChange={setVisualValid}
-              />
-            </Box>
-            <Box sx={{ p: { xs: 2, md: 3 }, pt: 0 }}>
-              <MarkdownDraftPreview
-                key={`${projectRoot}:${article.id}`}
-                articleId={article.id}
-                format={article.format}
-                source={source}
-                fontMode={fontMode}
-              />
-            </Box>
-          </>
+          <Box ref={visualRef}>
+            <VisualBodyEditor
+              key={`${projectRoot}:${article.id}:${article.version}`}
+              article={article}
+              source={source}
+              busy={busy}
+              readOnly={readOnly}
+              fontMode={fontMode}
+              onChange={onSourceChange}
+              onSave={saveVisualBody}
+              onSourceMode={() => changeMode("source")}
+              onValidityChange={setVisualValid}
+            />
+          </Box>
         ) : mode === "frontmatter" && !article.error ? (
           <>
             {sourceDirty && (
