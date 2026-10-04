@@ -249,6 +249,7 @@ function SegmentEditor({
           backgroundColor: "color-mix(in srgb, var(--mui-palette-primary-main) 25%, transparent)",
           borderRadius: "0.375rem",
           color: "primary.main",
+          fontSize: "inherit",
           fontWeight: 600,
           px: 0.7,
           py: 0.25,

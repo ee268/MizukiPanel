@@ -51,6 +51,7 @@ const inlineCodeCss = `
     background: color-mix(in srgb, var(--primary) 25%, transparent);
     border-radius: .375rem;
     color: var(--primary);
+    font-size: inherit;
     font-weight: 600;
     padding: .15em .4em;
   }
