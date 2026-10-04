@@ -1,15 +1,15 @@
-import AccountTreeOutlined from "@mui/icons-material/AccountTreeOutlined";
-import CodeOutlined from "@mui/icons-material/CodeOutlined";
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import {
   Alert,
   Autocomplete,
+  Box,
   Button,
-  Chip,
   Paper,
   Stack,
   TextField,
   Typography,
+  alpha,
+  useTheme,
 } from "@mui/material";
 import type { EditorView } from "@uiw/react-codemirror";
 import { useEffect, useRef, useState } from "react";
@@ -44,6 +44,7 @@ const languageOptions = [
 ];
 
 export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: CodeBlockCardProps) {
+  const theme = useTheme();
   const [language, setLanguage] = useState(block.lang);
   const [meta, setMeta] = useState(block.meta);
   const [body, setBody] = useState(block.body);
@@ -51,11 +52,22 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
   const [removed, setRemoved] = useState(false);
   const [invalid, setInvalid] = useState(false);
   const editorRef = useRef<EditorView | null>(null);
-  const diagram = language === "mermaid" || language === "plantuml";
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editing && !readOnly) editorRef.current?.focus();
   }, [editing, readOnly]);
+
+  useEffect(() => {
+    if (!editing) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !containerRef.current?.contains(event.target)) {
+        setEditing(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside, true);
+    return () => document.removeEventListener("pointerdown", closeOutside, true);
+  }, [editing]);
 
   function change(next: { language?: string; meta?: string; body?: string }) {
     const nextLanguage = next.language ?? language;
@@ -105,37 +117,60 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
 
   return (
     <Paper
+      ref={containerRef}
       className="mizuki-code-card"
       variant="outlined"
+      onClick={() => {
+        if (!readOnly && !editing) setEditing(true);
+      }}
       sx={{
-        p: 2,
-        borderLeft: "4px solid",
-        borderLeftColor: "primary.main",
-        backgroundColor: "action.hover",
+        position: "relative",
+        py: editing ? 2 : 1.5,
+        px: 2,
+        border: 0,
+        borderRadius: 4,
+        backgroundColor:
+          theme.palette.mode === "dark" ? "#0b110e" : alpha(theme.palette.primary.main, 0.065),
+        boxShadow: "none",
+        cursor: readOnly ? "default" : editing ? "auto" : "text",
       }}
     >
       <Stack spacing={1.5}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          {diagram ? <AccountTreeOutlined /> : <CodeOutlined />}
-          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-            {diagram ? "图表源码" : "代码块"}
-          </Typography>
-          <Chip size="small" label={language || "text"} />
-          {editing && !readOnly && (
-            <Button
-              color="error"
-              size="small"
-              startIcon={<DeleteOutline />}
-              onClick={remove}
-              sx={{ ml: "auto" }}
-            >
-              删除代码块
-            </Button>
-          )}
-        </Stack>
+        {!editing && (
+          <Box
+            component="span"
+            sx={{
+              position: "absolute",
+              top: 8,
+              right: 10,
+              zIndex: 1,
+              px: 1,
+              py: 0.4,
+              borderRadius: 1.5,
+              bgcolor: alpha(
+                theme.palette.primary.main,
+                theme.palette.mode === "dark" ? 0.2 : 0.13,
+              ),
+              color: theme.palette.mode === "dark" ? "primary.light" : "primary.dark",
+              fontFamily: "monospace",
+              fontSize: 12,
+              fontWeight: 700,
+              lineHeight: 1.2,
+              textTransform: "uppercase",
+              pointerEvents: "none",
+            }}
+          >
+            {language || "TEXT"}
+          </Box>
+        )}
         {editing && !readOnly && (
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1.5}
+            sx={{ alignItems: { sm: "center" } }}
+          >
             <Autocomplete
+              disablePortal
               freeSolo
               options={languageOptions}
               value={language || "text"}
@@ -153,6 +188,15 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
               size="small"
               sx={{ flex: 2 }}
             />
+            <Button
+              color="error"
+              size="small"
+              startIcon={<DeleteOutline />}
+              onClick={remove}
+              sx={{ whiteSpace: "nowrap" }}
+            >
+              删除代码块
+            </Button>
           </Stack>
         )}
         <SyntaxCodeEditor
@@ -160,20 +204,13 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
           language={language}
           value={body}
           readOnly={readOnly || !editing}
-          onClick={() => {
-            if (!readOnly) setEditing(true);
-          }}
+          variant="embedded"
           onChange={(value) => change({ body: value })}
           onReady={(view) => {
             editorRef.current = view;
             if (editing && !readOnly) view.focus();
           }}
         />
-        {diagram && !editing && (
-          <Typography variant="caption" color="text.secondary">
-            点击代码可编辑；图形效果在单篇 Markdown 预览中显示。
-          </Typography>
-        )}
         {invalid && (
           <Alert severity="warning">围栏语法无效，请调整语言、参数或代码内容后保存。</Alert>
         )}

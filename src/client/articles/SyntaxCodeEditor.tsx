@@ -11,6 +11,7 @@ interface SyntaxCodeEditorProps {
   language: string;
   value: string;
   readOnly: boolean;
+  variant?: "outlined" | "embedded";
   onChange?: (value: string, selectionStart: number) => void;
   onClick?: () => void;
   onReady?: (view: EditorView) => void;
@@ -31,6 +32,7 @@ export function SyntaxCodeEditor({
   language,
   value,
   readOnly,
+  variant = "outlined",
   onChange,
   onClick,
   onReady,
@@ -70,18 +72,20 @@ export function SyntaxCodeEditor({
           "&": {
             backgroundColor: "transparent",
             color: theme.palette.text.primary,
-            fontSize: "14px",
+            fontSize: variant === "embedded" ? "16px" : "14px",
           },
           ".cm-content": {
             caretColor: theme.palette.primary.main,
             fontFamily: "inherit",
             lineHeight: "1.6",
-            padding: "10px 0",
+            padding:
+              variant === "embedded" ? (readOnly ? "8px 72px 8px 14px" : "8px 14px") : "10px 0",
           },
           ".cm-gutters": {
             backgroundColor: "transparent",
-            borderRightColor: theme.palette.divider,
+            borderRightColor: variant === "embedded" ? theme.palette.divider : "transparent",
             color: theme.palette.text.secondary,
+            paddingLeft: variant === "embedded" ? "4px" : "0",
           },
           ".cm-activeLine, .cm-activeLineGutter": {
             backgroundColor: "color-mix(in srgb, var(--mui-palette-primary-main) 10%, transparent)",
@@ -93,7 +97,7 @@ export function SyntaxCodeEditor({
         },
         { dark: theme.palette.mode === "dark" },
       ),
-    [theme],
+    [theme, variant, readOnly],
   );
   const extensions = useMemo(
     () => [EditorView.lineWrapping, editorTheme, ...(loaded ? [loaded] : [])],
@@ -104,13 +108,23 @@ export function SyntaxCodeEditor({
     <Box
       onClick={onClick}
       sx={{
-        border: "1px solid",
-        borderColor: "divider",
-        borderRadius: 1,
+        border: variant === "embedded" ? 0 : "1px solid",
+        borderColor: variant === "embedded" ? "transparent" : "divider",
+        borderRadius: variant === "embedded" ? 0 : 1,
         overflow: "hidden",
         fontFamily:
           'MizukiEditorCode, "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Consolas, monospace',
-        "&:focus-within": { borderColor: readOnly ? "divider" : "primary.main" },
+        "&:focus-within": {
+          borderColor:
+            variant === "embedded" ? "transparent" : readOnly ? "divider" : "primary.main",
+        },
+        ...(variant === "embedded"
+          ? {
+              "& .cm-editor, & .cm-scroller, & .cm-gutters": {
+                backgroundColor: "transparent !important",
+              },
+            }
+          : {}),
       }}
     >
       <CodeMirror
