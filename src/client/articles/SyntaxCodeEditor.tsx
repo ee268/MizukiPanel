@@ -72,6 +72,7 @@ export function SyntaxCodeEditor({
           "&": {
             backgroundColor: "transparent",
             color: theme.palette.text.primary,
+            fontFamily: "var(--mizuki-panel-font-mono)",
             fontSize: variant === "embedded" ? "16px" : "14px",
           },
           ".cm-content": {
@@ -112,8 +113,7 @@ export function SyntaxCodeEditor({
         borderColor: variant === "embedded" ? "transparent" : "divider",
         borderRadius: variant === "embedded" ? 0 : 1,
         overflow: "hidden",
-        fontFamily:
-          'MizukiEditorCode, "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Consolas, monospace',
+        fontFamily: "var(--mizuki-panel-font-mono)",
         "&:focus-within": {
           borderColor:
             variant === "embedded" ? "transparent" : readOnly ? "divider" : "primary.main",

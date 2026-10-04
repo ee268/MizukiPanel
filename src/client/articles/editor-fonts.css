@@ -37,7 +37,7 @@
 .mizuki-document-content[data-font-mode="system"] pre.MuiTypography-root,
 .mizuki-document-content[data-font-mode="system"] .mizuki-code-card .MuiInputBase-input,
 .mizuki-document-source[data-font-mode="system"] .MuiInputBase-input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--mizuki-panel-font-mono);
 }
 
 .mizuki-document-content[data-font-mode="custom"],
@@ -55,13 +55,9 @@
 .mizuki-document-content[data-font-mode="custom"] pre.MuiTypography-root,
 .mizuki-document-content[data-font-mode="custom"] .mizuki-code-card .MuiInputBase-input,
 .mizuki-document-source[data-font-mode="custom"] .MuiInputBase-input {
-  font-family:
-    MizukiEditorCode, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular,
-    Menlo, Monaco, Consolas, monospace;
+  font-family: MizukiEditorCode, MizukiEditorCjk, var(--mizuki-panel-font-mono);
 }
 
 .mizuki-document-content[data-font-mode="custom"] .milkdown .editor :not(pre) > code {
-  font-family:
-    MizukiEditorCode, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular,
-    Menlo, Monaco, Consolas, monospace;
+  font-family: MizukiEditorCode, MizukiEditorCjk, var(--mizuki-panel-font-mono);
 }

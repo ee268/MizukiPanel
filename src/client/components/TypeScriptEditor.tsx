@@ -20,6 +20,7 @@ export function TypeScriptEditor({
           "&": {
             backgroundColor: theme.palette.background.default,
             color: theme.palette.text.primary,
+            fontFamily: "var(--mizuki-panel-font-mono)",
             fontSize: "13px",
           },
           ".cm-content": {

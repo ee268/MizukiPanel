@@ -13,7 +13,7 @@ const customFonts = `
   @font-face { font-family: MizukiEditorCjk; src: url('/api/editor-fonts/cjk') format('woff2'); font-weight: 400; font-display: swap; }
   @font-face { font-family: MizukiEditorCode; src: url('/api/editor-fonts/code') format('woff2'); font-weight: 400; font-display: swap; }
   body { font-family: MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif; }
-  .custom-md :is(code, pre, .mermaid) { font-family: MizukiEditorCode, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  .custom-md :is(code, pre, .mermaid) { font-family: MizukiEditorCode, MizukiEditorCjk, "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 `;
 
 const baseCss = `
@@ -30,7 +30,6 @@ const baseCss = `
   .custom-md a { color: var(--primary); }
   .custom-md img { max-width: 100%; height: auto; border-radius: 8px; }
   .custom-md pre { overflow-x: auto; padding: 16px; border-radius: 10px; background: var(--code-bg); line-height: 1.55; }
-  .custom-md :not(pre) > code { background: var(--inline-code-bg); padding: .12em .3em; border-radius: 4px; }
   .custom-md blockquote { border-inline-start: 4px solid var(--primary); margin: 1.2em 0; padding: .15em 1em; background: var(--surface); }
   .custom-md table { border-collapse: collapse; width: 100%; display: block; overflow-x: auto; }
   .custom-md .table-wrapper { max-width: 100%; overflow-x: auto; }
@@ -45,6 +44,16 @@ const baseCss = `
   @media (max-width: 479px) { .custom-md .image-grid { grid-template-columns: 1fr; } }
   .custom-md hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
   .custom-md .mermaid { white-space: pre-wrap; font-family: monospace; }
+`;
+
+const inlineCodeCss = `
+  .custom-md :not(pre) > code {
+    background: color-mix(in srgb, var(--primary) 25%, transparent);
+    border-radius: .375rem;
+    color: var(--primary);
+    font-weight: 600;
+    padding: .15em .4em;
+  }
 `;
 
 function safeStyle(value: string): string {
@@ -63,7 +72,7 @@ export function markdownPreviewDocument(
     :root { color-scheme: ${mode}; --page: ${dark ? "#111318" : "#fff"};
       --surface: ${dark ? "#1b1e26" : "#f5f6fa"}; --text: ${dark ? "#e7e9ef" : "#242833"};
       --heading: ${dark ? "#fff" : "#171b24"}; --line: ${dark ? "#3c414d" : "#d9dce4"};
-      --code-bg: ${dark ? "#0d1119" : "#f2f4f8"}; --inline-code-bg: ${dark ? "#303542" : "#e9edf5"};
+      --code-bg: ${dark ? "#0d1119" : "#f2f4f8"};
       --primary: hsl(${hue} 75% ${dark ? "70" : "42"}%);
       --tw-prose-body: var(--text); --tw-prose-headings: var(--heading);
       --admonitions-color-note: #448aff; --admonitions-color-tip: #00bfa5;
@@ -74,6 +83,6 @@ export function markdownPreviewDocument(
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'">
-<link rel="stylesheet" href="${katexCssUrl}"><style>${safeStyle(variables + baseCss + result.css + (fontMode === "custom" ? customFonts : ""))}</style></head>
+<link rel="stylesheet" href="${katexCssUrl}"><style>${safeStyle(variables + baseCss + result.css + (fontMode === "custom" ? customFonts : "") + inlineCodeCss)}</style></head>
 <body><article class="custom-md">${result.html}</article></body></html>`;
 }

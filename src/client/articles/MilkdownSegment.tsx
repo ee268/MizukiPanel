@@ -245,6 +245,14 @@ function SegmentEditor({
           backgroundColor: "action.hover",
         },
         "& .milkdown code": { fontFamily: "var(--mizuki-panel-font-mono)" },
+        "& .milkdown :not(pre) > code": {
+          backgroundColor: "color-mix(in srgb, var(--mui-palette-primary-main) 25%, transparent)",
+          borderRadius: "0.375rem",
+          color: "primary.main",
+          fontWeight: 600,
+          px: 0.7,
+          py: 0.25,
+        },
         "& .milkdown img": { maxWidth: "100%" },
         "& .milkdown table": { borderCollapse: "collapse", display: "block", overflowX: "auto" },
         "& .milkdown td, & .milkdown th": {

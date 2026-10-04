@@ -62,9 +62,7 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
             <Box sx={{ minWidth: graphWidth + 34, width: "max-content" }}>
               <Box
                 sx={{
-                  display: "grid",
-                  gap: `${gap}px`,
-                  gridTemplateColumns: `repeat(${calendar.weeks.length}, ${cellSize}px)`,
+                  position: "relative",
                   height: 20,
                   ml: "34px",
                   width: graphWidth,
@@ -77,7 +75,9 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
                     key={`${month.label}-${month.column}`}
                     sx={{
                       fontSize: 11,
-                      gridColumn: `${month.column + 1} / span 4`,
+                      position: "absolute",
+                      left: month.column * (cellSize + gap),
+                      top: 0,
                       whiteSpace: "nowrap",
                     }}
                   >

@@ -27,7 +27,8 @@
     MizukiPanelBody, MizukiPanelCjk, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   --mizuki-panel-font-mono:
-    MizukiPanelCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    MizukiPanelCode, MizukiPanelCjk, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace;
 }
 
 html,
