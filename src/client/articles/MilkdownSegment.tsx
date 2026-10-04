@@ -28,6 +28,7 @@ interface MilkdownSegmentProps {
   onReady: (editor: Editor | null) => void;
   onFormatChange: (format: EditorFormatState) => void;
   onShortcut: (shortcut: EditorShortcut) => void;
+  onValidityChange: (valid: boolean) => void;
 }
 
 function SegmentEditor({
@@ -39,17 +40,21 @@ function SegmentEditor({
   onReady,
   onFormatChange,
   onShortcut,
+  onValidityChange,
 }: MilkdownSegmentProps) {
   const theme = useTheme();
   const onChangeRef = useRef(onChange);
   const onReadyRef = useRef(onReady);
   const onFormatChangeRef = useRef(onFormatChange);
   const onShortcutRef = useRef(onShortcut);
+  const onValidityChangeRef = useRef(onValidityChange);
+  const invalidCodeBlocks = useRef(new Set<symbol>());
   const formatFrame = useRef<number | null>(null);
   onChangeRef.current = onChange;
   onReadyRef.current = onReady;
   onFormatChangeRef.current = onFormatChange;
   onShortcutRef.current = onShortcut;
+  onValidityChangeRef.current = onValidityChange;
   const currentMarkdown = useRef(segment.raw);
   const { get, loading } = useEditor(
     (root) =>
@@ -60,8 +65,14 @@ function SegmentEditor({
           ctx.set(editorViewOptionsCtx, {
             editable: () => !readOnly,
             nodeViews: {
-              code_block: (node, view, getPos) =>
-                createMilkdownCodeBlock(node, view, getPos, readOnly),
+              code_block: (node, view, getPos) => {
+                const id = Symbol("code-block");
+                return createMilkdownCodeBlock(node, view, getPos, readOnly, theme, (valid) => {
+                  if (valid) invalidCodeBlocks.current.delete(id);
+                  else invalidCodeBlocks.current.add(id);
+                  onValidityChangeRef.current(invalidCodeBlocks.current.size === 0);
+                });
+              },
               image: (node) => {
                 const dom = document.createElement("img");
                 dom.loading = "lazy";
@@ -172,7 +183,7 @@ function SegmentEditor({
         .use(remarkImageTitle)
         .use(history)
         .use(listener),
-    [articleId, readOnly],
+    [articleId, readOnly, theme],
   );
   const getRef = useRef(get);
   getRef.current = get;
@@ -187,12 +198,6 @@ function SegmentEditor({
   }, [loading]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (
-      event.target instanceof HTMLElement &&
-      event.target.closest(".mizuki-inserted-code-toolbar")
-    ) {
-      return;
-    }
     if (
       (event.nativeEvent.isComposing || event.keyCode === 229) &&
       (event.ctrlKey || event.metaKey)
@@ -248,103 +253,7 @@ function SegmentEditor({
           ml: 0,
           color: "text.secondary",
         },
-        "& .mizuki-inserted-code-card": {
-          position: "relative",
-          py: 2.5,
-          px: 2,
-          my: 1.5,
-          border: 0,
-          borderRadius: "15px",
-          overflowX: "auto",
-          backgroundColor: theme.palette.mode === "dark" ? "#0b110e" : "#e5e9ed",
-          color: "text.primary",
-          fontSize: "1rem",
-          lineHeight: 1.6,
-        },
-        "& .mizuki-inserted-code-card.is-editing": { py: 2 },
-        "& .mizuki-inserted-code-content": {
-          display: "flex",
-          alignItems: "flex-start",
-        },
-        "& .mizuki-inserted-code-toolbar": {
-          display: "none",
-          alignItems: "center",
-          justifyContent: "flex-end",
-          gap: 1.5,
-          mb: 1.5,
-        },
-        "& .mizuki-inserted-code-card.is-editing .mizuki-inserted-code-toolbar": {
-          display: "flex",
-        },
-        "& .mizuki-inserted-code-toolbar input": {
-          width: 180,
-          maxWidth: "100%",
-          p: 1,
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 1,
-          outline: "none",
-          backgroundColor: "transparent",
-          color: "text.primary",
-          font: "inherit",
-        },
-        "& .mizuki-inserted-code-toolbar input:focus": { borderColor: "primary.main" },
-        "& .mizuki-inserted-code-toolbar button": {
-          border: 0,
-          backgroundColor: "transparent",
-          color: "error.main",
-          font: "inherit",
-          cursor: "pointer",
-        },
-        "& .mizuki-inserted-code-gutter": {
-          flex: "none",
-          width: 26,
-          mr: 2.5,
-          pr: 0.5,
-          borderRight: "1px solid",
-          borderColor: "divider",
-          color: "text.secondary",
-          textAlign: "right",
-          whiteSpace: "pre",
-          pointerEvents: "none",
-        },
-        "& .mizuki-inserted-code-card pre": {
-          flex: "1 0 auto",
-          m: 0,
-          pr: 7,
-          backgroundColor: "transparent",
-          color: "inherit",
-          fontSize: "inherit",
-          lineHeight: "inherit",
-          whiteSpace: "pre-wrap",
-          overflowWrap: "anywhere",
-        },
-        "& .mizuki-inserted-code-language": {
-          position: "absolute",
-          top: 8,
-          right: 10,
-          px: 1,
-          py: 0.4,
-          borderRadius: "0.375rem",
-          backgroundColor: `color-mix(in srgb, ${theme.palette.primary.main} 25%, transparent)`,
-          color: "primary.main",
-          fontFamily: "var(--mizuki-panel-font-mono)",
-          fontSize: 12,
-          fontWeight: 700,
-          lineHeight: 1.2,
-          textTransform: "uppercase",
-          pointerEvents: "none",
-        },
-        "& .mizuki-inserted-code-card.is-editing .mizuki-inserted-code-language": {
-          display: "none",
-        },
         "& .milkdown code": { fontFamily: "var(--mizuki-panel-font-mono)" },
-        "& .mizuki-inserted-code-card code": {
-          fontFamily: "MizukiEditorBody, MizukiEditorCjk, var(--mizuki-panel-font-sans)",
-          fontSize: "inherit",
-          lineHeight: "inherit",
-          whiteSpace: "inherit",
-        },
         "& .milkdown :not(pre) > code": {
           backgroundColor: "color-mix(in srgb, var(--mui-palette-primary-main) 25%, transparent)",
           borderRadius: "0.375rem",

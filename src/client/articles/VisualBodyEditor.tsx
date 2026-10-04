@@ -307,6 +307,7 @@ export function VisualBodyEditor({
                   onReady={(editor) => registerSegment(segment.id, editor)}
                   onFormatChange={(next) => updateFormat(segment.id, next)}
                   onShortcut={handleShortcut}
+                  onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
                 />
               );
             }
