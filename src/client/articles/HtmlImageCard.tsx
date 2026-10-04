@@ -1,6 +1,5 @@
-import EditOutlined from "@mui/icons-material/EditOutlined";
-import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
-import { useState } from "react";
+import { Alert, Box, Stack, TextField, Typography } from "@mui/material";
+import { useEffect, useRef, useState } from "react";
 import { parseHtmlImages } from "../../lib/articles/html-images";
 import { validateSourceCardEdit } from "../../lib/articles/mdx-source-edit";
 import type { SegmentedArticle, SourceSegment } from "../../lib/articles/source-islands";
@@ -25,8 +24,23 @@ export function HtmlImageCard({
 }: HtmlImageCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(segment.raw);
+  const [rendered, setRendered] = useState(segment.raw);
   const [reason, setReason] = useState<string | null>(null);
-  const images = parseHtmlImages(draft) ?? parseHtmlImages(segment.raw) ?? [];
+  const editorRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const images = parseHtmlImages(draft) ?? parseHtmlImages(rendered) ?? [];
+
+  useEffect(() => {
+    if (!editing) return;
+    inputRef.current?.focus();
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !editorRef.current?.contains(event.target)) {
+        setEditing(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOutside, true);
+    return () => document.removeEventListener("pointerdown", closeOutside, true);
+  }, [editing]);
 
   function change(next: string) {
     setDraft(next);
@@ -36,41 +50,34 @@ export function HtmlImageCard({
       : { source: null, reason: "请保留有效的独立 <img> 标签" };
     setReason(result.reason);
     onValidityChange(result.reason === null);
-    if (result.source !== null) onChange(result.source);
-  }
-
-  function cancel() {
-    setDraft(segment.raw);
-    setReason(null);
-    setEditing(false);
-    onValidityChange(true);
-    onChange(segment.raw);
+    if (result.source !== null) {
+      setRendered(result.source);
+    }
+    onChange(result.source ?? next);
   }
 
   return (
     <Stack spacing={1}>
       {editing && !readOnly && (
         <Stack spacing={1}>
-          <TextField
-            label="图片 HTML 源码"
-            value={draft}
-            onChange={(event) => change(event.target.value)}
-            error={reason !== null}
-            fullWidth
-            multiline
-            minRows={2}
-            slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 14 } } }}
-          />
+          <Box ref={editorRef}>
+            <TextField
+              label="图片 HTML 源码"
+              value={draft}
+              onChange={(event) => change(event.target.value)}
+              inputRef={inputRef}
+              error={reason !== null}
+              fullWidth
+              multiline
+              minRows={2}
+              slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 14 } } }}
+            />
+          </Box>
           {reason && <Alert severity="warning">{reason}。修正前无法保存正文。</Alert>}
-          <Stack direction="row" spacing={1}>
-            <Button size="small" onClick={() => setEditing(false)} disabled={reason !== null}>
-              完成
-            </Button>
-            <Button size="small" onClick={cancel}>
-              取消修改
-            </Button>
-          </Stack>
         </Stack>
+      )}
+      {!editing && reason && (
+        <Alert severity="warning">{reason}。草稿已保留，请点击图片继续修改。</Alert>
       )}
       {images.map((image, index) => {
         const src = mediaPreviewUrl(articleId, image.src);
@@ -113,16 +120,6 @@ export function HtmlImageCard({
           </Box>
         );
       })}
-      {!editing && !readOnly && (
-        <Button
-          size="small"
-          startIcon={<EditOutlined />}
-          onClick={() => setEditing(true)}
-          sx={{ alignSelf: "flex-start" }}
-        >
-          编辑图片源码
-        </Button>
-      )}
     </Stack>
   );
 }

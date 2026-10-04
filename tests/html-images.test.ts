@@ -50,6 +50,7 @@ it("shows an HTML image visually and unknown syntax as plain body text", () => {
   );
   expect(imageMarkup).toContain("<img");
   expect(imageMarkup).toContain('src="https://example.com/a.png"');
+  expect(imageMarkup.match(/<button\b/g)).toHaveLength(1);
   expect(imageMarkup).not.toContain("HTML 原文");
 
   const unknownArticle = segmentArticleSource(
