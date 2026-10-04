@@ -8,7 +8,6 @@ import {
   Stack,
   TextField,
   Typography,
-  alpha,
   useTheme,
 } from "@mui/material";
 import type { EditorView } from "@uiw/react-codemirror";
@@ -123,9 +122,8 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
         py: editing ? 2 : 1.5,
         px: 2,
         border: 0,
-        borderRadius: 2,
-        backgroundColor:
-          theme.palette.mode === "dark" ? "#0b110e" : alpha(theme.palette.primary.main, 0.065),
+        borderRadius: 1,
+        backgroundColor: theme.palette.mode === "dark" ? "#0b110e" : "#f1f3f5",
         boxShadow: "none",
         cursor: readOnly ? "default" : editing ? "auto" : "text",
       }}
@@ -142,7 +140,9 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
               px: 1,
               py: 0.4,
               borderRadius: 1.5,
-              bgcolor: alpha(theme.palette.primary.main, 0.18),
+              backgroundColor: `color-mix(in srgb, ${theme.palette.primary.main} 25%, transparent)`,
+              border: "1px solid",
+              borderColor: `color-mix(in srgb, ${theme.palette.primary.main} 35%, transparent)`,
               color: "primary.main",
               fontFamily: "monospace",
               fontSize: 12,
@@ -159,7 +159,7 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
           <Stack
             direction={{ xs: "column", sm: "row" }}
             spacing={1.5}
-            sx={{ alignItems: { sm: "center" } }}
+            sx={{ alignItems: { sm: "center" }, justifyContent: "flex-end" }}
           >
             <Autocomplete
               disablePortal
@@ -171,7 +171,7 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
                 if (reason === "input") change({ language: value });
               }}
               renderInput={(params) => <TextField {...params} label="语言" size="small" />}
-              sx={{ minWidth: 180, flex: 1 }}
+              sx={{ width: { xs: "100%", sm: 180 }, flex: "none" }}
             />
             <Button
               color="error"
@@ -180,7 +180,7 @@ export function CodeBlockCard({ block, readOnly, onChange, onValidityChange }: C
               onClick={remove}
               sx={{ whiteSpace: "nowrap" }}
             >
-              删除代码块
+              删除
             </Button>
           </Stack>
         )}
