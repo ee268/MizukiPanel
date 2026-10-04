@@ -24,11 +24,10 @@ export function HtmlImageCard({
 }: HtmlImageCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(segment.raw);
-  const [rendered, setRendered] = useState(segment.raw);
   const [reason, setReason] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const images = parseHtmlImages(draft) ?? parseHtmlImages(rendered) ?? [];
+  const images = reason === null ? (parseHtmlImages(draft) ?? []) : [];
 
   useEffect(() => {
     if (!editing) return;
@@ -50,9 +49,6 @@ export function HtmlImageCard({
       : { source: null, reason: "请保留有效的独立 <img> 标签" };
     setReason(result.reason);
     onValidityChange(result.reason === null);
-    if (result.source !== null) {
-      setRendered(result.source);
-    }
     onChange(result.source ?? next);
   }
 
@@ -77,7 +73,34 @@ export function HtmlImageCard({
         </Stack>
       )}
       {!editing && reason && (
-        <Alert severity="warning">{reason}。草稿已保留，请点击图片继续修改。</Alert>
+        <Alert severity="warning">{reason}。草稿已保留，请点击 HTML 原文继续修改。</Alert>
+      )}
+      {reason !== null && (
+        <Box
+          component="button"
+          type="button"
+          aria-label="编辑图片 HTML 原文"
+          disabled={readOnly}
+          onClick={() => setEditing(true)}
+          sx={{
+            display: "block",
+            width: "100%",
+            minHeight: "1.85em",
+            p: 0,
+            border: 0,
+            background: "transparent",
+            color: draft ? "text.primary" : "text.secondary",
+            font: "inherit",
+            fontSize: "1rem",
+            lineHeight: 1.85,
+            whiteSpace: "pre-wrap",
+            overflowWrap: "anywhere",
+            textAlign: "left",
+            cursor: readOnly ? "default" : "text",
+          }}
+        >
+          {draft || "（HTML 已清空，点击继续编辑）"}
+        </Box>
       )}
       {images.map((image, index) => {
         const src = mediaPreviewUrl(articleId, image.src);

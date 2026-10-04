@@ -72,3 +72,22 @@ it("shows an HTML image visually and unknown syntax as plain body text", () => {
   expect(unknownMarkup).toContain(":::unknown");
   expect(unknownMarkup).not.toContain("源码片段");
 });
+
+it("shows malformed image HTML as body text without an image", () => {
+  const raw = '<img src="https://example.com/a.png" alt="A" /';
+  const article = segmentArticleSource(`---\ntitle: Invalid image\n---\n\n${raw}\n`, "md");
+  const fragment = article.segments.find((part) => part.raw.includes("<img"));
+  expect(fragment).toBeDefined();
+  const markup = renderToStaticMarkup(
+    createElement(SourceSegmentEditor, {
+      articleId: "post.md",
+      article,
+      segment: fragment!,
+      readOnly: false,
+      onChange: () => {},
+      onValidityChange: () => {},
+    }),
+  );
+  expect(markup).toContain(raw.replaceAll("<", "&lt;").replaceAll('"', "&quot;"));
+  expect(markup).not.toContain("<img");
+});
