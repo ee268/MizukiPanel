@@ -12,6 +12,7 @@ import {
   Stack,
   Tooltip,
   Typography,
+  useTheme,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import { contributionCalendar, contributionLevel } from "../dashboard-contributions";
@@ -23,7 +24,9 @@ function contributionDateLabel(date: string, count: number): string {
 }
 
 function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
+  const theme = useTheme();
   const calendar = contributionCalendar(git.activity);
+  const emptyColor = theme.palette.mode === "dark" ? "#30343d" : "#e4e8ef";
   const opacities = [1, 0.25, 0.5, 0.75, 1];
   const cellSize = 12;
   const gap = 3;
@@ -123,7 +126,7 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
                           <Box
                             component="span"
                             sx={{
-                              bgcolor: day.count > 0 ? "primary.main" : "transparent",
+                              bgcolor: day.count > 0 ? "primary.main" : emptyColor,
                               opacity: opacities[contributionLevel(day.count)],
                               borderRadius: "3px",
                               display: "block",
@@ -158,7 +161,7 @@ function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
                 aria-hidden
                 key={index}
                 sx={{
-                  bgcolor: index > 0 ? "primary.main" : "transparent",
+                  bgcolor: index > 0 ? "primary.main" : emptyColor,
                   borderRadius: "3px",
                   height: cellSize,
                   opacity,
