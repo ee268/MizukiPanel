@@ -39,6 +39,10 @@ export function SyntaxCodeEditor({
 }: SyntaxCodeEditorProps) {
   const theme = useTheme();
   const [loaded, setLoaded] = useState<LoadedLanguage | null>(null);
+  const fontFamily =
+    variant === "embedded"
+      ? "MizukiEditorBody, MizukiEditorCjk, var(--mizuki-panel-font-sans)"
+      : "var(--mizuki-panel-font-mono)";
 
   useEffect(() => {
     if (language.toLowerCase() === "html") {
@@ -72,12 +76,12 @@ export function SyntaxCodeEditor({
           "&": {
             backgroundColor: "transparent",
             color: theme.palette.text.primary,
-            fontFamily: "var(--mizuki-panel-font-mono)",
+            fontFamily,
             fontSize: variant === "embedded" ? "16px" : "14px",
           },
           ".cm-content": {
             caretColor: theme.palette.primary.main,
-            fontFamily: "inherit",
+            fontFamily,
             lineHeight: "1.6",
             padding:
               variant === "embedded" ? (readOnly ? "8px 72px 8px 14px" : "8px 14px") : "10px 0",
@@ -98,7 +102,7 @@ export function SyntaxCodeEditor({
         },
         { dark: theme.palette.mode === "dark" },
       ),
-    [theme, variant, readOnly],
+    [theme, variant, readOnly, fontFamily],
   );
   const extensions = useMemo(
     () => [EditorView.lineWrapping, editorTheme, ...(loaded ? [loaded] : [])],
@@ -113,7 +117,7 @@ export function SyntaxCodeEditor({
         borderColor: variant === "embedded" ? "transparent" : "divider",
         borderRadius: variant === "embedded" ? 0 : 1,
         overflow: "hidden",
-        fontFamily: "var(--mizuki-panel-font-mono)",
+        fontFamily,
         "&:focus-within": {
           borderColor:
             variant === "embedded" ? "transparent" : readOnly ? "divider" : "primary.main",
