@@ -1,0 +1,47 @@
+@font-face {
+  font-family: MizukiPanelBody;
+  src: url("/fonts/ZenMaruGothic-Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: MizukiPanelCjk;
+  src: url("/fonts/loli.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: MizukiPanelCode;
+  src: url("/fonts/JetBrainsMono-Latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  --mizuki-panel-font-sans:
+    MizukiPanelBody, MizukiPanelCjk, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --mizuki-panel-font-mono:
+    MizukiPanelCode, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+html,
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--mizuki-panel-font-sans);
+}
+
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--mizuki-panel-font-mono);
+}

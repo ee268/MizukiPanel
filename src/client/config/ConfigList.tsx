@@ -39,7 +39,9 @@ export function ConfigList({ groups, selected, onSelect }: ConfigListProps) {
                   primary={item.label}
                   secondary={item.key}
                   slotProps={{
-                    secondary: { sx: { fontFamily: "monospace", fontSize: 10 } },
+                    secondary: {
+                      sx: { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 10 },
+                    },
                   }}
                 />
               </ListItemButton>

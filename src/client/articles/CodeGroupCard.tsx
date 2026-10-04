@@ -110,7 +110,9 @@ export function CodeGroupCard({ group, readOnly, onChange, onValidityChange }: C
           multiline
           minRows={4}
           fullWidth
-          slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 14 } } }}
+          slotProps={{
+            input: { sx: { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 14 } },
+          }}
         />
         {invalid && <Alert severity="warning">代码组标签或围栏无效；修正前无法保存正文。</Alert>}
       </Stack>

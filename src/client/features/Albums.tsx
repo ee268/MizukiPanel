@@ -181,7 +181,7 @@ export function Albums({
             multiline
             minRows={20}
             fullWidth
-            sx={{ "& textarea": { fontFamily: "monospace", fontSize: 13 } }}
+            sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />
           <Stack direction="row" spacing={1.5} useFlexGap sx={{ mt: 2, flexWrap: "wrap" }}>
             <Button

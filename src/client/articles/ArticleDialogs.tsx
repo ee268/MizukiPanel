@@ -63,7 +63,7 @@ export function ArticleDialogs({
                 multiline
                 minRows={10}
                 defaultValue="# 开始写作"
-                slotProps={{ input: { sx: { fontFamily: "monospace" } } }}
+                slotProps={{ input: { sx: { fontFamily: "var(--mizuki-panel-font-mono)" } } }}
               />
               <label>
                 <input type="checkbox" name="draft" defaultChecked /> 先保存为草稿

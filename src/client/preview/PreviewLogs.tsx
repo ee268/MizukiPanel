@@ -51,7 +51,7 @@ export function PreviewLogs({ logs }: { logs: string[] }) {
       <Box
         component="pre"
         sx={{
-          fontFamily: 'Consolas, "Cascadia Code", monospace',
+          fontFamily: "var(--mizuki-panel-font-mono)",
           fontSize: 12,
           lineHeight: 1.65,
           m: 0,

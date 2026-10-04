@@ -222,7 +222,9 @@ export function DirectiveBlock({
               multiline
               minRows={3}
               fullWidth
-              slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 14 } } }}
+              slotProps={{
+                input: { sx: { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 14 } },
+              }}
             />
           </>
         )}

@@ -78,7 +78,11 @@ export function MediaGallery({
               <CardContent>
                 <Typography
                   variant="body2"
-                  sx={{ fontFamily: "monospace", overflowWrap: "anywhere", minHeight: 42 }}
+                  sx={{
+                    fontFamily: "var(--mizuki-panel-font-mono)",
+                    overflowWrap: "anywhere",
+                    minHeight: 42,
+                  }}
                 >
                   {item.path}
                 </Typography>

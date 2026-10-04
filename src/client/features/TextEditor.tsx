@@ -91,7 +91,13 @@ export function TextEditor({
         multiline
         minRows={28}
         fullWidth
-        sx={{ "& textarea": { fontFamily: "monospace", fontSize: 13, lineHeight: 1.6 } }}
+        sx={{
+          "& textarea": {
+            fontFamily: "var(--mizuki-panel-font-mono)",
+            fontSize: 13,
+            lineHeight: 1.6,
+          },
+        }}
       />
     </Paper>
   );

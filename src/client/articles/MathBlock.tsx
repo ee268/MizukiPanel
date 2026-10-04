@@ -64,7 +64,7 @@ export function MathBlock({ fragment, readOnly, onChange, onValidityChange }: Ma
           multiline={fragment.mode === "display"}
           minRows={fragment.mode === "display" ? 2 : undefined}
           fullWidth
-          slotProps={{ input: { sx: { fontFamily: "monospace" } } }}
+          slotProps={{ input: { sx: { fontFamily: "var(--mizuki-panel-font-mono)" } } }}
         />
         {preview && (
           <Box

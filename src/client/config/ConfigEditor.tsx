@@ -65,7 +65,7 @@ export function ConfigEditor({
             <Typography
               variant="body2"
               color="text.secondary"
-              sx={{ fontFamily: "monospace", mt: 0.5 }}
+              sx={{ fontFamily: "var(--mizuki-panel-font-mono)", mt: 0.5 }}
             >
               {document.mode === "external"
                 ? `overrides/${document.descriptor.key}.ts`

@@ -86,7 +86,9 @@ export function ArticleSourceEditor({
           disabled={busy || readOnly}
           spellCheck={false}
           slotProps={{
-            input: { sx: { fontFamily: "monospace", fontSize: 14, lineHeight: 1.6 } },
+            input: {
+              sx: { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 14, lineHeight: 1.6 },
+            },
           }}
         />
       </Box>

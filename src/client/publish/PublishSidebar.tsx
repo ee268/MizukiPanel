@@ -41,13 +41,17 @@ export function PublishSidebar({
           <Typography variant="body2" color="text.secondary">
             根目录
           </Typography>
-          <Typography sx={{ fontFamily: "monospace", overflowWrap: "anywhere", mb: 1 }}>
+          <Typography
+            sx={{ fontFamily: "var(--mizuki-panel-font-mono)", overflowWrap: "anywhere", mb: 1 }}
+          >
             {overview.repositoryRoot}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             上游分支
           </Typography>
-          <Typography sx={{ fontFamily: "monospace" }}>{overview.upstream ?? "未配置"}</Typography>
+          <Typography sx={{ fontFamily: "var(--mizuki-panel-font-mono)" }}>
+            {overview.upstream ?? "未配置"}
+          </Typography>
           {overview.head && (
             <Typography variant="caption" color="text.secondary">
               HEAD {overview.head.slice(0, 12)}

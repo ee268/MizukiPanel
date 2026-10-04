@@ -24,7 +24,7 @@ export function TypeScriptEditor({
           },
           ".cm-content": {
             caretColor: theme.palette.primary.main,
-            fontFamily: 'Consolas, "Cascadia Code", monospace',
+            fontFamily: "var(--mizuki-panel-font-mono)",
             lineHeight: "1.55",
             padding: "12px 0",
           },

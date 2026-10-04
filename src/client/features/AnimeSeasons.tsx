@@ -136,7 +136,7 @@ export function AnimeSeasons({
             multiline
             minRows={24}
             fullWidth
-            sx={{ "& textarea": { fontFamily: "monospace", fontSize: 13 } }}
+            sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />
           <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
             <Button variant="contained" startIcon={<SaveOutlined />} onClick={save}>

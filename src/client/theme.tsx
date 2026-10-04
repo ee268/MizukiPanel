@@ -71,7 +71,7 @@ export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark")
     },
     shape: { borderRadius: 12 },
     typography: {
-      fontFamily: 'Inter, "Segoe UI", "Microsoft YaHei", sans-serif',
+      fontFamily: "var(--mizuki-panel-font-sans)",
       h4: { fontWeight: 700 },
       h5: { fontWeight: 700 },
       h6: { fontWeight: 650 },

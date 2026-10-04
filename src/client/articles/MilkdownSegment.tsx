@@ -244,7 +244,7 @@ function SegmentEditor({
           overflowX: "auto",
           backgroundColor: "action.hover",
         },
-        "& .milkdown code": { fontFamily: "monospace" },
+        "& .milkdown code": { fontFamily: "var(--mizuki-panel-font-mono)" },
         "& .milkdown img": { maxWidth: "100%" },
         "& .milkdown table": { borderCollapse: "collapse", display: "block", overflowX: "auto" },
         "& .milkdown td, & .milkdown th": {

@@ -143,7 +143,9 @@ export function MdxComponentCard({
               multiline
               minRows={4}
               fullWidth
-              slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 14 } } }}
+              slotProps={{
+                input: { sx: { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 14 } },
+              }}
             />
             {reason && <Alert severity="warning">{reason}。修正前无法保存正文。</Alert>}
             <Stack direction="row" spacing={1}>

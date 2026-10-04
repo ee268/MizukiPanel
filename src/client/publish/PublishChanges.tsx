@@ -111,7 +111,10 @@ export function PublishChanges({
                       <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                         <Typography
                           component="span"
-                          sx={{ fontFamily: "monospace", overflowWrap: "anywhere" }}
+                          sx={{
+                            fontFamily: "var(--mizuki-panel-font-mono)",
+                            overflowWrap: "anywhere",
+                          }}
                         >
                           {change.path}
                         </Typography>

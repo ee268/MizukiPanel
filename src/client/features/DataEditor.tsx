@@ -125,7 +125,11 @@ export function DataEditor({
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 2 }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="h6">{document.descriptor.label}</Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontFamily: "var(--mizuki-panel-font-mono)" }}
+            >
               {document.sourcePath}
             </Typography>
           </Box>
@@ -170,7 +174,9 @@ export function DataEditor({
                     multiline
                     minRows={5}
                     fullWidth
-                    sx={{ "& textarea": { fontFamily: "monospace", fontSize: 13 } }}
+                    sx={{
+                      "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 },
+                    }}
                   />
                 </CardContent>
                 <CardActions>
@@ -213,7 +219,7 @@ export function DataEditor({
             multiline
             minRows={24}
             fullWidth
-            sx={{ "& textarea": { fontFamily: "monospace", fontSize: 13 } }}
+            sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />
         )}
       </Paper>
