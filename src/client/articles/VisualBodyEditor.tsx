@@ -1,5 +1,5 @@
 import type { Editor } from "@milkdown/kit/core";
-import { Alert, Button, Paper, Stack } from "@mui/material";
+import { Alert, Paper, Stack } from "@mui/material";
 import { useRef, useState } from "react";
 import {
   replaceArticleSegments,
@@ -30,6 +30,7 @@ import { ImagePickerDialog } from "./ImagePickerDialog";
 import { LinkInsertDialog } from "./LinkInsertDialog";
 import { MilkdownSegment } from "./MilkdownSegment";
 import { SourceSegmentEditor } from "./SourceSegmentEditor";
+import { LiteralSourceEditor } from "./LiteralSourceEditor";
 import type { EditorFontMode } from "../../lib/server/editor-fonts";
 
 interface VisualBodyEditorProps {
@@ -219,21 +220,44 @@ export function VisualBodyEditor({
 
   if (snapshot.mode === "source") {
     return (
-      <Alert severity="warning" sx={{ m: 3 }}>
-        无法安全分段正文：{snapshot.reason}。请使用
-        <Button size="small" onClick={onSourceMode}>
-          完整源码
-        </Button>
-        编辑。
-      </Alert>
+      <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
+        <ArticleFormatToolbar
+          mode="visual"
+          disabled
+          saving={busy || readOnly}
+          format={emptyFormatState}
+          onAction={() => {}}
+          onHeading={() => {}}
+          onTable={() => {}}
+          onTask={() => {}}
+          onLink={() => {}}
+          onImage={() => {}}
+          onModeChange={(mode) => {
+            if (mode === "source") onSourceMode();
+          }}
+          onSave={onSave}
+        />
+        <Paper
+          variant="outlined"
+          className="mizuki-document-content"
+          data-font-mode={fontMode}
+          sx={{ p: { xs: 2, md: 3 } }}
+        >
+          <LiteralSourceEditor
+            segment={snapshot.segments[0]}
+            readOnly={busy || readOnly}
+            onChange={(body) => onChange(source.slice(0, snapshot.bodyStart) + body)}
+          />
+        </Paper>
+      </Stack>
     );
   }
 
   return (
     <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
       <Alert severity="info">
-        普通 Markdown、已识别的 Mizuki 指令、链接扩展、公式、图表源码和代码组可在此编辑。MDX 与 HTML
-        片段可局部编辑源码，MDX 组件的静态属性可在卡片中修改；未识别的扩展语法请切换完整源码修改。
+        普通 Markdown、已识别的 Mizuki 扩展和 MDX 组件可在此编辑。HTML
+        图片直接显示，点击图片可编辑源码；未识别或错误语法按正文原文显示。
       </Alert>
       <ArticleFormatToolbar
         mode="visual"

@@ -1,4 +1,3 @@
-import { Chip, Paper, Typography } from "@mui/material";
 import { useMemo } from "react";
 import { parseCodeGroup } from "../../lib/articles/code-groups";
 import { parseFencedCode } from "../../lib/articles/fenced-code";
@@ -6,17 +5,18 @@ import { parseGithubAlert } from "../../lib/articles/github-alerts";
 import { parseInlineExtension } from "../../lib/articles/inline-extensions";
 import { parseMathFragment } from "../../lib/articles/math-fragments";
 import { parseMdxComponent } from "../../lib/articles/mdx-components";
-import { isSourceCardSyntax } from "../../lib/articles/mdx-source-edit";
 import { parseMizukiDirective } from "../../lib/articles/mizuki-directives";
+import { parseHtmlImages } from "../../lib/articles/html-images";
 import type { SegmentedArticle, SourceSegment } from "../../lib/articles/source-islands";
 import { CodeBlockCard } from "./CodeBlockCard";
 import { CodeGroupCard } from "./CodeGroupCard";
 import { DirectiveBlock } from "./DirectiveBlock";
 import { GithubAlertBlock } from "./GithubAlertBlock";
+import { HtmlImageCard } from "./HtmlImageCard";
 import { InlineExtensionCard } from "./InlineExtensionCard";
+import { LiteralSourceEditor } from "./LiteralSourceEditor";
 import { MathBlock } from "./MathBlock";
 import { MdxComponentCard } from "./MdxComponentCard";
-import { MdxSourceCard } from "./MdxSourceCard";
 
 interface SourceSegmentEditorProps {
   articleId: string;
@@ -116,21 +116,10 @@ export function SourceSegmentEditor({
     );
   }
 
-  if (isSourceCardSyntax(segment.syntax)) {
-    if (parsed.component) {
-      return (
-        <MdxComponentCard
-          article={article}
-          segment={segment}
-          component={parsed.component}
-          readOnly={readOnly}
-          onChange={onChange}
-          onValidityChange={onValidityChange}
-        />
-      );
-    }
+  if (parseHtmlImages(segment.raw)) {
     return (
-      <MdxSourceCard
+      <HtmlImageCard
+        articleId={articleId}
         article={article}
         segment={segment}
         readOnly={readOnly}
@@ -140,15 +129,18 @@ export function SourceSegmentEditor({
     );
   }
 
-  return (
-    <Paper variant="outlined" sx={{ p: 1.5, backgroundColor: "action.hover" }}>
-      <Chip size="small" label={segment.syntax ?? "源码片段"} sx={{ mb: 1 }} />
-      <Typography
-        component="pre"
-        sx={{ m: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 13 }}
-      >
-        {segment.raw}
-      </Typography>
-    </Paper>
-  );
+  if (parsed.component) {
+    return (
+      <MdxComponentCard
+        article={article}
+        segment={segment}
+        component={parsed.component}
+        readOnly={readOnly}
+        onChange={onChange}
+        onValidityChange={onValidityChange}
+      />
+    );
+  }
+
+  return <LiteralSourceEditor segment={segment} readOnly={readOnly} onChange={onChange} />;
 }

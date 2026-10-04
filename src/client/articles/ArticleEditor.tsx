@@ -12,6 +12,7 @@ import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
 import { useArticleModeScroll } from "./useArticleModeScroll";
 import { useEditorFontMode } from "./useEditorFontMode";
+import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import "./editor-fonts.css";
 
 interface ArticleEditorProps {
@@ -65,6 +66,17 @@ export function ArticleEditor({
     setVisualValid(true);
   }, [article?.id, article?.version]);
 
+  function saveVisualBody() {
+    if (!article) return;
+    try {
+      collectSourceIslandEdits(article.source, source, article.format);
+      onSaveBody();
+    } catch {
+      // A literal or malformed fragment may become valid syntax while being fixed.
+      onSaveSource();
+    }
+  }
+
   function handleSaveShortcut(event: KeyboardEvent<HTMLDivElement>) {
     if (!event.currentTarget.contains(event.target as Node) || articleShortcut(event) !== "save") {
       return;
@@ -75,8 +87,8 @@ export function ArticleEditor({
     }
     if (mode === "frontmatter" && !article?.error) {
       onSaveFrontmatter();
-    } else if (mode === "visual" && !article?.error && visualValid) {
-      onSaveBody();
+    } else if (mode === "visual" && article && !article.error && visualValid) {
+      saveVisualBody();
     } else if (mode === "source" || article?.error) {
       onSaveSource();
     }
@@ -151,7 +163,7 @@ export function ArticleEditor({
                 readOnly={readOnly}
                 fontMode={fontMode}
                 onChange={onSourceChange}
-                onSave={onSaveBody}
+                onSave={saveVisualBody}
                 onSourceMode={() => changeMode("source")}
                 onValidityChange={setVisualValid}
               />
