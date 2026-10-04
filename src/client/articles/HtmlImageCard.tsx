@@ -1,9 +1,11 @@
-import { Box, Stack, TextField, Typography } from "@mui/material";
+import { Box, Stack, Typography } from "@mui/material";
+import type { EditorView } from "@uiw/react-codemirror";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parseHtmlImages } from "../../lib/articles/html-images";
 import type { SourceSegment } from "../../lib/articles/source-islands";
 import { mediaPreviewUrl } from "./article-media";
 import { LiteralSourceEditor } from "./LiteralSourceEditor";
+import { SyntaxCodeEditor } from "./SyntaxCodeEditor";
 
 interface HtmlImageCardProps {
   articleId: string;
@@ -16,7 +18,7 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(segment.raw);
   const editorRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<EditorView | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const pendingSelection = useRef<number | null>(null);
   const wasImage = useRef(Boolean(parseHtmlImages(segment.raw)));
@@ -24,16 +26,16 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
 
   useLayoutEffect(() => {
     if (wasImage.current && !images && bodyRef.current && !readOnly) {
+      inputRef.current = null;
       bodyRef.current.focus();
       const position = Math.min(pendingSelection.current ?? draft.length, draft.length);
       bodyRef.current.setSelectionRange(position, position);
     } else if (!wasImage.current && images && editing && inputRef.current) {
       inputRef.current.focus();
       const position = Math.min(pendingSelection.current ?? draft.length, draft.length);
-      inputRef.current.setSelectionRange(position, position);
+      inputRef.current.dispatch({ selection: { anchor: position } });
     }
     wasImage.current = Boolean(images);
-    pendingSelection.current = null;
   }, [draft, images, readOnly]);
 
   useEffect(() => {
@@ -75,20 +77,19 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
         <>
           {editing && !readOnly && (
             <Box ref={editorRef}>
-              <TextField
+              <SyntaxCodeEditor
                 label="图片 HTML 源码"
+                language="html"
                 value={draft}
-                onChange={(event) =>
-                  change(
-                    event.target.value,
-                    event.target.selectionStart ?? event.target.value.length,
-                  )
-                }
-                inputRef={inputRef}
-                fullWidth
-                multiline
-                minRows={2}
-                slotProps={{ input: { sx: { fontFamily: "monospace", fontSize: 14 } } }}
+                readOnly={false}
+                onChange={change}
+                onReady={(view) => {
+                  inputRef.current = view;
+                  const position = Math.min(pendingSelection.current ?? draft.length, draft.length);
+                  view.dispatch({ selection: { anchor: position } });
+                  view.focus();
+                  pendingSelection.current = null;
+                }}
               />
             </Box>
           )}

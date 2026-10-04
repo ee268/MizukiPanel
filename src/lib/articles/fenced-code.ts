@@ -29,7 +29,7 @@ const parser = unified().use(remarkParse);
 export function parseFencedCode(raw: string): FencedCode | null {
   const firstBreak = raw.indexOf("\n");
   const lastBreak = raw.lastIndexOf("\n");
-  if (firstBreak < 0 || lastBreak <= firstBreak) {
+  if (firstBreak < 0 || lastBreak < firstBreak) {
     return null;
   }
   const newline = raw[firstBreak - 1] === "\r" ? "\r\n" : "\n";
@@ -40,7 +40,7 @@ export function parseFencedCode(raw: string): FencedCode | null {
     return null;
   }
   const bodyRaw = raw.slice(firstBreak + 1, lastBreak + 1);
-  if (!bodyRaw.endsWith(newline)) {
+  if (bodyRaw && !bodyRaw.endsWith(newline)) {
     return null;
   }
   const tree = parser.parse(raw) as { children: CodeNode[] };
@@ -57,7 +57,7 @@ export function parseFencedCode(raw: string): FencedCode | null {
     raw,
     lang: node.lang ?? "",
     meta: node.meta ?? "",
-    body: bodyRaw.slice(0, -newline.length),
+    body: bodyRaw ? bodyRaw.slice(0, -newline.length) : "",
     header,
     bodyRaw,
     closing,
@@ -69,19 +69,21 @@ export function parseFencedCode(raw: string): FencedCode | null {
 
 export function updateFencedCode(
   block: FencedCode,
-  changes: { meta?: string; body?: string },
+  changes: { lang?: string; meta?: string; body?: string },
 ): string | null {
+  const lang = changes.lang ?? block.lang;
   const meta = changes.meta ?? block.meta;
+  if (/\s|[`~]/.test(lang)) return null;
   const body =
     changes.body === undefined ? block.body : changes.body.replace(/\r?\n/g, block.newline);
   const header =
-    changes.meta === undefined
+    changes.lang === undefined && changes.meta === undefined
       ? block.header
-      : `${block.prefix}${block.fence}${block.lang}${meta ? ` ${meta}` : ""}`;
-  const bodyRaw = changes.body === undefined ? block.bodyRaw : body + block.newline;
+      : `${block.prefix}${block.fence}${lang}${meta ? ` ${meta}` : ""}`;
+  const bodyRaw = changes.body === undefined ? block.bodyRaw : body ? body + block.newline : "";
   const next = `${header}${block.newline}${bodyRaw}${block.closing}`;
   const parsed = parseFencedCode(next);
-  if (!parsed || parsed.lang !== block.lang || parsed.meta !== meta || parsed.body !== body) {
+  if (!parsed || parsed.lang !== lang || parsed.meta !== meta || parsed.body !== body) {
     return null;
   }
   return next;

@@ -28,7 +28,9 @@
     "vitest": "^3.2.7"
   },
   "dependencies": {
+    "@codemirror/lang-html": "6.4.12",
     "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/language-data": "6.5.2",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@hono/node-server": "^2.1.1",

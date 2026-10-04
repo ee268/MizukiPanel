@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { segmentArticleSource } from "../src/lib/articles/source-islands";
+import { parseFencedCode, updateFencedCode } from "../src/lib/articles/fenced-code";
 import { ArticleValidationError } from "../src/lib/server/article-format";
 import { readArticle, saveArticleBody, saveArticleSource } from "../src/lib/server/articles";
 import type { ProjectReport } from "../src/lib/server/project";
@@ -237,6 +238,38 @@ it("saves malformed image HTML as literal body text and renders it after correct
   ).toBe(true);
   await rm(saved.backupPath!, { force: true });
   await rm(corrected.backupPath!, { force: true });
+});
+
+it("saves a Markdown code block after switching language or deleting it", async () => {
+  const code = "```js\nconst answer = 42;\n```";
+  const source = `---\ntitle: Code\npublished: 2026-09-27\n---\n\nBefore.\n\n${code}\n\nAfter.\n`;
+  const { report, filename } = await fixture("local", "code.md", source);
+  const initial = await readArticle(report, "code.md");
+  const changedCode = updateFencedCode(parseFencedCode(code)!, { lang: "typescript" })!;
+
+  const switched = await saveArticleSource(
+    report,
+    initial.id,
+    initial.source.replace(code, changedCode),
+    initial.version,
+  );
+  const reopened = await readArticle(report, initial.id);
+  expect(reopened.source).toBe(source.replace(code, changedCode));
+  expect(
+    segmentArticleSource(reopened.source, "md").segments.some(
+      (segment) => segment.syntax === "code:typescript" && segment.raw === changedCode,
+    ),
+  ).toBe(true);
+
+  const deleted = await saveArticleSource(
+    report,
+    reopened.id,
+    reopened.source.replace(changedCode, ""),
+    reopened.version,
+  );
+  expect(await readFile(filename, "utf8")).toBe(source.replace(code, ""));
+  await rm(switched.backupPath!, { force: true });
+  await rm(deleted.backupPath!, { force: true });
 });
 
 const realPost = path.resolve(process.cwd(), "../Mizuki/src/content/posts/Qt框架功能概述.md");

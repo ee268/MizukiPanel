@@ -107,8 +107,9 @@ function protectedSyntax(node: SyntaxNode, body: string): string | null {
 
   if (node.type === "code") {
     const language = node.lang?.toLowerCase();
-    if (language === "mermaid" || language === "plantuml" || node.meta?.trim()) {
-      return `code:${language || "meta"}`;
+    const { start, end } = offsets(node);
+    if (/^ {0,3}(?:`{3,}|~{3,})/.test(body.slice(start, end))) {
+      return `code:${language || "text"}`;
     }
   }
 

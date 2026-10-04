@@ -31,9 +31,20 @@ it("edits diagram and Expressive Code fences while preserving body and metadata"
     "```js title=next.js showLineNumbers\nconst x = 1;\n```",
   );
   expect(updateFencedCode(expressive!, { body: "```" })).toBeNull();
+  expect(updateFencedCode(expressive!, { lang: "typescript" })).toBe(
+    "```typescript title=demo.js showLineNumbers\nconst x = 1;\n```",
+  );
+  expect(updateFencedCode(expressive!, { lang: "bad name" })).toBeNull();
 
-  const source = "---\ntitle: Rich\n---\n\nText $x+y$.\n\n$$\nx^2\n$$\n\n~~~mermaid\ngraph LR\nA-->B\n~~~\n\n```js title=demo.js\nconst x = 1;\n```\n";
-  const segments = segmentArticleSource(source, "md").segments.filter((part) => part.mode === "source");
+  const empty = parseFencedCode("```js\n```");
+  expect(empty?.body).toBe("");
+  expect(updateFencedCode(empty!, { body: "console.log(1)" })).toBe("```js\nconsole.log(1)\n```");
+
+  const source =
+    "---\ntitle: Rich\n---\n\nText $x+y$.\n\n$$\nx^2\n$$\n\n~~~mermaid\ngraph LR\nA-->B\n~~~\n\n```js title=demo.js\nconst x = 1;\n```\n";
+  const segments = segmentArticleSource(source, "md").segments.filter(
+    (part) => part.mode === "source",
+  );
   expect(segments.map((part) => part.syntax)).toEqual([
     "inlineMath",
     "math",
@@ -41,6 +52,29 @@ it("edits diagram and Expressive Code fences while preserving body and metadata"
     "code:js",
   ]);
   expect(segments[2].raw).toBe(mermaid!.raw);
+});
+
+it("keeps ordinary fenced Markdown code as an editable source segment", () => {
+  const raw = "~~~python\nprint('hello')\n~~~";
+  const source = `---\ntitle: Code\n---\n\nBefore.\n\n${raw}\n\nAfter.\n`;
+  const article = segmentArticleSource(source, "md");
+  const code = article.segments.find((segment) => segment.syntax === "code:python");
+  expect(code?.raw).toBe(raw);
+
+  const switched = updateFencedCode(parseFencedCode(raw)!, { lang: "javascript" })!;
+  const changed = replaceArticleSegments(article, new Map([[code!.id, switched]]));
+  expect(changed).toBe(source.replace(raw, switched));
+  expect(() => collectSourceIslandEdits(source, changed, "md")).toThrow();
+  expect(
+    segmentArticleSource(changed, "md").segments.some(
+      (segment) => segment.syntax === "code:javascript" && segment.raw === switched,
+    ),
+  ).toBe(true);
+
+  const deleted = replaceArticleSegments(article, new Map([[code!.id, ""]]));
+  expect(deleted).toBe(source.replace(raw, ""));
+  expect(() => collectSourceIslandEdits(source, deleted, "md")).toThrow();
+  expect(segmentArticleSource(deleted, "md").body).toContain("Before.\n\n\n\nAfter.");
 });
 
 it("protects complete code groups and edits labels or one tab without rewriting another", async () => {
