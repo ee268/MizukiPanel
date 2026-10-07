@@ -9,12 +9,23 @@ it("normalizes Mizuki-style theme hues and creates HSL colors", () => {
   expect(hueColor(210, 48)).toBe("hsl(210 72% 48%)");
 });
 
-it("uses mode-specific text with a visible hover background for theme-colored controls", () => {
+it("keeps theme colors and contrast fixed across light and dark modes", () => {
+  const lightTheme = createPanelMuiTheme(180, "light");
+  const darkTheme = createPanelMuiTheme(180, "dark");
+  expect(lightTheme.palette.primary.main).toBe(hueColor(180, 48));
+  expect(lightTheme.palette.primary.dark).toBe(hueColor(180, 40));
+  expect(lightTheme.palette.secondary.main).toBe(hueColor(305, 42));
+  expect(lightTheme.palette.secondary.dark).toBe(hueColor(305, 34));
+  for (const color of ["primary", "secondary"] as const) {
+    expect(darkTheme.palette[color].main).toBe(lightTheme.palette[color].main);
+    expect(darkTheme.palette[color].dark).toBe(lightTheme.palette[color].dark);
+  }
+  expect(darkTheme.palette.background.default).not.toBe(lightTheme.palette.background.default);
   for (const mode of ["light", "dark"] as const) {
     const theme = createPanelMuiTheme(180, mode);
     expect(theme.vars?.palette.primary.main).toContain("--mui-palette-primary-main");
     expect(theme.vars?.palette.primary.dark).toContain("--mui-palette-primary-dark");
-    const expectedText = mode === "dark" ? "#000" : "#fff";
+    const expectedText = "#fff";
     expect(theme.palette.primary.contrastText).toBe(expectedText);
     expect(theme.palette.secondary.contrastText).toBe(expectedText);
 

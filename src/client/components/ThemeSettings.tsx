@@ -26,13 +26,13 @@ const previewVariables = [
   "--mui-palette-secondary-dark",
 ] as const;
 
-function applyHuePreview(hue: number, dark: boolean) {
+function applyHuePreview(hue: number) {
   const secondaryHue = (hue + 125) % 360;
   const colors = [
-    hueColor(hue, dark ? 64 : 48),
-    hueColor(hue, dark ? 54 : 40),
-    hueColor(secondaryHue, dark ? 62 : 42),
-    hueColor(secondaryHue, dark ? 52 : 34),
+    hueColor(hue, 48),
+    hueColor(hue, 40),
+    hueColor(secondaryHue, 42),
+    hueColor(secondaryHue, 34),
   ];
   previewVariables.forEach((variable, index) => {
     document.documentElement.style.setProperty(variable, colors[index]);
@@ -71,7 +71,7 @@ export default function ThemeSettings() {
     if (previewFrame.current !== null) return;
     previewFrame.current = requestAnimationFrame(() => {
       previewFrame.current = null;
-      applyHuePreview(pendingHue.current, resolvedMode === "dark");
+      applyHuePreview(pendingHue.current);
     });
   }
 

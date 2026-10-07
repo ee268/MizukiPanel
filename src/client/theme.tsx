@@ -51,12 +51,12 @@ export function usePanelTheme(): PanelThemeContextValue {
 }
 
 export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark") {
-  const primaryMain = hueColor(hue, resolvedMode === "dark" ? 64 : 48);
-  const primaryHover = hueColor(hue, resolvedMode === "dark" ? 54 : 40);
+  const primaryMain = hueColor(hue, 48);
+  const primaryHover = hueColor(hue, 40);
   const secondaryHue = (hue + 125) % 360;
-  const secondaryMain = hueColor(secondaryHue, resolvedMode === "dark" ? 62 : 42);
-  const secondaryHover = hueColor(secondaryHue, resolvedMode === "dark" ? 52 : 34);
-  const themeContrast = resolvedMode === "dark" ? "#000" : "#fff";
+  const secondaryMain = hueColor(secondaryHue, 42);
+  const secondaryHover = hueColor(secondaryHue, 34);
+  const themeContrast = "#fff";
   const scrollbarTrack = resolvedMode === "dark" ? "#111318" : "#e5e7ed";
   const primaryMainVariable = "var(--mui-palette-primary-main)";
   const primaryHoverVariable = "var(--mui-palette-primary-dark)";
