@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SourceSegmentEditor } from "../src/client/articles/SourceSegmentEditor";
 import { parseHtmlImages } from "../src/lib/articles/html-images";
-import { parseQuotedHtmlImages } from "../src/lib/articles/quoted-html-images";
+import { parseQuotedHtmlImages, replaceQuotedText } from "../src/lib/articles/quoted-html-images";
 import { collectSourceIslandEdits } from "../src/lib/articles/source-island-edits";
 import { replaceArticleSegments, segmentArticleSource } from "../src/lib/articles/source-islands";
 import { validateArticleBody } from "../src/lib/server/article-body-validation";
@@ -31,7 +31,19 @@ it("keeps quoted text and its HTML image in the same visual block", async () => 
 
   expect(article.mode).toBe("hybrid");
   expect(segment?.raw).toBe(quote);
-  expect(parseQuotedHtmlImages(quote)?.map((part) => part.kind)).toEqual(["text", "text", "image"]);
+  expect(parseQuotedHtmlImages(quote)?.map((part) => part.kind)).toEqual(["text", "image"]);
+  expect(parseQuotedHtmlImages(quote)?.[0]).toMatchObject({
+    kind: "text",
+    text: "放个安装过程的动图，稍微大点，可能加载慢\n",
+  });
+  const textPart = parseQuotedHtmlImages(quote)![0];
+  if (textPart.kind !== "text") throw new Error("缺少引用文字");
+  const editedQuote = replaceQuotedText(quote, textPart, "更新说明\n\n下一行");
+  expect(editedQuote).toContain("> 更新说明\n>\n> 下一行\n> <img");
+  expect(parseQuotedHtmlImages(editedQuote)?.[0]).toMatchObject({
+    kind: "text",
+    text: "更新说明\n\n下一行",
+  });
   expect(replaceArticleSegments(article, new Map())).toBe(source);
 
   const markup = renderToStaticMarkup(
@@ -46,9 +58,10 @@ it("keeps quoted text and its HTML image in the same visual block", async () => 
   );
   expect(markup).toContain("<blockquote");
   expect(markup).toContain("放个安装过程的动图");
+  expect(markup).toContain('aria-label="引用文字"');
+  expect(markup).toContain('rows="2"');
   expect(markup).toContain("<img");
   expect(markup).toContain("22.gif");
-  expect(markup).not.toContain("<textarea");
 
   const changed = replaceArticleSegments(
     article,
@@ -58,6 +71,12 @@ it("keeps quoted text and its HTML image in the same visual block", async () => 
   await expect(
     validateArticleBody(source, changed.slice(article.bodyStart), "md", edits),
   ).resolves.toBe(changed);
+
+  const changedText = replaceArticleSegments(article, new Map([[segment!.id, editedQuote]]));
+  const textEdits = collectSourceIslandEdits(source, changedText, "md");
+  await expect(
+    validateArticleBody(source, changedText.slice(article.bodyStart), "md", textEdits),
+  ).resolves.toBe(changedText);
 });
 
 it("treats invalid and unsafe image HTML as literal text", () => {
