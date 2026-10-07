@@ -16,6 +16,7 @@ import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits
 import "./editor-fonts.css";
 
 interface ArticleEditorProps {
+  temporary?: boolean;
   article: ArticleRecord | null;
   projectRoot: string;
   previewPath: string | null;
@@ -38,6 +39,7 @@ interface ArticleEditorProps {
 }
 
 export function ArticleEditor({
+  temporary = false,
   article,
   projectRoot,
   previewPath,
@@ -67,7 +69,7 @@ export function ArticleEditor({
   }, [article?.id, article?.version]);
 
   function saveVisualBody() {
-    if (!article) return;
+    if (!article || temporary) return;
     try {
       collectSourceIslandEdits(article.source, source, article.format);
       onSaveBody();
@@ -82,7 +84,7 @@ export function ArticleEditor({
       return;
     }
     event.preventDefault();
-    if (busy || readOnly) {
+    if (temporary || busy || readOnly) {
       return;
     }
     if (mode === "frontmatter" && !article?.error) {
@@ -108,25 +110,33 @@ export function ArticleEditor({
         >
           <Box>
             <Typography variant="h5">{article.title}</Typography>
-            {dirty && (
-              <Typography variant="caption" color="warning.main">
-                有未保存修改
+            {temporary ? (
+              <Typography variant="caption" color="text.secondary">
+                可在此练习；离开教程后修改会重置，重新进入即恢复默认内容。
               </Typography>
+            ) : (
+              dirty && (
+                <Typography variant="caption" color="warning.main">
+                  有未保存修改
+                </Typography>
+              )
             )}
           </Box>
-          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
-            {previewPath && (
-              <Button startIcon={<OpenInNewOutlined />} onClick={() => onPreview(previewPath)}>
-                真实预览
+          {!temporary && (
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+              {previewPath && (
+                <Button startIcon={<OpenInNewOutlined />} onClick={() => onPreview(previewPath)}>
+                  真实预览
+                </Button>
+              )}
+              <Button startIcon={<DriveFileRenameOutline />} onClick={onRename}>
+                重命名
               </Button>
-            )}
-            <Button startIcon={<DriveFileRenameOutline />} onClick={onRename}>
-              重命名
-            </Button>
-            <Button color="error" startIcon={<DeleteOutline />} onClick={onDelete}>
-              删除
-            </Button>
-          </Stack>
+              <Button color="error" startIcon={<DeleteOutline />} onClick={onDelete}>
+                删除
+              </Button>
+            </Stack>
+          )}
         </Stack>
 
         {article.error && (
@@ -141,7 +151,9 @@ export function ArticleEditor({
             sx={{ px: 2 }}
           >
             <Tab value="visual" label="文档编辑" disabled={Boolean(article.error)} />
-            <Tab value="frontmatter" label="Frontmatter" disabled={Boolean(article.error)} />
+            {!temporary && (
+              <Tab value="frontmatter" label="Frontmatter" disabled={Boolean(article.error)} />
+            )}
           </Tabs>
         )}
 
@@ -154,6 +166,7 @@ export function ArticleEditor({
               busy={busy}
               readOnly={readOnly}
               fontMode={fontMode}
+              showSave={!temporary}
               onChange={onSourceChange}
               onSave={saveVisualBody}
               onSourceMode={() => changeMode("source")}
@@ -183,6 +196,7 @@ export function ArticleEditor({
             busy={busy}
             readOnly={readOnly}
             fontMode={fontMode}
+            showSave={!temporary}
             canUseVisual={!article.error}
             contentRef={sourceRef}
             onChange={onSourceChange}

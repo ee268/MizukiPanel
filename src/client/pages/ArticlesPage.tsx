@@ -10,6 +10,9 @@ import { useArticles } from "../articles/useArticles";
 const ArticleEditor = lazy(() =>
   import("../articles/ArticleEditor").then((module) => ({ default: module.ArticleEditor })),
 );
+const MarkdownTutorial = lazy(() =>
+  import("../articles/MarkdownTutorial").then((module) => ({ default: module.MarkdownTutorial })),
+);
 
 export default function ArticlesPage() {
   const navigate = useNavigate();
@@ -20,11 +23,12 @@ export default function ArticlesPage() {
     <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, lg: 3 } }}>
       <Stack spacing={2}>
         <ArticlePageHeader
-          editing={Boolean(articles.selectedId)}
+          editing={articles.tutorialOpen || Boolean(articles.selectedId)}
           mode={articles.report?.mode}
           count={articles.articles.length}
           readOnly={Boolean(articles.report?.readOnly)}
           onBack={articles.showList}
+          onTutorial={articles.openTutorial}
           onCreate={() => articles.setCreateOpen(true)}
         />
 
@@ -33,11 +37,15 @@ export default function ArticlesPage() {
             {articles.error}
           </Alert>
         )}
-        {articles.report?.readOnly && (
+        {articles.report?.readOnly && !articles.tutorialOpen && (
           <Alert severity="warning">当前工作区只读，请先在工作区处理配置问题。</Alert>
         )}
 
-        {articles.selectedId ? (
+        {articles.tutorialOpen ? (
+          <Suspense fallback={<ArticleLoading title="Markdown 教程" phase="preparing" />}>
+            <MarkdownTutorial projectRoot={articles.report?.root ?? ""} />
+          </Suspense>
+        ) : articles.selectedId ? (
           articles.articleLoadError ? (
             <Paper variant="outlined" sx={{ p: 4 }}>
               <Stack spacing={2} sx={{ alignItems: "flex-start" }}>

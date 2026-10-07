@@ -32,6 +32,7 @@ interface ArticleFormatToolbarProps {
   canUseVisual?: boolean;
   disabled: boolean;
   saving: boolean;
+  showSave?: boolean;
   format: EditorFormatState;
   onAction: (action: FormatAction) => void;
   onHeading: (level: number) => void;
@@ -77,6 +78,7 @@ export function ArticleFormatToolbar({
   canUseVisual = true,
   disabled,
   saving,
+  showSave = true,
   format,
   onAction,
   onHeading,
@@ -206,25 +208,27 @@ export function ArticleFormatToolbar({
         disabled={disabled || !format.canRedo}
         onClick={() => onAction("redo")}
       />
-      <Stack direction="row" sx={{ ml: "auto", alignItems: "center" }}>
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ display: { xs: "none", lg: "block" }, mr: 1 }}
-        >
-          Ctrl+S 保存
-        </Typography>
-        <Button
-          size="small"
-          variant="contained"
-          startIcon={<SaveOutlined />}
-          disabled={saving}
-          onClick={onSave}
-          onMouseDown={(event) => event.preventDefault()}
-        >
-          {mode === "visual" ? "保存正文" : "保存源码"}
-        </Button>
-      </Stack>
+      {showSave && (
+        <Stack direction="row" sx={{ ml: "auto", alignItems: "center" }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: { xs: "none", lg: "block" }, mr: 1 }}
+          >
+            Ctrl+S 保存
+          </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<SaveOutlined />}
+            disabled={saving}
+            onClick={onSave}
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            {mode === "visual" ? "保存正文" : "保存源码"}
+          </Button>
+        </Stack>
+      )}
     </Box>
   );
 }

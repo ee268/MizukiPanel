@@ -37,6 +37,7 @@ interface VisualBodyEditorProps {
   source: string;
   busy: boolean;
   readOnly: boolean;
+  showSave?: boolean;
   fontMode: EditorFontMode;
   onChange: (source: string) => void;
   onSave: () => void;
@@ -49,6 +50,7 @@ export function VisualBodyEditor({
   source,
   busy,
   readOnly,
+  showSave = true,
   fontMode,
   onChange,
   onSave,
@@ -274,6 +276,7 @@ export function VisualBodyEditor({
           mode="visual"
           disabled
           saving={busy || readOnly}
+          showSave={showSave}
           format={emptyFormatState}
           onAction={() => {}}
           onHeading={() => {}}
@@ -312,6 +315,7 @@ export function VisualBodyEditor({
         mode="visual"
         disabled={!activeEditor || busy || readOnly}
         saving={busy || readOnly || !extensionsValid}
+        showSave={showSave}
         format={format}
         onAction={formatAction}
         onHeading={headingAction}

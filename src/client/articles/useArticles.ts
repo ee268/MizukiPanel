@@ -15,7 +15,8 @@ const ARTICLES_PER_PAGE = 10;
 
 export function useArticles() {
   const [params, setParams] = useSearchParams();
-  const selectedId = params.get("post");
+  const tutorialOpen = params.get("tutorial") === "markdown";
+  const selectedId = tutorialOpen ? null : params.get("post");
   const [report, setReport] = useState<ProjectReport | null>(null);
   const [articles, setArticles] = useState<ArticleListItem[]>([]);
   const [article, setArticle] = useState<ArticleRecord | null>(null);
@@ -183,7 +184,7 @@ export function useArticles() {
   }, [pageCount]);
 
   useEffect(() => {
-    if (selectedId || !shouldRestoreListScroll.current) {
+    if (selectedId || tutorialOpen || !shouldRestoreListScroll.current) {
       return;
     }
 
@@ -201,7 +202,13 @@ export function useArticles() {
         window.cancelAnimationFrame(restoreFrame);
       }
     };
-  }, [selectedId]);
+  }, [selectedId, tutorialOpen]);
+
+  function openTutorial() {
+    listScrollPosition.current = window.scrollY;
+    window.scrollTo({ top: 0, behavior: "auto" });
+    setParams({ tutorial: "markdown" });
+  }
 
   function choose(id: string) {
     if (selectedId && dirty && !window.confirm("当前文章有未保存的修改，确定离开吗？")) {
@@ -224,7 +231,7 @@ export function useArticles() {
   }
 
   function showList() {
-    if (dirty && !window.confirm("当前文章有未保存的修改，确定返回文章列表吗？")) {
+    if (selectedId && dirty && !window.confirm("当前文章有未保存的修改，确定返回文章列表吗？")) {
       return;
     }
     shouldRestoreListScroll.current = true;
@@ -453,6 +460,7 @@ export function useArticles() {
     renameOpen,
     deleteOpen,
     selectedId,
+    tutorialOpen,
     pagedArticles,
     setFrontmatter,
     setSource,
@@ -466,6 +474,7 @@ export function useArticles() {
     setRenameOpen,
     setDeleteOpen,
     choose,
+    openTutorial,
     retryArticle,
     showList,
     saveFrontmatter,

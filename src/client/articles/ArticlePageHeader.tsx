@@ -1,6 +1,7 @@
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
-import { Box, Button, Typography } from "@mui/material";
+import MenuBookOutlined from "@mui/icons-material/MenuBookOutlined";
+import { Box, Button, Stack, Typography } from "@mui/material";
 
 interface ArticlePageHeaderProps {
   editing: boolean;
@@ -8,6 +9,7 @@ interface ArticlePageHeaderProps {
   count: number;
   readOnly: boolean;
   onBack: () => void;
+  onTutorial: () => void;
   onCreate: () => void;
 }
 
@@ -21,14 +23,17 @@ export function ArticlePageHeader({
   count,
   readOnly,
   onBack,
+  onTutorial,
   onCreate,
 }: ArticlePageHeaderProps) {
   return (
-    <Box sx={{ position: "relative", containerType: "inline-size", minHeight: 88 }}>
+    <Box
+      sx={{ position: "relative", containerType: "inline-size", minHeight: { xs: 148, sm: 88 } }}
+    >
       <Box
         sx={{
           position: "absolute",
-          top: "50%",
+          top: { xs: "28%", sm: "50%" },
           left: 0,
           transform: editing ? toRight : toLeft,
           whiteSpace: "nowrap",
@@ -63,7 +68,7 @@ export function ArticlePageHeader({
         tabIndex={editing ? 0 : -1}
         sx={{
           position: "absolute",
-          top: "50%",
+          top: { xs: "28%", sm: "50%" },
           left: 0,
           transform: editing ? toLeft : toRight,
           opacity: editing ? 1 : 0,
@@ -76,16 +81,13 @@ export function ArticlePageHeader({
         返回文章列表
       </Button>
 
-      <Button
-        variant="contained"
-        startIcon={<AddOutlined />}
-        onClick={onCreate}
-        disabled={readOnly}
+      <Stack
+        direction="row"
+        spacing={1}
         aria-hidden={editing}
-        tabIndex={editing ? -1 : 0}
         sx={{
           position: "absolute",
-          top: "50%",
+          top: { xs: "82%", sm: "50%" },
           right: 0,
           transform: "translateY(-50%)",
           opacity: editing ? 0 : 1,
@@ -95,8 +97,19 @@ export function ArticlePageHeader({
           "@media (prefers-reduced-motion: reduce)": { transition: "none" },
         }}
       >
-        新建文章
-      </Button>
+        <Button startIcon={<MenuBookOutlined />} onClick={onTutorial} tabIndex={editing ? -1 : 0}>
+          Markdown 教程
+        </Button>
+        <Button
+          variant="contained"
+          startIcon={<AddOutlined />}
+          onClick={onCreate}
+          disabled={readOnly}
+          tabIndex={editing ? -1 : 0}
+        >
+          新建文章
+        </Button>
+      </Stack>
     </Box>
   );
 }

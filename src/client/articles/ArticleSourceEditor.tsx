@@ -11,6 +11,7 @@ interface ArticleSourceEditorProps {
   source: string;
   busy: boolean;
   readOnly: boolean;
+  showSave?: boolean;
   fontMode: EditorFontMode;
   canUseVisual: boolean;
   contentRef: RefObject<HTMLDivElement | null>;
@@ -24,6 +25,7 @@ export function ArticleSourceEditor({
   source,
   busy,
   readOnly,
+  showSave = true,
   fontMode,
   canUseVisual,
   contentRef,
@@ -53,6 +55,7 @@ export function ArticleSourceEditor({
         canUseVisual={canUseVisual}
         disabled={busy || readOnly}
         saving={busy || readOnly}
+        showSave={showSave}
         format={editor.format}
         onModeChange={(mode) => {
           if (mode === "visual") {
