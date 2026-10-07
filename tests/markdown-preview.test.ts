@@ -55,6 +55,8 @@ it.skipIf(!existsSync(realPost))(
       "",
       "**QObject**类的**parent()**函数返回其父对象。",
       "",
+      "函数**className()**可返回类名，函数**superClass()**可返回父类。",
+      "",
       "[[Qt框架功能概述]]",
       "",
       "```mermaid",
@@ -75,6 +77,8 @@ it.skipIf(!existsSync(realPost))(
     expect(result.html).toContain("admonition");
     expect(result.html).toContain("katex");
     expect(result.html).toContain("<strong>parent()</strong>函数");
+    expect(result.html).toContain("<strong>className()</strong>可返回");
+    expect(result.html).toContain("<strong>superClass()</strong>可返回");
     expect(result.html).toContain("mermaid");
     expect(result.html).toContain("plantuml");
     expect(result.html).toContain("card-wiki-link");
