@@ -17,6 +17,7 @@ import { InlineExtensionCard } from "./InlineExtensionCard";
 import { LiteralSourceEditor } from "./LiteralSourceEditor";
 import { MathBlock } from "./MathBlock";
 import { MdxComponentCard } from "./MdxComponentCard";
+import { QuotedHtmlImageBlock } from "./QuotedHtmlImageBlock";
 
 interface SourceSegmentEditorProps {
   articleId: string;
@@ -112,6 +113,17 @@ export function SourceSegmentEditor({
         readOnly={readOnly}
         onChange={onChange}
         onValidityChange={onValidityChange}
+      />
+    );
+  }
+
+  if (segment.syntax === "htmlImageQuote") {
+    return (
+      <QuotedHtmlImageBlock
+        articleId={articleId}
+        segment={segment}
+        readOnly={readOnly}
+        onChange={onChange}
       />
     );
   }

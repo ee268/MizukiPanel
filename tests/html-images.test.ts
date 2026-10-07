@@ -3,7 +3,10 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SourceSegmentEditor } from "../src/client/articles/SourceSegmentEditor";
 import { parseHtmlImages } from "../src/lib/articles/html-images";
+import { parseQuotedHtmlImages } from "../src/lib/articles/quoted-html-images";
+import { collectSourceIslandEdits } from "../src/lib/articles/source-island-edits";
 import { replaceArticleSegments, segmentArticleSource } from "../src/lib/articles/source-islands";
+import { validateArticleBody } from "../src/lib/server/article-body-validation";
 
 it("renders standalone HTML images while preserving their source segments", () => {
   const raw = '<img src="https://assets.example.com/1.png" alt="封面" style="zoom:50%;" />';
@@ -14,6 +17,47 @@ it("renders standalone HTML images while preserving their source segments", () =
     { src: "https://assets.example.com/1.png", alt: "封面", title: "", zoom: "50%" },
   ]);
   expect(replaceArticleSegments(article, new Map())).toBe(article.source);
+});
+
+it("keeps quoted text and its HTML image in the same visual block", async () => {
+  const quote = [
+    "> 放个安装过程的动图，稍微大点，可能加载慢",
+    ">",
+    '> <img src="https://asserts.645429.xyz/qml_deploy/22.gif" alt="PixPin_2026-06-04_00-06-18" style="zoom: 67%;" />',
+  ].join("\n");
+  const source = `---\ntitle: QML项目部署并使用InnoSetup打包\n---\n\n${quote}\n\n---\n`;
+  const article = segmentArticleSource(source, "md");
+  const segment = article.segments.find((part) => part.syntax === "htmlImageQuote");
+
+  expect(article.mode).toBe("hybrid");
+  expect(segment?.raw).toBe(quote);
+  expect(parseQuotedHtmlImages(quote)?.map((part) => part.kind)).toEqual(["text", "text", "image"]);
+  expect(replaceArticleSegments(article, new Map())).toBe(source);
+
+  const markup = renderToStaticMarkup(
+    createElement(SourceSegmentEditor, {
+      articleId: "qml.md",
+      article,
+      segment: segment!,
+      readOnly: false,
+      onChange: () => {},
+      onValidityChange: () => {},
+    }),
+  );
+  expect(markup).toContain("<blockquote");
+  expect(markup).toContain("放个安装过程的动图");
+  expect(markup).toContain("<img");
+  expect(markup).toContain("22.gif");
+  expect(markup).not.toContain("<textarea");
+
+  const changed = replaceArticleSegments(
+    article,
+    new Map([[segment!.id, quote.replace("22.gif", "updated.gif")]]),
+  );
+  const edits = collectSourceIslandEdits(source, changed, "md");
+  await expect(
+    validateArticleBody(source, changed.slice(article.bodyStart), "md", edits),
+  ).resolves.toBe(changed);
 });
 
 it("treats invalid and unsafe image HTML as literal text", () => {

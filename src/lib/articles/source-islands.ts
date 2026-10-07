@@ -6,6 +6,7 @@ import remarkParse from "remark-parse";
 import { unified } from "unified";
 import { splitArticleSource } from "./article-source";
 import { findCodeGroupRanges } from "./code-groups";
+import { parseQuotedHtmlImages } from "./quoted-html-images";
 export { replaceArticleSegments } from "./replace-article-segments";
 
 export type ArticleFormat = "md" | "mdx";
@@ -105,6 +106,13 @@ function offsets(node: SyntaxNode): { start: number; end: number } {
 function protectedSyntax(node: SyntaxNode, body: string): string | null {
   if (protectedNodes.has(node.type) || node.type.startsWith("mdx")) return node.type;
   if (!standardNodes.has(node.type)) return `unknown:${node.type}`;
+
+  if (node.type === "blockquote") {
+    const { start, end } = offsets(node);
+    if (parseQuotedHtmlImages(body.slice(start, end))) {
+      return "htmlImageQuote";
+    }
+  }
 
   if (node.type === "code") {
     const language = node.lang?.toLowerCase();
