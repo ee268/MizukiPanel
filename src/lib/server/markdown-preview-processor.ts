@@ -102,6 +102,7 @@ export async function createMizukiMarkdownProcessor(
       "src/config/siteConfig.ts",
       "src/config/expressiveCodeConfig.ts",
       "src/plugins/remark-content.mjs",
+      "src/plugins/remark-loose-strong.mjs",
       "src/plugins/remark-fix-github-admonitions.js",
       "src/plugins/remark-escape-numeric-colons.mjs",
       "src/plugins/remark-wiki-link.mjs",
@@ -126,6 +127,7 @@ export async function createMizukiMarkdownProcessor(
     siteConfig,
     expressiveCodeConfig,
     remarkContent,
+    remarkLooseStrong,
     remarkFixGithubAdmonitions,
     remarkEscapeNumericColons,
     remarkWikiLink,
@@ -158,6 +160,7 @@ export async function createMizukiMarkdownProcessor(
 
   const remarkPlugins = [
     math.default,
+    remarkLooseStrong.remarkLooseStrong,
     remarkContent.remarkContent,
     remarkFixGithubAdmonitions.remarkFixGithubAdmonitions,
     directive.default,

@@ -18,6 +18,7 @@ import { readFormatState, type EditorFormatState } from "./editor-format";
 import { articleShortcut, type EditorShortcut } from "./editor-shortcuts";
 import { createMilkdownCodeBlock, type ThemedCodeBlockView } from "./MilkdownCodeBlock";
 import { remarkImageTitle } from "./remark-image-title";
+import { remarkLooseStrong } from "./remark-loose-strong";
 
 interface MilkdownSegmentProps {
   articleId: string;
@@ -198,6 +199,7 @@ function SegmentEditor({
         })
         .use(commonmark)
         .use(gfm)
+        .use(remarkLooseStrong)
         .use(remarkImageTitle)
         .use(history)
         .use(listener),
