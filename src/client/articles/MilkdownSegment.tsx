@@ -246,8 +246,12 @@ function SegmentEditor({
           boxShadow: "none",
           fontSize: "1rem",
           lineHeight: 1.85,
-          color: "text.primary",
+          color: "text.secondary",
           overflowWrap: "anywhere",
+        },
+        "& .milkdown .editor strong": {
+          color: "text.primary",
+          fontWeight: 700,
         },
         "& .milkdown .ProseMirror": {
           outline: "none",
@@ -262,7 +266,10 @@ function SegmentEditor({
           },
         "& .milkdown .editor > :first-of-type": { mt: 0 },
         "& .milkdown .editor > :last-child": { mb: 0 },
-        "& .milkdown h1, & .milkdown h2, & .milkdown h3": { lineHeight: 1.35 },
+        "& .milkdown h1, & .milkdown h2, & .milkdown h3": {
+          color: "text.primary",
+          lineHeight: 1.35,
+        },
         "& .milkdown h1": { fontSize: "2rem" },
         "& .milkdown h2": { fontSize: "1.6rem" },
         "& .milkdown h3": { fontSize: "1.3rem" },
