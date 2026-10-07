@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import PaletteOutlined from "@mui/icons-material/PaletteOutlined";
 import {
   Box,
@@ -19,15 +19,77 @@ const colorModes: Array<{ value: PanelColorMode; label: string }> = [
   { value: "system", label: "跟随系统" },
 ];
 
+const previewVariables = [
+  "--mui-palette-primary-main",
+  "--mui-palette-primary-dark",
+  "--mui-palette-secondary-main",
+  "--mui-palette-secondary-dark",
+] as const;
+
+function applyHuePreview(hue: number, dark: boolean) {
+  const secondaryHue = (hue + 125) % 360;
+  const colors = [
+    hueColor(hue, dark ? 64 : 48),
+    hueColor(hue, dark ? 54 : 40),
+    hueColor(secondaryHue, dark ? 62 : 42),
+    hueColor(secondaryHue, dark ? 52 : 34),
+  ];
+  previewVariables.forEach((variable, index) => {
+    document.documentElement.style.setProperty(variable, colors[index]);
+  });
+}
+
+function clearHuePreview() {
+  previewVariables.forEach((variable) => {
+    document.documentElement.style.removeProperty(variable);
+  });
+}
+
 export default function ThemeSettings() {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
-  const { hue, mode, setHue, setMode, reset } = usePanelTheme();
+  const { hue, mode, resolvedMode, setHue, setMode, reset } = usePanelTheme();
+  const [dragHue, setDragHue] = useState<number | null>(null);
+  const previewFrame = useRef<number | null>(null);
+  const pendingHue = useRef(hue);
+
+  useLayoutEffect(() => {
+    if (dragHue === null) {
+      clearHuePreview();
+    }
+  }, [hue, resolvedMode, dragHue]);
+
+  useEffect(() => {
+    return () => {
+      if (previewFrame.current !== null) cancelAnimationFrame(previewFrame.current);
+      clearHuePreview();
+    };
+  }, []);
+
+  function previewHue(value: number) {
+    pendingHue.current = value;
+    setDragHue(value);
+    if (previewFrame.current !== null) return;
+    previewFrame.current = requestAnimationFrame(() => {
+      previewFrame.current = null;
+      applyHuePreview(pendingHue.current, resolvedMode === "dark");
+    });
+  }
+
+  function commitHue(value: number) {
+    if (previewFrame.current !== null) {
+      cancelAnimationFrame(previewFrame.current);
+      previewFrame.current = null;
+    }
+    setHue(value);
+    setDragHue(null);
+  }
 
   function openSettings(event: MouseEvent<HTMLElement>) {
     setAnchorElement(event.currentTarget);
   }
 
   function closeSettings() {
+    if (dragHue !== null) commitHue(dragHue);
     setAnchorElement(null);
   }
 
@@ -62,7 +124,11 @@ export default function ThemeSettings() {
               exclusive
               fullWidth
               value={mode}
-              onChange={(_, value: PanelColorMode | null) => value && setMode(value)}
+              onChange={(_, value: PanelColorMode | null) => {
+                if (!value) return;
+                if (dragHue !== null) commitHue(dragHue);
+                setMode(value);
+              }}
             >
               {colorModes.map((item) => (
                 <ToggleButton key={item.value} value={item.value}>
@@ -75,15 +141,16 @@ export default function ThemeSettings() {
             <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
               <Typography>主题色相</Typography>
               <Typography variant="body2" color="text.secondary">
-                {hue}°
+                {dragHue ?? hue}°
               </Typography>
             </Stack>
             <Slider
-              value={hue}
+              value={dragHue ?? hue}
               min={0}
               max={360}
               step={1}
-              onChange={(_, value) => setHue(value as number)}
+              onChange={(_, value) => previewHue(value as number)}
+              onChangeCommitted={(_, value) => commitHue(value as number)}
               aria-label="主题色相"
             />
             <Box
@@ -94,7 +161,17 @@ export default function ThemeSettings() {
               }}
             />
           </Box>
-          <Button onClick={reset} sx={{ alignSelf: "flex-start" }}>
+          <Button
+            onClick={() => {
+              if (previewFrame.current !== null) {
+                cancelAnimationFrame(previewFrame.current);
+                previewFrame.current = null;
+              }
+              setDragHue(null);
+              reset();
+            }}
+            sx={{ alignSelf: "flex-start" }}
+          >
             恢复默认
           </Button>
         </Stack>

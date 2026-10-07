@@ -58,6 +58,10 @@ export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark")
   const secondaryHover = hueColor(secondaryHue, resolvedMode === "dark" ? 52 : 34);
   const themeContrast = resolvedMode === "dark" ? "#000" : "#fff";
   const scrollbarTrack = resolvedMode === "dark" ? "#111318" : "#e5e7ed";
+  const primaryMainVariable = "var(--mui-palette-primary-main)";
+  const primaryHoverVariable = "var(--mui-palette-primary-dark)";
+  const secondaryMainVariable = "var(--mui-palette-secondary-main)";
+  const secondaryHoverVariable = "var(--mui-palette-secondary-dark)";
   return createTheme({
     cssVariables: true,
     palette: {
@@ -80,17 +84,17 @@ export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark")
       MuiCssBaseline: {
         styleOverrides: {
           "*": {
-            scrollbarColor: primaryMain + " " + scrollbarTrack,
+            scrollbarColor: primaryMainVariable + " " + scrollbarTrack,
             scrollbarWidth: "thin",
           },
           "*::-webkit-scrollbar": { width: 10, height: 10 },
           "*::-webkit-scrollbar-track": { backgroundColor: scrollbarTrack },
           "*::-webkit-scrollbar-thumb": {
-            backgroundColor: primaryMain,
+            backgroundColor: primaryMainVariable,
             border: "2px solid " + scrollbarTrack,
             borderRadius: 999,
           },
-          "*::-webkit-scrollbar-thumb:hover": { backgroundColor: primaryHover },
+          "*::-webkit-scrollbar-thumb:hover": { backgroundColor: primaryHoverVariable },
           "*::-webkit-scrollbar-corner": { backgroundColor: scrollbarTrack },
         },
       },
@@ -104,15 +108,15 @@ export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark")
             (ownerState.color === "primary" || ownerState.color === undefined)
               ? {
                   color: themeContrast,
-                  backgroundColor: primaryMain,
-                  "&:hover": { color: themeContrast, backgroundColor: primaryHover },
+                  backgroundColor: primaryMainVariable,
+                  "&:hover": { color: themeContrast, backgroundColor: primaryHoverVariable },
                 }
               : {}),
             ...(ownerState.variant === "contained" && ownerState.color === "secondary"
               ? {
                   color: themeContrast,
-                  backgroundColor: secondaryMain,
-                  "&:hover": { color: themeContrast, backgroundColor: secondaryHover },
+                  backgroundColor: secondaryMainVariable,
+                  "&:hover": { color: themeContrast, backgroundColor: secondaryHoverVariable },
                 }
               : {}),
           }),
@@ -123,10 +127,10 @@ export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark")
           root: {
             "&.active": {
               color: themeContrast,
-              backgroundColor: primaryMain,
+              backgroundColor: primaryMainVariable,
               "& .MuiListItemIcon-root": { color: "inherit" },
             },
-            "&.active:hover": { color: themeContrast, backgroundColor: primaryHover },
+            "&.active:hover": { color: themeContrast, backgroundColor: primaryHoverVariable },
           },
         },
       },

@@ -11,12 +11,12 @@ import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { Box, Typography, useTheme } from "@mui/material";
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import type { SourceSegment } from "../../lib/articles/source-islands";
 import { mediaPreviewUrl } from "./article-media";
 import { readFormatState, type EditorFormatState } from "./editor-format";
 import { articleShortcut, type EditorShortcut } from "./editor-shortcuts";
-import { createMilkdownCodeBlock } from "./MilkdownCodeBlock";
+import { createMilkdownCodeBlock, type ThemedCodeBlockView } from "./MilkdownCodeBlock";
 import { remarkImageTitle } from "./remark-image-title";
 
 interface MilkdownSegmentProps {
@@ -43,6 +43,13 @@ function SegmentEditor({
   onValidityChange,
 }: MilkdownSegmentProps) {
   const theme = useTheme();
+  const themeRef = useRef(theme);
+  const codeBlockViews = useRef(new Set<ThemedCodeBlockView>());
+  themeRef.current = theme;
+
+  useLayoutEffect(() => {
+    codeBlockViews.current.forEach((view) => view.refreshTheme());
+  }, [theme]);
   const onChangeRef = useRef(onChange);
   const onReadyRef = useRef(onReady);
   const onFormatChangeRef = useRef(onFormatChange);
@@ -67,11 +74,22 @@ function SegmentEditor({
             nodeViews: {
               code_block: (node, view, getPos) => {
                 const id = Symbol("code-block");
-                return createMilkdownCodeBlock(node, view, getPos, readOnly, theme, (valid) => {
-                  if (valid) invalidCodeBlocks.current.delete(id);
-                  else invalidCodeBlocks.current.add(id);
-                  onValidityChangeRef.current(invalidCodeBlocks.current.size === 0);
-                });
+                let codeBlockView: ThemedCodeBlockView;
+                codeBlockView = createMilkdownCodeBlock(
+                  node,
+                  view,
+                  getPos,
+                  readOnly,
+                  () => themeRef.current,
+                  (valid) => {
+                    if (valid) invalidCodeBlocks.current.delete(id);
+                    else invalidCodeBlocks.current.add(id);
+                    onValidityChangeRef.current(invalidCodeBlocks.current.size === 0);
+                  },
+                  () => codeBlockViews.current.delete(codeBlockView),
+                );
+                codeBlockViews.current.add(codeBlockView);
+                return codeBlockView;
               },
               image: (node) => {
                 const dom = document.createElement("img");
@@ -183,7 +201,7 @@ function SegmentEditor({
         .use(remarkImageTitle)
         .use(history)
         .use(listener),
-    [articleId, readOnly, theme],
+    [articleId, readOnly],
   );
   const getRef = useRef(get);
   getRef.current = get;

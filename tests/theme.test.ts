@@ -12,6 +12,8 @@ it("normalizes Mizuki-style theme hues and creates HSL colors", () => {
 it("uses mode-specific text with a visible hover background for theme-colored controls", () => {
   for (const mode of ["light", "dark"] as const) {
     const theme = createPanelMuiTheme(180, mode);
+    expect(theme.vars?.palette.primary.main).toContain("--mui-palette-primary-main");
+    expect(theme.vars?.palette.primary.dark).toContain("--mui-palette-primary-dark");
     const expectedText = mode === "dark" ? "#000" : "#fff";
     expect(theme.palette.primary.contrastText).toBe(expectedText);
     expect(theme.palette.secondary.contrastText).toBe(expectedText);
@@ -28,7 +30,7 @@ it("uses mode-specific text with a visible hover background for theme-colored co
     expect(buttonStyle.color).toBe(expectedText);
     expect(buttonStyle["&:hover"]).toMatchObject({
       color: expectedText,
-      backgroundColor: theme.palette.primary.dark,
+      backgroundColor: "var(--mui-palette-primary-dark)",
     });
 
     const navigation = theme.components?.MuiListItemButton?.styleOverrides?.root as Record<
@@ -37,11 +39,11 @@ it("uses mode-specific text with a visible hover background for theme-colored co
     >;
     expect(navigation["&.active"]).toMatchObject({
       color: expectedText,
-      backgroundColor: theme.palette.primary.main,
+      backgroundColor: "var(--mui-palette-primary-main)",
     });
     expect(navigation["&.active:hover"]).toMatchObject({
       color: expectedText,
-      backgroundColor: theme.palette.primary.dark,
+      backgroundColor: "var(--mui-palette-primary-dark)",
     });
   }
 });
@@ -55,15 +57,15 @@ it("styles every scrollbar with the current theme color", () => {
     const expectedTrack = mode === "dark" ? "#111318" : "#e5e7ed";
 
     expect(overrides["*"]).toMatchObject({
-      scrollbarColor: `${theme.palette.primary.main} ${expectedTrack}`,
+      scrollbarColor: `var(--mui-palette-primary-main) ${expectedTrack}`,
       scrollbarWidth: "thin",
     });
     expect(overrides["*::-webkit-scrollbar-thumb"]).toMatchObject({
-      backgroundColor: theme.palette.primary.main,
+      backgroundColor: "var(--mui-palette-primary-main)",
       border: `2px solid ${expectedTrack}`,
     });
     expect(overrides["*::-webkit-scrollbar-thumb:hover"]).toMatchObject({
-      backgroundColor: theme.palette.primary.dark,
+      backgroundColor: "var(--mui-palette-primary-dark)",
     });
   }
 });

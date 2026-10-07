@@ -5,6 +5,10 @@ import { createRoot } from "react-dom/client";
 import { parseFencedCode } from "../../lib/articles/fenced-code";
 import { CodeBlockCard } from "./CodeBlockCard";
 
+export interface ThemedCodeBlockView extends NodeView {
+  refreshTheme: () => void;
+}
+
 function nodeSignature(node: ProseMirrorNode) {
   return String(node.attrs.language ?? "") + "\0" + node.textContent;
 }
@@ -31,9 +35,10 @@ export function createMilkdownCodeBlock(
   view: EditorView,
   getPos: () => number | undefined,
   readOnly: boolean,
-  theme: Theme,
+  getTheme: () => Theme,
   onValidityChange: (valid: boolean) => void,
-): NodeView {
+  onDispose: () => void,
+): ThemedCodeBlockView {
   const dom = document.createElement("div");
   const root = createRoot(dom);
   let currentNode = node;
@@ -62,7 +67,7 @@ export function createMilkdownCodeBlock(
 
   function render() {
     root.render(
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={getTheme()}>
         <CodeBlockCard
           key={revision}
           block={fencedSource(currentNode)}
@@ -93,8 +98,10 @@ export function createMilkdownCodeBlock(
       return true;
     },
     destroy() {
+      onDispose();
       queueMicrotask(() => root.unmount());
       onValidityChange(true);
     },
+    refreshTheme: render,
   };
 }
