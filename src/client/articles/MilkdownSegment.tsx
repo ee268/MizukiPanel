@@ -253,6 +253,13 @@ function SegmentEditor({
           color: "text.primary",
           fontWeight: 700,
         },
+        "& .milkdown .editor a[href]": {
+          color: "primary.main",
+          textDecorationLine: "underline",
+          textDecorationStyle: "dashed",
+          textDecorationThickness: "1px",
+          textUnderlineOffset: "0.2em",
+        },
         "& .milkdown .ProseMirror": {
           outline: "none",
           border: 0,
