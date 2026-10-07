@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
+import { articleScrollProgress, articleScrollTargetY } from "./article-scroll-position";
 import type { ArticleEditorMode } from "./types";
 
 type BodyMode = Extract<ArticleEditorMode, "visual" | "source">;
@@ -45,7 +46,13 @@ export function useArticleModeScroll(
           ratio:
             position < top
               ? null
-              : Math.min(1, (position - top) / Math.max(1, current.offsetHeight)),
+              : articleScrollProgress(
+                  position,
+                  top,
+                  current.offsetHeight,
+                  window.innerHeight,
+                  offset,
+                ),
           pageY,
           viewportOffset: offset,
         };
@@ -68,30 +75,54 @@ export function useArticleModeScroll(
         return;
       }
 
+      if (mode === "visual" && !target.querySelector(".mizuki-document-content")) {
+        window.scrollTo({ top: pageY, behavior: "instant" });
+        return;
+      }
+
       if (ratio === null) {
-        window.scrollTo(0, pageY);
+        window.scrollTo({ top: pageY, behavior: "instant" });
         return;
       }
 
       const top = target.getBoundingClientRect().top + window.scrollY;
-      window.scrollTo(0, top + ratio * target.offsetHeight - offset);
+      window.scrollTo({
+        top: articleScrollTargetY(ratio, top, target.offsetHeight, window.innerHeight, offset),
+        behavior: "instant",
+      });
     }
 
-    let settleTimer: number;
-    const frame = requestAnimationFrame(() => {
-      restore();
-      const restoredY = window.scrollY;
-      settleTimer = window.setTimeout(() => {
-        if (Math.abs(window.scrollY - restoredY) < 4) {
-          restore();
-        }
+    let frame = 0;
+    const scheduleRestore = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(restore);
+    };
+    const stopRestoring = (event: Event) => {
+      if (event.isTrusted) {
         pending.current = null;
-      }, 200);
-    });
+        cancelAnimationFrame(frame);
+        observer.disconnect();
+        for (const type of ["wheel", "touchstart", "pointerdown", "keydown"]) {
+          window.removeEventListener(type, stopRestoring, { capture: true });
+        }
+      }
+    };
+    const target = mode === "visual" ? visualRef.current : sourceRef.current;
+    const observer = new ResizeObserver(scheduleRestore);
+    restore();
+    if (target) {
+      observer.observe(target);
+    }
+    for (const type of ["wheel", "touchstart", "pointerdown", "keydown"]) {
+      window.addEventListener(type, stopRestoring, { capture: true });
+    }
 
     return () => {
       cancelAnimationFrame(frame);
-      window.clearTimeout(settleTimer);
+      observer.disconnect();
+      for (const type of ["wheel", "touchstart", "pointerdown", "keydown"]) {
+        window.removeEventListener(type, stopRestoring, { capture: true });
+      }
     };
   }, [mode]);
 
