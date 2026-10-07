@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
 import {
+  sourceYForVisualY,
+  visualYForSourceY,
+  type SourceMeasure,
+  type VisualAnchor,
+} from "../src/client/articles/article-scroll-anchors";
+import {
   articleScrollProgress,
   articleScrollTargetY,
 } from "../src/client/articles/article-scroll-position";
@@ -47,4 +53,22 @@ it("aligns the end of a shorter source view with the end of a taller visual view
   expect(visualScrollY + 900).toBe(300 + 3200);
   expect(sourceScrollY + 900).toBe(240 + 1700);
   expect(visualScrollY).toBeGreaterThan(sourceScrollY);
+});
+
+it("aligns nearby paragraphs despite a tall rendered image between them", () => {
+  const anchors: VisualAnchor[] = [
+    { sourceOffset: 0, pageY: 200 },
+    { sourceOffset: 50, pageY: 500 },
+    { sourceOffset: 51, pageY: 2300 },
+    { sourceOffset: 100, pageY: 3300 },
+  ];
+  const measure: SourceMeasure = {
+    pageYAt(offset) {
+      return offset <= 50 ? 200 + offset * 24 : 1400 + (offset - 50) * 24;
+    },
+    dispose() {},
+  };
+
+  expect(visualYForSourceY(anchors, measure, 1424)).toBe(2300);
+  expect(sourceYForVisualY(anchors, measure, 2300)).toBe(1424);
 });

@@ -60,7 +60,7 @@ export function ArticleEditor({
 }: ArticleEditorProps) {
   const [visualValid, setVisualValid] = useState(true);
   const fontMode = useEditorFontMode(projectRoot);
-  const { visualRef, sourceRef, changeMode } = useArticleModeScroll(mode, onModeChange);
+  const { visualRef, sourceRef, changeMode } = useArticleModeScroll(mode, onModeChange, source);
 
   useEffect(() => {
     setVisualValid(true);

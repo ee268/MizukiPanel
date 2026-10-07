@@ -1,4 +1,12 @@
 import { useLayoutEffect, useRef } from "react";
+import {
+  collectVisualAnchors,
+  createSourceMeasure,
+  sourceYForVisualY,
+  visualYForSourceY,
+  type SourceMeasure,
+  type VisualAnchor,
+} from "./article-scroll-anchors";
 import { articleScrollProgress, articleScrollTargetY } from "./article-scroll-position";
 import type { ArticleEditorMode } from "./types";
 
@@ -9,6 +17,10 @@ interface ScrollPosition {
   ratio: number | null;
   pageY: number;
   viewportOffset: number;
+  readingAnchor?:
+    | { mode: "source"; pageY: number; measure: SourceMeasure }
+    | { mode: "visual"; pageY: number; anchors: VisualAnchor[] };
+  targetMeasure?: SourceMeasure;
 }
 
 function isBodyMode(mode: ArticleEditorMode): mode is BodyMode {
@@ -22,6 +34,7 @@ function viewportOffset() {
 export function useArticleModeScroll(
   mode: ArticleEditorMode,
   onModeChange: (mode: ArticleEditorMode) => void,
+  source: string,
 ) {
   const visualRef = useRef<HTMLDivElement>(null);
   const sourceRef = useRef<HTMLDivElement>(null);
@@ -32,6 +45,10 @@ export function useArticleModeScroll(
       return;
     }
 
+    pending.current?.targetMeasure?.dispose();
+    if (pending.current?.readingAnchor?.mode === "source") {
+      pending.current.readingAnchor.measure.dispose();
+    }
     pending.current = null;
     if (isBodyMode(mode) && isBodyMode(next)) {
       const current = mode === "visual" ? visualRef.current : sourceRef.current;
@@ -40,6 +57,17 @@ export function useArticleModeScroll(
         const pageY = window.scrollY;
         const top = current.getBoundingClientRect().top + pageY;
         const position = pageY + offset;
+
+        const textarea = current.querySelector<HTMLTextAreaElement>(
+          'textarea:not([aria-hidden="true"])',
+        );
+        const anchors = mode === "visual" ? collectVisualAnchors(current, source) : null;
+        const readingAnchor =
+          mode === "source" && textarea
+            ? { mode: "source" as const, pageY: position, measure: createSourceMeasure(textarea) }
+            : anchors && anchors.length > 2
+              ? { mode: "visual" as const, pageY: position, anchors }
+              : undefined;
 
         pending.current = {
           target: next,
@@ -55,6 +83,7 @@ export function useArticleModeScroll(
                 ),
           pageY,
           viewportOffset: offset,
+          readingAnchor,
         };
       }
     }
@@ -67,7 +96,8 @@ export function useArticleModeScroll(
     if (!position || position.target !== mode) {
       return;
     }
-    const { ratio, pageY, viewportOffset: offset } = position;
+    const saved = position;
+    const { ratio, pageY, viewportOffset: offset, readingAnchor } = position;
 
     function restore() {
       const target = mode === "visual" ? visualRef.current : sourceRef.current;
@@ -85,9 +115,32 @@ export function useArticleModeScroll(
         return;
       }
 
+      let semanticY: number | null = null;
+      if (mode === "visual" && readingAnchor?.mode === "source") {
+        const anchors = collectVisualAnchors(target, source);
+        if (anchors && anchors.length > 2) {
+          semanticY = visualYForSourceY(anchors, readingAnchor.measure, readingAnchor.pageY);
+        }
+      } else if (mode === "source" && readingAnchor?.mode === "visual") {
+        const textarea = target.querySelector<HTMLTextAreaElement>(
+          'textarea:not([aria-hidden="true"])',
+        );
+        if (textarea) {
+          saved.targetMeasure ??= createSourceMeasure(textarea);
+          semanticY = sourceYForVisualY(
+            readingAnchor.anchors,
+            saved.targetMeasure,
+            readingAnchor.pageY,
+          );
+        }
+      }
+
       const top = target.getBoundingClientRect().top + window.scrollY;
       window.scrollTo({
-        top: articleScrollTargetY(ratio, top, target.offsetHeight, window.innerHeight, offset),
+        top:
+          semanticY === null
+            ? articleScrollTargetY(ratio, top, target.offsetHeight, window.innerHeight, offset)
+            : semanticY - offset,
         behavior: "instant",
       });
     }
@@ -102,6 +155,9 @@ export function useArticleModeScroll(
         pending.current = null;
         cancelAnimationFrame(frame);
         observer.disconnect();
+        mutation.disconnect();
+        position.targetMeasure?.dispose();
+        if (readingAnchor?.mode === "source") readingAnchor.measure.dispose();
         for (const type of ["wheel", "touchstart", "pointerdown", "keydown"]) {
           window.removeEventListener(type, stopRestoring, { capture: true });
         }
@@ -109,9 +165,13 @@ export function useArticleModeScroll(
     };
     const target = mode === "visual" ? visualRef.current : sourceRef.current;
     const observer = new ResizeObserver(scheduleRestore);
+    const mutation = new MutationObserver(scheduleRestore);
     restore();
     if (target) {
       observer.observe(target);
+      if (mode === "visual") {
+        mutation.observe(target, { childList: true, subtree: true });
+      }
     }
     for (const type of ["wheel", "touchstart", "pointerdown", "keydown"]) {
       window.addEventListener(type, stopRestoring, { capture: true });
@@ -120,6 +180,9 @@ export function useArticleModeScroll(
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      mutation.disconnect();
+      position.targetMeasure?.dispose();
+      if (readingAnchor?.mode === "source") readingAnchor.measure.dispose();
       for (const type of ["wheel", "touchstart", "pointerdown", "keydown"]) {
         window.removeEventListener(type, stopRestoring, { capture: true });
       }

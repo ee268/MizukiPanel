@@ -346,30 +346,41 @@ export function VisualBodyEditor({
           {snapshot.segments.map((segment) => {
             if (segment.mode === "editable") {
               return (
-                <MilkdownSegment
+                <div
                   key={segment.id}
-                  articleId={article.id}
-                  segment={segment}
-                  readOnly={readOnly}
-                  onChange={(markdown) => updateSegment(segment, markdown)}
-                  onFocus={() => selectSegment(segment.id)}
-                  onReady={(editor) => registerSegment(segment.id, editor)}
-                  onFormatChange={(next) => updateFormat(segment.id, next)}
-                  onShortcut={handleShortcut}
-                  onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
-                />
+                  data-article-segment="editable"
+                  data-source-start={segment.sourceStart}
+                >
+                  <MilkdownSegment
+                    articleId={article.id}
+                    segment={segment}
+                    readOnly={readOnly}
+                    onChange={(markdown) => updateSegment(segment, markdown)}
+                    onFocus={() => selectSegment(segment.id)}
+                    onReady={(editor) => registerSegment(segment.id, editor)}
+                    onFormatChange={(next) => updateFormat(segment.id, next)}
+                    onShortcut={handleShortcut}
+                    onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
+                  />
+                </div>
               );
             }
             return (
-              <SourceSegmentEditor
+              <div
                 key={segment.id}
-                articleId={article.id}
-                article={snapshot}
-                segment={segment}
-                readOnly={readOnly}
-                onChange={(raw) => replaceSegment(segment, raw)}
-                onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
-              />
+                data-article-segment="source"
+                data-source-start={segment.sourceStart}
+                data-source-match={segment.raw.slice(0, 80)}
+              >
+                <SourceSegmentEditor
+                  articleId={article.id}
+                  article={snapshot}
+                  segment={segment}
+                  readOnly={readOnly}
+                  onChange={(raw) => replaceSegment(segment, raw)}
+                  onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
+                />
+              </div>
             );
           })}
         </Stack>
