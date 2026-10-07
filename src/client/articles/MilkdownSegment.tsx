@@ -263,7 +263,7 @@ function SegmentEditor({
           px: 0.7,
           py: 0.25,
         },
-        "& .milkdown img": { maxWidth: "100%" },
+        "& .milkdown img": { maxWidth: "100%", borderRadius: 1 },
         "& .milkdown table": { borderCollapse: "collapse", display: "block", overflowX: "auto" },
         "& .milkdown td, & .milkdown th": {
           border: "1px solid",
