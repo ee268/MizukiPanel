@@ -1,14 +1,20 @@
-import { Alert, Container, Snackbar, Stack } from "@mui/material";
+import { lazy, Suspense } from "react";
+import { Alert, Button, Container, Paper, Snackbar, Stack, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { ArticleDialogs } from "../articles/ArticleDialogs";
-import { ArticleEditor } from "../articles/ArticleEditor";
+import { ArticleLoading } from "../articles/ArticleLoading";
 import { ArticleList } from "../articles/ArticleList";
 import { ArticlePageHeader } from "../articles/ArticlePageHeader";
 import { useArticles } from "../articles/useArticles";
 
+const ArticleEditor = lazy(() =>
+  import("../articles/ArticleEditor").then((module) => ({ default: module.ArticleEditor })),
+);
+
 export default function ArticlesPage() {
   const navigate = useNavigate();
   const articles = useArticles();
+  const selectedTitle = articles.articles.find((item) => item.id === articles.selectedId)?.title;
 
   return (
     <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, lg: 3 } }}>
@@ -32,35 +38,51 @@ export default function ArticlesPage() {
         )}
 
         {articles.selectedId ? (
-          <ArticleEditor
-            article={articles.article}
-            projectRoot={articles.report?.root ?? ""}
-            previewPath={articles.previewPath}
-            frontmatter={articles.frontmatter}
-            source={articles.source}
-            mode={articles.mode}
-            busy={articles.busy}
-            dirty={articles.dirty}
-            sourceDirty={articles.sourceDirty}
-            readOnly={Boolean(articles.report?.readOnly)}
-            onFrontmatterChange={articles.setFrontmatter}
-            onSourceChange={articles.setSource}
-            onModeChange={articles.setMode}
-            onPreview={(path) => {
-              if (
-                articles.dirty &&
-                !window.confirm("当前文章有未保存的修改，确定离开并查看真实预览吗？")
-              ) {
-                return;
-              }
-              navigate(`/preview?path=${encodeURIComponent(path)}`);
-            }}
-            onRename={() => articles.setRenameOpen(true)}
-            onDelete={() => articles.setDeleteOpen(true)}
-            onSaveFrontmatter={articles.saveFrontmatter}
-            onSaveSource={articles.saveSource}
-            onSaveBody={articles.saveBody}
-          />
+          articles.articleLoadError ? (
+            <Paper variant="outlined" sx={{ p: 4 }}>
+              <Stack spacing={2} sx={{ alignItems: "flex-start" }}>
+                <Typography variant="h6">文章暂时无法打开</Typography>
+                <Typography color="text.secondary">{articles.articleLoadError}</Typography>
+                <Button variant="contained" onClick={articles.retryArticle}>
+                  重新读取
+                </Button>
+              </Stack>
+            </Paper>
+          ) : articles.articleLoading || articles.article?.id !== articles.selectedId ? (
+            <ArticleLoading title={selectedTitle} />
+          ) : (
+            <Suspense fallback={<ArticleLoading title={selectedTitle} phase="preparing" />}>
+              <ArticleEditor
+                article={articles.article}
+                projectRoot={articles.report?.root ?? ""}
+                previewPath={articles.previewPath}
+                frontmatter={articles.frontmatter}
+                source={articles.source}
+                mode={articles.mode}
+                busy={articles.busy}
+                dirty={articles.dirty}
+                sourceDirty={articles.sourceDirty}
+                readOnly={Boolean(articles.report?.readOnly)}
+                onFrontmatterChange={articles.setFrontmatter}
+                onSourceChange={articles.setSource}
+                onModeChange={articles.setMode}
+                onPreview={(path) => {
+                  if (
+                    articles.dirty &&
+                    !window.confirm("当前文章有未保存的修改，确定离开并查看真实预览吗？")
+                  ) {
+                    return;
+                  }
+                  navigate(`/preview?path=${encodeURIComponent(path)}`);
+                }}
+                onRename={() => articles.setRenameOpen(true)}
+                onDelete={() => articles.setDeleteOpen(true)}
+                onSaveFrontmatter={articles.saveFrontmatter}
+                onSaveSource={articles.saveSource}
+                onSaveBody={articles.saveBody}
+              />
+            </Suspense>
+          )
         ) : (
           <ArticleList
             articles={articles.pagedArticles}

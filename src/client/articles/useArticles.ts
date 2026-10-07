@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
-import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import { errorMessage } from "../shared/errors";
 import type { ArticleListItem, ArticleRecord, ProjectReport } from "../types";
 import { draftBody, frontmatterChanged, hasSourceHeaderChange, rebaseBody } from "./article-draft";
@@ -20,6 +19,9 @@ export function useArticles() {
   const [report, setReport] = useState<ProjectReport | null>(null);
   const [articles, setArticles] = useState<ArticleListItem[]>([]);
   const [article, setArticle] = useState<ArticleRecord | null>(null);
+  const [articleLoading, setArticleLoading] = useState(Boolean(selectedId));
+  const [articleLoadError, setArticleLoadError] = useState("");
+  const [articleLoadAttempt, setArticleLoadAttempt] = useState(0);
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [frontmatter, setFrontmatter] = useState<FrontmatterRow[]>([]);
   const [source, setSource] = useState("");
@@ -35,6 +37,8 @@ export function useArticles() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const listScrollPosition = useRef(0);
   const shouldRestoreListScroll = useRef(false);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const frontmatterDirty = article ? frontmatterChanged(frontmatter, article) : false;
   const sourceDirty = article ? source !== article.source : false;
   const dirty = frontmatterDirty || sourceDirty;
@@ -96,37 +100,55 @@ export function useArticles() {
     }
   }, []);
 
-  const loadArticle = useCallback(async (id: string) => {
-    try {
-      const data = await api<{
-        report: ProjectReport;
-        article: ArticleRecord;
-        previewPath: string | null;
-      }>(`/api/article?id=${encodeURIComponent(id)}`);
-      setReport(data.report);
-      setArticle(data.article);
-      setFrontmatter(data.article.frontmatter.map(createFrontmatterRow));
-      setSource(data.article.source);
-      setPreviewPath(data.previewPath);
-      setMode(data.article.error ? "source" : "visual");
-      setError("");
-    } catch (cause) {
-      setArticle(null);
-      setError(errorMessage(cause, "文章读取失败"));
-    }
-  }, []);
-
   useEffect(() => {
     void loadList();
   }, [loadList]);
 
   useEffect(() => {
-    if (selectedId) {
-      void loadArticle(selectedId);
-    } else {
+    if (!selectedId) {
       setArticle(null);
+      setArticleLoading(false);
+      setArticleLoadError("");
+      return;
     }
-  }, [selectedId, loadArticle]);
+
+    const id = selectedId;
+    const controller = new AbortController();
+    setArticle(null);
+    setArticleLoading(true);
+    setArticleLoadError("");
+
+    async function loadArticle() {
+      try {
+        const data = await api<{
+          report: ProjectReport;
+          article: ArticleRecord;
+          previewPath: string | null;
+        }>(`/api/article?id=${encodeURIComponent(id)}`, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || selectedIdRef.current !== id) return;
+
+        setReport(data.report);
+        setArticle(data.article);
+        setFrontmatter(data.article.frontmatter.map(createFrontmatterRow));
+        setSource(data.article.source);
+        setPreviewPath(data.previewPath);
+        setMode(data.article.error ? "source" : "visual");
+        setError("");
+      } catch (cause) {
+        if (controller.signal.aborted || selectedIdRef.current !== id) return;
+        setArticleLoadError(errorMessage(cause, "文章读取失败"));
+      } finally {
+        if (!controller.signal.aborted && selectedIdRef.current === id) {
+          setArticleLoading(false);
+        }
+      }
+    }
+
+    void loadArticle();
+    return () => controller.abort();
+  }, [selectedId, articleLoadAttempt]);
 
   useEffect(() => {
     if (params.has("new")) {
@@ -188,8 +210,17 @@ export function useArticles() {
     if (!selectedId) {
       listScrollPosition.current = window.scrollY;
     }
+    setArticle(null);
+    setArticleLoading(true);
+    setArticleLoadError("");
     window.scrollTo({ top: 0, behavior: "auto" });
     setParams({ post: id });
+  }
+
+  function retryArticle() {
+    setArticleLoading(true);
+    setArticleLoadError("");
+    setArticleLoadAttempt((attempt) => attempt + 1);
   }
 
   function showList() {
@@ -296,6 +327,7 @@ export function useArticles() {
     setBusy(true);
     setError("");
     try {
+      const { collectSourceIslandEdits } = await import("../../lib/articles/source-island-edits");
       const sourceEdits = collectSourceIslandEdits(article.source, source, article.format);
       const data = await api<{ article: ArticleRecord; previewPath: string | null }>(
         "/api/article/body",
@@ -401,6 +433,8 @@ export function useArticles() {
     report,
     articles,
     article,
+    articleLoading,
+    articleLoadError,
     previewPath,
     frontmatter,
     source,
@@ -432,6 +466,7 @@ export function useArticles() {
     setRenameOpen,
     setDeleteOpen,
     choose,
+    retryArticle,
     showList,
     saveFrontmatter,
     saveSource,

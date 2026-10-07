@@ -1,11 +1,8 @@
 import type { Editor } from "@milkdown/kit/core";
-import { Alert, Paper, Stack } from "@mui/material";
-import { useRef, useState } from "react";
-import {
-  replaceArticleSegments,
-  segmentArticleSource,
-  type SourceSegment,
-} from "../../lib/articles/source-islands";
+import { Alert, Button, Paper, Stack } from "@mui/material";
+import { startTransition, useEffect, useRef, useState } from "react";
+import type { SegmentedArticle, SourceSegment } from "../../lib/articles/source-islands";
+import { replaceArticleSegments } from "../../lib/articles/replace-article-segments";
 import type { ArticleRecord } from "../types";
 import { ArticleFormatToolbar } from "./ArticleFormatToolbar";
 import { preserveSegmentBoundary } from "./article-draft";
@@ -31,6 +28,8 @@ import { LinkInsertDialog } from "./LinkInsertDialog";
 import { MilkdownSegment } from "./MilkdownSegment";
 import { SourceSegmentEditor } from "./SourceSegmentEditor";
 import { LiteralSourceEditor } from "./LiteralSourceEditor";
+import { ArticleLoading } from "./ArticleLoading";
+import type { SegmentResult } from "./segmentArticle.worker";
 import type { EditorFontMode } from "../../lib/server/editor-fonts";
 
 interface VisualBodyEditorProps {
@@ -56,12 +55,11 @@ export function VisualBodyEditor({
   onSourceMode,
   onValidityChange,
 }: VisualBodyEditorProps) {
-  const [snapshot] = useState(() => segmentArticleSource(source, article.format));
+  const [snapshot, setSnapshot] = useState<SegmentedArticle | null>(null);
+  const [segmentError, setSegmentError] = useState("");
   const replacements = useRef(new Map<number, string>());
   const editors = useRef(new Map<number, Editor>());
-  const [activeSegmentId, setActiveSegmentId] = useState<number | null>(
-    snapshot.segments.find((segment) => segment.mode === "editable")?.id ?? null,
-  );
+  const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
@@ -75,6 +73,40 @@ export function VisualBodyEditor({
     activeSegmentId === null
       ? emptyFormatState
       : (formats.get(activeSegmentId) ?? emptyFormatState);
+
+  useEffect(() => {
+    let active = true;
+    const worker = new Worker(new URL("./segmentArticle.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    worker.onmessage = (event: MessageEvent<SegmentResult>) => {
+      if (!active) return;
+      if (event.data.error) {
+        setSegmentError(event.data.error);
+        return;
+      }
+      const next = event.data.snapshot;
+      if (!next) {
+        setSegmentError("正文解析未返回结果，请切换源码模式编辑。");
+        return;
+      }
+      startTransition(() => {
+        setActiveSegmentId(
+          next.segments.find((segment) => segment.mode === "editable")?.id ?? null,
+        );
+        setSnapshot(next);
+      });
+    };
+    worker.onerror = (event) => {
+      event.preventDefault();
+      if (active) setSegmentError("正文解析线程启动失败，请切换源码模式编辑。");
+    };
+    worker.postMessage({ source, format: article.format });
+    return () => {
+      active = false;
+      worker.terminate();
+    };
+  }, [article.id, article.version, article.format]);
 
   function updateFormat(id: number, next: EditorFormatState) {
     setFormats((current) => {
@@ -191,6 +223,7 @@ export function VisualBodyEditor({
   }
 
   function updateSegment(segment: SourceSegment, markdown: string) {
+    if (!snapshot) return;
     const leftInline = segment.start > 0 && !/[\r\n]/.test(snapshot.body[segment.start - 1]);
     const rightInline =
       segment.end < snapshot.body.length && !/[\r\n]/.test(snapshot.body[segment.end]);
@@ -199,6 +232,7 @@ export function VisualBodyEditor({
   }
 
   function replaceSegment(segment: SourceSegment, replacement: string) {
+    if (!snapshot) return;
     if (replacement === segment.raw) {
       replacements.current.delete(segment.id);
     } else {
@@ -216,6 +250,21 @@ export function VisualBodyEditor({
     const nextValid = invalidExtensions.current.size === 0;
     setExtensionsValid(nextValid);
     onValidityChange(nextValid);
+  }
+
+  if (segmentError) {
+    return (
+      <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
+        <Alert severity="error">{segmentError}</Alert>
+        <Button onClick={onSourceMode} sx={{ alignSelf: "flex-start" }}>
+          切换源码模式
+        </Button>
+      </Stack>
+    );
+  }
+
+  if (!snapshot) {
+    return <ArticleLoading title={article.title} phase="preparing" />;
   }
 
   if (snapshot.mode === "source") {

@@ -11,6 +11,7 @@ import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
 import { useArticleModeScroll } from "./useArticleModeScroll";
 import { useEditorFontMode } from "./useEditorFontMode";
+import { ArticleLoading } from "./ArticleLoading";
 import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import "./editor-fonts.css";
 
@@ -94,14 +95,7 @@ export function ArticleEditor({
   }
 
   if (!article) {
-    return (
-      <Paper variant="outlined" sx={{ p: 8, textAlign: "center" }}>
-        <Typography variant="h5">正在读取文章</Typography>
-        <Typography color="text.secondary" sx={{ mt: 1 }}>
-          正在加载 Frontmatter 与 Markdown/MDX 源码。
-        </Typography>
-      </Paper>
-    );
+    return <ArticleLoading />;
   }
 
   return (
