@@ -15,12 +15,46 @@ description: 从基础 Markdown 到 Mizuki 扩展与 MDX 组件
 
 这是一个普通段落。使用 **双星号加粗**、*单星号斜体*、~~双波浪线删除~~，或者用反引号标记 `行内代码`。
 
-## 链接、图片与引用
+## 链接与引用
 
-[访问 Markdown 指南](https://www.markdownguide.org/basic-syntax/) 使用 `[文字](地址)` 格式。图片使用 `![替代文字](图片地址)`，也支持 `<img src="图片地址" alt="替代文字" />`。你可以使用工具栏插入图片；若地址无效，图片自然无法加载。
+[访问 Markdown 指南](https://www.markdownguide.org/basic-syntax/) 使用 `[文字](地址)` 格式。
 
 > 引用行以 `>` 开头。
 > 可以连续写多行。
+
+## 图片：Markdown 与 HTML
+
+图片地址应指向图片文件，而不是介绍图片的网页。以下两种写法使用同一张山景照片，你可以直接比较显示效果，也可以使用工具栏插入其他图片。
+
+### Markdown 图片
+
+使用 `![替代文字](图片地址 "可选标题")`。替代文字描述图片内容；标题可在鼠标悬停时显示。
+
+```markdown
+![山峰、森林与远处的雪山](https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/Mountain_Landscape_%28Unsplash%29.jpg/960px-Mountain_Landscape_%28Unsplash%29.jpg "Markdown 图片示例")
+```
+
+下面是上述 Markdown 的实际显示效果：
+
+![山峰、森林与远处的雪山](https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/Mountain_Landscape_%28Unsplash%29.jpg/960px-Mountain_Landscape_%28Unsplash%29.jpg "Markdown 图片示例")
+
+### HTML 图片
+
+使用 `<img />` 标签，`src` 指定地址，`alt` 描述图片，`title` 设置悬停提示。在这篇 MDX 教程中，标签以 `/>` 自闭合。
+
+```html
+<img
+  src="https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/Mountain_Landscape_%28Unsplash%29.jpg/960px-Mountain_Landscape_%28Unsplash%29.jpg"
+  alt="山峰、森林与远处的雪山"
+  title="HTML 图片示例"
+/>
+```
+
+下面是上述 HTML 的实际显示效果：
+
+<img src="https://thumb.wikimedia.org/wikipedia/commons/thumb/0/04/Mountain_Landscape_%28Unsplash%29.jpg/960px-Mountain_Landscape_%28Unsplash%29.jpg" alt="山峰、森林与远处的雪山" title="HTML 图片示例" />
+
+示例照片由 Mike Dewey 拍摄，来自 [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Mountain_Landscape_(Unsplash).jpg)，以 CC0 发布。若替换后的图片无法显示，请检查地址是否可直接访问。
 
 ## 列表和任务
 
@@ -33,6 +67,28 @@ description: 从基础 Markdown 到 Mizuki 扩展与 MDX 组件
 
 - [x] 已完成的任务
 - [ ] 待完成的任务
+
+## 分隔线
+
+在独立一行写三个或更多的 `-`、`*` 或 `_`，可以分隔文章的不同部分。前后各空一行，避免 `---` 被识别成上一行文字的标题下划线。
+
+```markdown
+上一段正文。
+
+---
+
+下一段正文。
+```
+
+下面展示分隔线的实际效果：
+
+分隔线之前的正文。
+
+---
+
+分隔线之后的正文。
+
+`***` 和 `___` 也可作为分隔线；它们都要独占一行，并与前后的正文空行分开。
 
 ## 表格与代码
 
