@@ -8,6 +8,7 @@ const schema = new Schema({
     paragraph: { content: "inline*", group: "block" },
     heading: { content: "inline*", group: "block", attrs: { level: { default: 1 } } },
     text: { group: "inline" },
+    hardbreak: { inline: true, group: "inline", selectable: false },
   },
   marks: {
     strong: {},
@@ -93,4 +94,31 @@ it("preserves empty or unparseable input without stale marks", () => {
   const empty = sourceRevealContent("", "inlineCode", () => null, schema);
   expect(empty.presentation).toBe("plain");
   expect(empty.content.toJSON()).toBeNull();
+});
+
+it.each(["strong", "emphasis", "strike_through", "inlineCode", "link", "heading"] as const)(
+  "invalidates %s source on a newline and preserves literal characters and breaks",
+  (kind) => {
+    const parsed = paragraph(schema.text("normalized", [schema.marks.inlineCode.create()]));
+    const result = sourceRevealContent("`中文\n代码`", kind, () => parsed, schema);
+    expect(result.presentation).toBe("plain");
+    const expected = [
+      { type: "text", text: "`中文" },
+      { type: "hardbreak" },
+      { type: "text", text: "代码`" },
+    ];
+    expect(result.content.toJSON()).toEqual(
+      kind === "heading" ? { type: "paragraph", content: expected } : expected,
+    );
+  },
+);
+
+it("preserves leading, repeated and trailing line breaks as ordinary inline breaks", () => {
+  const result = sourceRevealContent("\n\n文字\r\n", "strong", () => null, schema);
+  expect(result.content.toJSON()).toEqual([
+    { type: "hardbreak" },
+    { type: "hardbreak" },
+    { type: "text", text: "文字" },
+    { type: "hardbreak" },
+  ]);
 });

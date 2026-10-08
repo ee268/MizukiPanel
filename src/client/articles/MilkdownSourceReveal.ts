@@ -88,6 +88,17 @@ function createSourceWidget(
     highlightSource(measure, input.value, next.presentation);
     const tr = view.state.tr.replaceWith(active.from, active.to, next.content);
     const to = tr.mapping.map(active.to, 1);
+    if (input.value.includes("\n")) {
+      // Continue at the inserted break in the ordinary editor, whose inline
+      // layout keeps preceding text on its original line and removes old marks.
+      tr.setSelection(
+        TextSelection.create(tr.doc, active.from + (isHeading ? 1 : 0) + input.selectionStart),
+      );
+      tr.setMeta(key, null);
+      view.dispatch(tr);
+      view.focus();
+      return;
+    }
     tr.setSelection(TextSelection.create(tr.doc, active.from + (isHeading ? 1 : 0)));
     tr.setMeta(key, {
       ...active,

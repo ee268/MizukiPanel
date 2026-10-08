@@ -272,7 +272,7 @@ function SegmentEditor({
           position: "relative",
           display: "inline-block",
           maxWidth: "100%",
-          verticalAlign: "bottom",
+          verticalAlign: "top",
           color: "inherit",
         },
         '& .markdown-source-reveal[data-source-kind="strong"]': { color: "text.primary" },

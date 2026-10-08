@@ -16,7 +16,9 @@ export function sourceRevealContent(
 ): SourceRevealContent {
   let doc: Node | null = null;
   try {
-    doc = parse(raw);
+    // Editing a revealed span across lines invalidates its original syntax,
+    // even when Markdown would normalize it into a valid inline mark.
+    if (!/[\r\n]/.test(raw)) doc = parse(raw);
   } catch {
     // Parser failures must not discard the text or leave the previous formatting.
   }
@@ -32,7 +34,14 @@ export function sourceRevealContent(
   }
 
   // A partial parse (e.g. **bold* becoming '*' + italic) is ordinary text.
-  const literal = raw ? Fragment.from(schema.text(raw)) : Fragment.empty;
+  const literal = Fragment.fromArray(
+    raw
+      .split(/\r\n|[\r\n]/)
+      .flatMap((line, index) => [
+        ...(index ? [schema.nodes.hardbreak.create()] : []),
+        ...(line ? [schema.text(line)] : []),
+      ]),
+  );
   return {
     presentation,
     content:
