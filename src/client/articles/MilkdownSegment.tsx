@@ -273,11 +273,17 @@ function SegmentEditor({
           display: "inline-block",
           maxWidth: "100%",
           verticalAlign: "bottom",
-          color: "text.primary",
+          color: "inherit",
         },
+        '& .markdown-source-reveal[data-source-kind="strong"]': { color: "text.primary" },
+        '& .markdown-source-reveal[data-source-kind="link"], & .markdown-source-reveal[data-source-kind="inlineCode"]':
+          { color: "primary.main" },
         "& .markdown-source-measure": {
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
+        },
+        "& .milkdown code:has(.markdown-source-hidden):not(:has(.markdown-source-reveal))": {
+          display: "none",
         },
         '& .markdown-source-reveal[data-source-kind="link"] .markdown-source-measure': {
           textDecorationLine: "underline",

@@ -193,7 +193,12 @@ export function createMilkdownSourceReveal(readOnly: boolean) {
             ),
           ];
           if (bounds.to > bounds.from) {
-            decorations.push(Decoration.inline(bounds.from, bounds.to, { style: "display:none" }));
+            decorations.push(
+              Decoration.inline(bounds.from, bounds.to, {
+                class: "markdown-source-hidden",
+                style: "display:none",
+              }),
+            );
           }
           return DecorationSet.create(state.doc, decorations);
         },
