@@ -56,3 +56,15 @@ export function parseHtmlImages(raw: string): HtmlImage[] | null {
   }
   return images.length && !content.slice(cursor).trim() ? images : null;
 }
+
+export function removeHtmlImage(raw: string, index: number): string {
+  const images = parseHtmlImages(raw);
+  if (!images || index < 0 || index >= images.length) return raw;
+  if (images.length === 1) return "";
+  // Scan whole tags so an img-like string inside a wrapper attribute is skipped.
+  const tags = [...raw.matchAll(/<\/?[\w:-]+\b(?:[^>"']|"[^"]*"|'[^']*')*>/g)].filter((match) =>
+    /^<img\b/i.test(match[0]),
+  );
+  const tag = tags[index];
+  return tag ? raw.slice(0, tag.index) + raw.slice(tag.index + tag[0].length) : raw;
+}

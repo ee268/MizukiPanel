@@ -1,7 +1,7 @@
 import { parserCtx, serializerCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import type { Node } from "@milkdown/kit/prose/model";
-import { TextSelection } from "@milkdown/kit/prose/state";
+import { NodeSelection, TextSelection } from "@milkdown/kit/prose/state";
 import type { EditorView, NodeView } from "@milkdown/kit/prose/view";
 import { ThemeProvider, type Theme } from "@mui/material/styles";
 import { createRoot } from "react-dom/client";
@@ -47,7 +47,24 @@ export function createMilkdownImage(
     }
     const tr = view.state.tr.replaceWith(position, position + currentNode.nodeSize, next.content);
     tr.setSelection(TextSelection.create(tr.doc, position + cursor));
-    recordBrokenImageSource(tr, position, tr.mapping.map(position + currentNode.nodeSize, 1));
+    const to = tr.mapping.map(position + currentNode.nodeSize, 1);
+    if (to > position) recordBrokenImageSource(tr, position, to);
+    view.dispatch(tr);
+    view.focus();
+  }
+
+  function select() {
+    const position = getPos();
+    if (readOnly || typeof position !== "number") return;
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, position)));
+    view.focus();
+  }
+
+  function remove() {
+    const position = getPos();
+    if (readOnly || typeof position !== "number") return;
+    const tr = view.state.tr.delete(position, position + currentNode.nodeSize);
+    tr.setSelection(TextSelection.near(tr.doc.resolve(position)));
     view.dispatch(tr);
     view.focus();
   }
@@ -70,6 +87,8 @@ export function createMilkdownImage(
           readOnly={readOnly}
           initialCursor={typeof position === "number" ? imageSourceCursor(view, position) : null}
           onChange={change}
+          onSelect={select}
+          onDelete={remove}
         />
       </ThemeProvider>,
     );

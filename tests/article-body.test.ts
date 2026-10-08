@@ -9,6 +9,7 @@ import { ArticleValidationError } from "../src/lib/server/article-format";
 import { readArticle, saveArticleBody, saveArticleSource } from "../src/lib/server/articles";
 import type { ProjectReport } from "../src/lib/server/project";
 import { StorageConflict } from "../src/lib/server/storage";
+import { removeHtmlImage } from "../src/lib/articles/html-images";
 
 const temporaryPaths: string[] = [];
 
@@ -41,6 +42,34 @@ afterEach(async () => {
     await rm(target, { recursive: true, force: true });
   }
 });
+
+it.each(["Markdown", "HTML"])(
+  "saves and reopens a deleted %s image without changing adjacent text",
+  async (kind) => {
+    const image =
+      kind === "HTML"
+        ? '<img src="https://example.com/photo.jpg" alt="图片" />'
+        : "![图片](https://example.com/photo.jpg)";
+    const source = `---\ntitle: 图片删除\npublished: 2026-09-27\n---\n\n前文。\n\n${image}\n\n后文。\n`;
+    const { report, filename } = await fixture("local", "delete-image.md", source);
+    const initial = await readArticle(report, "delete-image.md");
+    const changed = source.replace(image, kind === "HTML" ? removeHtmlImage(image, 0) : "");
+    const saved =
+      kind === "HTML"
+        ? await saveArticleSource(report, initial.id, changed, initial.version)
+        : await saveArticleBody(
+            report,
+            initial.id,
+            segmentArticleSource(changed, "md").body,
+            initial.version,
+          );
+    expect((await readArticle(report, initial.id)).source).toBe(changed);
+    expect(await readFile(filename, "utf8")).toBe(changed);
+    expect(changed).toContain("前文。");
+    expect(changed).toContain("后文。");
+    await rm(saved.backupPath!, { force: true });
+  },
+);
 
 it("saves only the Markdown body while preserving BOM, Frontmatter and CRLF", async () => {
   const prefix =

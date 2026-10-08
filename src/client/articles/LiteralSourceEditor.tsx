@@ -54,7 +54,7 @@ export function LiteralSourceEditor({
         resize: "none",
         overflow: "hidden",
         background: "transparent",
-        color: "text.primary",
+        color: "text.secondary",
         font: "inherit",
         fontSize: "1rem",
         lineHeight: 1.85,

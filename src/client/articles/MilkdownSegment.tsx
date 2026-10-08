@@ -348,6 +348,11 @@ function SegmentEditor({
           maxWidth: "100%",
           verticalAlign: "top",
         },
+        "& .markdown-image-view.ProseMirror-selectednode > span > button": {
+          outline: "2px solid",
+          outlineColor: "primary.main",
+          outlineOffset: 3,
+        },
         "& .milkdown table": { borderCollapse: "collapse", display: "block", overflowX: "auto" },
         "& .milkdown td, & .milkdown th": {
           border: "1px solid",

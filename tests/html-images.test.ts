@@ -2,11 +2,44 @@ import { expect, it } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SourceSegmentEditor } from "../src/client/articles/SourceSegmentEditor";
-import { parseHtmlImages } from "../src/lib/articles/html-images";
+import { parseHtmlImages, removeHtmlImage } from "../src/lib/articles/html-images";
 import { parseQuotedHtmlImages, replaceQuotedText } from "../src/lib/articles/quoted-html-images";
 import { collectSourceIslandEdits } from "../src/lib/articles/source-island-edits";
 import { replaceArticleSegments, segmentArticleSource } from "../src/lib/articles/source-islands";
 import { validateArticleBody } from "../src/lib/server/article-body-validation";
+
+it("removes only the selected HTML image while preserving wrappers and other images", () => {
+  const first = '<img src="one.jpg" alt="第一张" />';
+  const second = '<img src="two.jpg" alt="第二张" />';
+  const raw = `<figure>\n${first}\n${second}\n</figure>`;
+  const removed = removeHtmlImage(raw, 0);
+  expect(removed).toBe(`<figure>\n\n${second}\n</figure>`);
+  expect(parseHtmlImages(removed)?.[0].alt).toBe("第二张");
+  expect(removeHtmlImage(removed, 0)).toBe("");
+});
+
+it("skips img-like strings inside wrapper attributes and rejects invalid selection indices", () => {
+  const raw = '<a title="<img src=\'fake.jpg\'>"><img src="one.jpg" /><img src="two.jpg" /></a>';
+  expect(removeHtmlImage(raw, 0)).toBe(
+    '<a title="<img src=\'fake.jpg\'>"><img src="two.jpg" /></a>',
+  );
+  expect(removeHtmlImage(raw, -1)).toBe(raw);
+  expect(removeHtmlImage(raw, 2)).toBe(raw);
+  expect(removeHtmlImage("普通正文", 0)).toBe("普通正文");
+});
+
+it("preserves neighboring text and selects full-source saving when the last HTML image is deleted", () => {
+  const raw = '<img src="https://assets.example.com/one.jpg" alt="图片" />';
+  const source = `---\ntitle: 图片删除\n---\n\n前文。\n\n${raw}\n\n后文。\n`;
+  const article = segmentArticleSource(source, "md");
+  const segment = article.segments.find((part) => part.raw === raw)!;
+  const changed = replaceArticleSegments(article, new Map([[segment.id, removeHtmlImage(raw, 0)]]));
+  expect(changed).toContain("前文。");
+  expect(changed).toContain("后文。");
+  expect(changed).not.toContain("<img");
+  // ArticleEditor catches this structural change and calls the full-source save route.
+  expect(() => collectSourceIslandEdits(source, changed, "md")).toThrow("扩展语法片段结构已变化");
+});
 
 it("renders standalone HTML images while preserving their source segments", () => {
   const raw = '<img src="https://assets.example.com/1.png" alt="封面" style="zoom:50%;" />';

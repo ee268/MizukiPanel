@@ -1,5 +1,5 @@
 import { Box, Stack, Typography } from "@mui/material";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from "react";
 import { mediaPreviewUrl } from "./article-media";
 import { SyntaxCodeEditor } from "./SyntaxCodeEditor";
 
@@ -12,6 +12,8 @@ interface MarkdownImageCardProps {
   readOnly: boolean;
   initialCursor: number | null;
   onChange: (raw: string, cursor: number) => void;
+  onSelect: () => void;
+  onDelete: () => void;
 }
 
 export function MarkdownImageCard({
@@ -23,6 +25,8 @@ export function MarkdownImageCard({
   readOnly,
   initialCursor,
   onChange,
+  onSelect,
+  onDelete,
 }: MarkdownImageCardProps) {
   const [editing, setEditing] = useState(initialCursor !== null && !readOnly);
   const [draft, setDraft] = useState(source);
@@ -65,7 +69,7 @@ export function MarkdownImageCard({
             view.dispatch({
               selection: { anchor: Math.min(initialCursor ?? draft.length, draft.length) },
             });
-            view.focus();
+            if (initialCursor !== null) view.focus();
           }}
         />
       )}
@@ -77,6 +81,18 @@ export function MarkdownImageCard({
           if (readOnly) return;
           event.preventDefault();
           setEditing(true);
+          onSelect();
+        }}
+        onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+          if (
+            readOnly ||
+            event.nativeEvent.isComposing ||
+            (event.key !== "Backspace" && event.key !== "Delete")
+          )
+            return;
+          event.preventDefault();
+          event.stopPropagation();
+          onDelete();
         }}
         sx={{
           display: "block",
@@ -87,6 +103,8 @@ export function MarkdownImageCard({
           textAlign: "left",
           width: "fit-content",
           maxWidth: "100%",
+          borderRadius: 1,
+          "&:focus": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 3 },
         }}
       >
         {preview ? (

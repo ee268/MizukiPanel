@@ -1,7 +1,14 @@
 import { Box, Stack, Typography } from "@mui/material";
 import type { EditorView } from "@uiw/react-codemirror";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { parseHtmlImages } from "../../lib/articles/html-images";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type KeyboardEvent,
+} from "react";
+import { parseHtmlImages, removeHtmlImage } from "../../lib/articles/html-images";
 import type { SourceSegment } from "../../lib/articles/source-islands";
 import { mediaPreviewUrl } from "./article-media";
 import { LiteralSourceEditor } from "./LiteralSourceEditor";
@@ -17,7 +24,7 @@ interface HtmlImageCardProps {
 export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlImageCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(segment.raw);
-  const editorRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<EditorView | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const pendingSelection = useRef<number | null>(null);
@@ -40,9 +47,8 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
 
   useEffect(() => {
     if (!editing) return;
-    inputRef.current?.focus();
     const closeOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !editorRef.current?.contains(event.target)) {
+      if (event.target instanceof Node && !cardRef.current?.contains(event.target)) {
         setEditing(false);
       }
     };
@@ -63,7 +69,7 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
   }
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={1} ref={cardRef} className="html-image-view">
       {!images ? (
         <LiteralSourceEditor
           segment={segment}
@@ -76,7 +82,7 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
       ) : (
         <>
           {editing && !readOnly && (
-            <Box ref={editorRef}>
+            <Box>
               <SyntaxCodeEditor
                 label="图片 HTML 源码"
                 language="html"
@@ -87,7 +93,7 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
                   inputRef.current = view;
                   const position = Math.min(pendingSelection.current ?? draft.length, draft.length);
                   view.dispatch({ selection: { anchor: position } });
-                  view.focus();
+                  if (pendingSelection.current !== null) view.focus();
                   pendingSelection.current = null;
                 }}
               />
@@ -98,10 +104,34 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
             return (
               <Box
                 key={`${image.src}:${index}`}
-                component="button"
-                type="button"
-                aria-label={`编辑图片源码：${image.alt || image.src}`}
-                onClick={() => !readOnly && setEditing(true)}
+                component={readOnly ? "span" : "button"}
+                type={readOnly ? undefined : "button"}
+                aria-label={readOnly ? undefined : `编辑图片源码：${image.alt || image.src}`}
+                onClick={(event: MouseEvent<HTMLElement>) => {
+                  if (readOnly) return;
+                  event.preventDefault();
+                  pendingSelection.current = null;
+                  event.currentTarget.focus();
+                  setEditing(true);
+                }}
+                onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+                  if (
+                    readOnly ||
+                    event.nativeEvent.isComposing ||
+                    (event.key !== "Backspace" && event.key !== "Delete")
+                  )
+                    return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  change(removeHtmlImage(draft, index), 0);
+                  if (images.length > 1) {
+                    requestAnimationFrame(() => {
+                      cardRef.current
+                        ?.querySelectorAll<HTMLButtonElement>("button")
+                        [Math.min(index, images.length - 2)]?.focus();
+                    });
+                  }
+                }}
                 sx={{
                   display: "block",
                   p: 0,
@@ -111,6 +141,12 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
                   textAlign: "left",
                   width: "fit-content",
                   maxWidth: "100%",
+                  borderRadius: 1,
+                  "&:focus": {
+                    outline: "2px solid",
+                    outlineColor: "primary.main",
+                    outlineOffset: 3,
+                  },
                 }}
               >
                 {src ? (
