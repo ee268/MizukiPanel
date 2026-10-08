@@ -11,6 +11,7 @@ import {
   type MarkdownSourceRange,
 } from "./markdown-source-range";
 import { sourceRevealContent, type SourcePresentation } from "./source-reveal-content";
+import { mapSourceRepair, sourceRepairText, type SourceRepairRange } from "./source-repair-range";
 
 interface SourceRevealState extends MarkdownSourceRange {
   id: number;
@@ -19,7 +20,18 @@ interface SourceRevealState extends MarkdownSourceRange {
   presentation: SourcePresentation;
 }
 
-const key = new PluginKey<SourceRevealState | null>("markdown-source-reveal");
+interface SourceRevealPluginState {
+  active: SourceRevealState | null;
+  repairs: SourceRepairRange[];
+}
+
+interface SourceRevealMeta {
+  active: SourceRevealState | null;
+  repair?: SourceRepairRange;
+  repairedId?: number;
+}
+
+const key = new PluginKey<SourceRevealPluginState>("markdown-source-reveal");
 
 function highlightSource(element: Element, raw: string, presentation: SourcePresentation) {
   const separator = raw.lastIndexOf("](");
@@ -74,7 +86,7 @@ function createSourceWidget(
   let composing = false;
 
   function current() {
-    const active = key.getState(view.state);
+    const active = key.getState(view.state)?.active;
     return active?.id === initial.id ? active : null;
   }
 
@@ -94,26 +106,31 @@ function createSourceWidget(
       tr.setSelection(
         TextSelection.create(tr.doc, active.from + (isHeading ? 1 : 0) + input.selectionStart),
       );
-      tr.setMeta(key, null);
+      tr.setMeta(key, {
+        active: null,
+        repair: { id: active.id, from: active.from, to, kind: active.kind },
+      } satisfies SourceRevealMeta);
       view.dispatch(tr);
       view.focus();
       return;
     }
     tr.setSelection(TextSelection.create(tr.doc, active.from + (isHeading ? 1 : 0)));
     tr.setMeta(key, {
-      ...active,
-      to,
-      raw: input.value,
-      cursor: input.selectionStart,
-      presentation: next.presentation,
-    });
+      active: {
+        ...active,
+        to,
+        raw: input.value,
+        cursor: input.selectionStart,
+        presentation: next.presentation,
+      },
+    } satisfies SourceRevealMeta);
     view.dispatch(tr);
   }
 
   function close(position?: number) {
     const active = current();
     if (!active) return;
-    const tr = view.state.tr.setMeta(key, null);
+    const tr = view.state.tr.setMeta(key, { active: null } satisfies SourceRevealMeta);
     if (position !== undefined) {
       tr.setSelection(TextSelection.create(tr.doc, position));
     }
@@ -167,34 +184,76 @@ function createSourceWidget(
 export function createMilkdownSourceReveal(readOnly: boolean) {
   return $prose((ctx) => {
     let nextId = 0;
-    return new Plugin<SourceRevealState | null>({
+    return new Plugin<SourceRevealPluginState>({
       key,
       state: {
-        init: () => null,
-        apply(tr, active, oldState, state) {
-          if (tr.getMeta(key) !== undefined) return tr.getMeta(key);
+        init: () => ({ active: null, repairs: [] }),
+        apply(tr, previous, oldState, state) {
+          const meta: SourceRevealMeta | undefined = tr.getMeta(key);
+          const repairs = previous.repairs.flatMap((range) => {
+            if (range.id === meta?.repairedId) return [];
+            const mapped = tr.docChanged ? mapSourceRepair(range, tr.mapping) : range;
+            return mapped ? [mapped] : [];
+          });
+          if (meta?.repair) repairs.push(meta.repair);
+          if (meta) return { active: meta.active, repairs };
+          const active = previous.active;
           if (active && !tr.selectionSet) {
-            if (!tr.docChanged) return active;
+            if (!tr.docChanged) return previous;
             const mapped = mapUnchangedSource(active, oldState.doc, state.doc, tr.mapping);
-            return mapped ? { ...active, ...mapped } : null;
+            return { active: mapped ? { ...active, ...mapped } : null, repairs };
           }
-          if (readOnly || !tr.selectionSet || !state.selection.empty) return null;
+          if (readOnly || !tr.selectionSet || !state.selection.empty)
+            return { active: null, repairs };
           const range = markdownSourceAt(state.doc, state.selection.from);
-          if (!range) return null;
+          if (!range) return { active: null, repairs };
           const raw = serializeSource(state.doc, range, ctx.get(serializerCtx));
           const bounds = sourceContentBounds(range);
           return {
-            ...range,
-            id: ++nextId,
-            raw,
-            presentation: range.kind,
-            cursor: sourceCursorOffset(raw, state.selection.from - bounds.from),
+            active: {
+              ...range,
+              id: ++nextId,
+              raw,
+              presentation: range.kind,
+              cursor: sourceCursorOffset(raw, state.selection.from - bounds.from),
+            },
+            repairs,
           };
         },
       },
+      appendTransaction(transactions, _oldState, state) {
+        if (readOnly || !transactions.some((tr) => tr.docChanged)) return null;
+        for (const repair of key.getState(state)?.repairs ?? []) {
+          const raw = sourceRepairText(state.doc, repair);
+          if (raw === null || /[\r\n]/.test(raw)) continue;
+          const next = sourceRevealContent(raw, repair.kind, ctx.get(parserCtx), state.schema);
+          if (next.presentation === "plain") continue;
+          const bounds = sourceContentBounds(repair);
+          const selected =
+            state.selection.empty &&
+            state.selection.from >= bounds.from &&
+            state.selection.from <= bounds.to;
+          const tr = state.tr.replaceWith(repair.from, repair.to, next.content);
+          const active: SourceRevealState | null = selected
+            ? {
+                ...repair,
+                id: ++nextId,
+                to: tr.mapping.map(repair.to, 1),
+                raw,
+                cursor: state.selection.from - bounds.from,
+                presentation: next.presentation,
+              }
+            : null;
+          if (active)
+            tr.setSelection(TextSelection.create(tr.doc, sourceContentBounds(active).from));
+          tr.setMeta(key, { active, repairedId: repair.id } satisfies SourceRevealMeta);
+          return tr;
+        }
+        return null;
+      },
       props: {
         decorations(state) {
-          const active = key.getState(state);
+          const active = key.getState(state)?.active;
           if (!active) return null;
           const bounds = sourceContentBounds(active);
           const decorations = [
@@ -237,7 +296,7 @@ export function createMilkdownSourceReveal(readOnly: boolean) {
       },
       view: () => ({
         update(view, previousState) {
-          const active = key.getState(view.state);
+          const active = key.getState(view.state)?.active;
           const input = view.dom.querySelector<HTMLTextAreaElement>(".markdown-source-input");
           if (!active || !input) return;
           const wrapper = input.parentElement!;
@@ -247,9 +306,9 @@ export function createMilkdownSourceReveal(readOnly: boolean) {
             const measure = input.previousElementSibling;
             if (measure) highlightSource(measure, active.raw, active.presentation);
           }
-          if (key.getState(previousState)?.id !== active.id) return;
+          if (key.getState(previousState)?.active?.id !== active.id) return;
           queueMicrotask(() => {
-            if (!input.isConnected || key.getState(view.state)?.id !== active.id) return;
+            if (!input.isConnected || key.getState(view.state)?.active?.id !== active.id) return;
             if (document.activeElement === document.body || document.activeElement === view.dom) {
               input.focus({ preventScroll: true });
               input.setSelectionRange(active.cursor, active.cursor);
