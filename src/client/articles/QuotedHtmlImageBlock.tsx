@@ -4,12 +4,14 @@ import { parseQuotedHtmlImages, replaceQuotedText } from "../../lib/articles/quo
 import type { SourceSegment } from "../../lib/articles/source-islands";
 import { HtmlImageCard } from "./HtmlImageCard";
 import { LiteralSourceEditor } from "./LiteralSourceEditor";
+import type { ImageSide } from "./ImageCaret";
 
 interface QuotedHtmlImageBlockProps {
   articleId: string;
   segment: SourceSegment;
   readOnly: boolean;
   onChange: (raw: string) => void;
+  onRemoveImage?: (remaining: string, side: ImageSide, prefix?: string) => void;
 }
 
 interface QuotedTextEditorProps {
@@ -62,6 +64,7 @@ export function QuotedHtmlImageBlock({
   segment,
   readOnly,
   onChange,
+  onRemoveImage,
 }: QuotedHtmlImageBlockProps) {
   const [draft, setDraft] = useState(segment.raw);
   const parts = parseQuotedHtmlImages(draft);
@@ -100,6 +103,14 @@ export function QuotedHtmlImageBlock({
               onChange={(imageRaw) =>
                 update(draft.slice(0, part.start) + imageRaw + draft.slice(part.end))
               }
+              onRemove={(imageRaw) => {
+                const next = draft.slice(0, part.start) + imageRaw + draft.slice(part.end);
+                if (onRemoveImage && !parseQuotedHtmlImages(next)) {
+                  onRemoveImage(next, "before", draft.slice(0, part.start));
+                } else {
+                  update(next);
+                }
+              }}
             />
           ) : (
             <QuotedTextEditor

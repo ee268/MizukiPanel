@@ -20,9 +20,16 @@ interface HtmlImageCardProps {
   segment: SourceSegment;
   readOnly: boolean;
   onChange: (raw: string) => void;
+  onRemove?: (remaining: string, side: ImageSide) => void;
 }
 
-export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlImageCardProps) {
+export function HtmlImageCard({
+  articleId,
+  segment,
+  readOnly,
+  onChange,
+  onRemove,
+}: HtmlImageCardProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(segment.raw);
   const [beforeText, setBeforeText] = useState("");
@@ -61,7 +68,7 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
     return () => document.removeEventListener("pointerdown", closeOutside, true);
   }, [editing]);
 
-  function change(next: string, selectionStart: number) {
+  function change(next: string, selectionStart: number, side: ImageSide = "before") {
     pendingSelection.current = selectionStart;
     setDraft(next);
     const valid = Boolean(parseHtmlImages(next));
@@ -70,16 +77,24 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
     } else if (!images) {
       setEditing(true);
     }
-    emit(next);
+    if (!next.trim() && onRemove) {
+      onRemove(compose(next), side);
+    } else {
+      emit(next);
+    }
   }
 
-  function emit(markup = draft, before = beforeText, after = afterText) {
+  function compose(markup = draft, before = beforeText, after = afterText) {
     // These are ordinary body paragraphs, separate from the protected HTML.
     const literal = (text: string) =>
       text.replace(/[\\`*{}[\]()#+.!_>~|]/g, "\\$&").replaceAll("\n", "  \n");
-    onChange(
-      (before ? literal(before) + "\n\n" : "") + markup + (after ? "\n\n" + literal(after) : ""),
+    return (
+      (before ? literal(before) + "\n\n" : "") + markup + (after ? "\n\n" + literal(after) : "")
     );
+  }
+
+  function emit(markup = draft, before = beforeText, after = afterText) {
+    onChange(compose(markup, before, after));
   }
 
   function insert(side: ImageSide, text: string) {
@@ -151,7 +166,11 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
   function caretDelete(side: ImageSide, key: "Backspace" | "Delete") {
     if (!images || readOnly) return;
     if ((side === "before" && key === "Delete") || (side === "after" && key === "Backspace")) {
-      change(removeHtmlImage(draft, side === "before" ? 0 : images.length - 1), 0);
+      change(
+        removeHtmlImage(draft, side === "before" ? 0 : images.length - 1),
+        0,
+        side === "before" ? "after" : "before",
+      );
       requestAnimationFrame(() =>
         cardRef.current?.querySelector<HTMLElement>(`[data-image-side="${side}"]`)?.focus(),
       );
@@ -268,7 +287,11 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
                         return;
                       event.preventDefault();
                       event.stopPropagation();
-                      change(removeHtmlImage(draft, index), 0);
+                      change(
+                        removeHtmlImage(draft, index),
+                        0,
+                        event.key === "Backspace" ? "before" : "after",
+                      );
                       if (images.length > 1) {
                         requestAnimationFrame(() => {
                           cardRef.current

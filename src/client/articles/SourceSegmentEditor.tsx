@@ -18,6 +18,7 @@ import { LiteralSourceEditor } from "./LiteralSourceEditor";
 import { MathBlock } from "./MathBlock";
 import { MdxComponentCard } from "./MdxComponentCard";
 import { QuotedHtmlImageBlock } from "./QuotedHtmlImageBlock";
+import type { ImageSide } from "./ImageCaret";
 
 interface SourceSegmentEditorProps {
   articleId: string;
@@ -26,6 +27,7 @@ interface SourceSegmentEditorProps {
   readOnly: boolean;
   onChange: (raw: string) => void;
   onValidityChange: (valid: boolean) => void;
+  onRemoveImage?: (remaining: string, side: ImageSide, prefix?: string) => void;
 }
 
 export function SourceSegmentEditor({
@@ -35,6 +37,7 @@ export function SourceSegmentEditor({
   readOnly,
   onChange,
   onValidityChange,
+  onRemoveImage,
 }: SourceSegmentEditorProps) {
   const parsed = useMemo(() => {
     const raw = segment.raw;
@@ -124,6 +127,7 @@ export function SourceSegmentEditor({
         segment={segment}
         readOnly={readOnly}
         onChange={onChange}
+        onRemoveImage={onRemoveImage}
       />
     );
   }
@@ -135,6 +139,7 @@ export function SourceSegmentEditor({
         segment={segment}
         readOnly={readOnly}
         onChange={onChange}
+        onRemove={onRemoveImage}
       />
     );
   }

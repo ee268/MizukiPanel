@@ -1,4 +1,5 @@
-import type { Editor } from "@milkdown/kit/core";
+import { editorViewCtx, parserCtx, type Editor } from "@milkdown/kit/core";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import { Alert, Button, Paper, Stack } from "@mui/material";
 import { startTransition, useEffect, useRef, useState } from "react";
 import type { SegmentedArticle, SourceSegment } from "../../lib/articles/source-islands";
@@ -31,6 +32,8 @@ import { LiteralSourceEditor } from "./LiteralSourceEditor";
 import { ArticleLoading } from "./ArticleLoading";
 import type { SegmentResult } from "./segmentArticle.worker";
 import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import { removeImageSegment } from "./remove-image-segment";
+import type { ImageSide } from "./ImageCaret";
 
 interface VisualBodyEditorProps {
   article: ArticleRecord;
@@ -61,6 +64,12 @@ export function VisualBodyEditor({
   const [segmentError, setSegmentError] = useState("");
   const replacements = useRef(new Map<number, string>());
   const editors = useRef(new Map<number, Editor>());
+  const pendingImageFocus = useRef<{
+    id: number;
+    before: string;
+    through: string;
+    side: ImageSide;
+  } | null>(null);
   const [activeSegmentId, setActiveSegmentId] = useState<number | null>(null);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -141,6 +150,21 @@ export function VisualBodyEditor({
     }
   }
 
+  function removeImage(segment: SourceSegment, remaining: string, side: ImageSide, prefix = "") {
+    if (!snapshot || readOnly || busy) return;
+    const next = removeImageSegment(snapshot, replacements.current, segment, remaining);
+    replacements.current = next.replacements;
+    pendingImageFocus.current = {
+      id: next.segment.id,
+      before: next.before + prefix,
+      through: next.through,
+      side,
+    };
+    setActiveSegmentId(next.segment.id);
+    setSnapshot(next.article);
+    onChange(replaceArticleSegments(next.article, next.replacements));
+  }
+
   function registerSegment(id: number, editor: Editor | null) {
     if (editor) {
       editors.current.set(id, editor);
@@ -152,6 +176,32 @@ export function VisualBodyEditor({
     }
     if (editor) {
       refreshFormat(id, editor);
+      const pending = pendingImageFocus.current;
+      if (pending?.id === id) {
+        pendingImageFocus.current = null;
+        editor.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const prefix = pending.side === "before" ? pending.before : pending.through;
+          const parsed = prefix.trim() ? ctx.get(parserCtx)(prefix) : null;
+          const position =
+            pending.side === "before"
+              ? parsed
+                ? TextSelection.atEnd(parsed).from
+                : TextSelection.atStart(view.state.doc).from
+              : parsed
+                ? parsed.content.size + 1
+                : TextSelection.atStart(view.state.doc).from;
+          view.dispatch(
+            view.state.tr.setSelection(
+              TextSelection.near(
+                view.state.doc.resolve(Math.min(position, view.state.doc.content.size)),
+              ),
+            ),
+          );
+          view.focus();
+        });
+        selectSegment(id);
+      }
     }
   }
 
@@ -357,7 +407,10 @@ export function VisualBodyEditor({
                 >
                   <MilkdownSegment
                     articleId={article.id}
-                    segment={segment}
+                    segment={{
+                      ...segment,
+                      raw: replacements.current.get(segment.id) ?? segment.raw,
+                    }}
                     readOnly={readOnly}
                     onChange={(markdown) => updateSegment(segment, markdown)}
                     onFocus={() => selectSegment(segment.id)}
@@ -382,6 +435,9 @@ export function VisualBodyEditor({
                   segment={segment}
                   readOnly={readOnly}
                   onChange={(raw) => replaceSegment(segment, raw)}
+                  onRemoveImage={(remaining, side, prefix) =>
+                    removeImage(segment, remaining, side, prefix)
+                  }
                   onValidityChange={(valid) => updateExtensionValidity(segment.id, valid)}
                 />
               </div>
