@@ -1,6 +1,6 @@
 import { parserCtx, serializerCtx } from "@milkdown/kit/core";
 import type { Node } from "@milkdown/kit/prose/model";
-import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey, TextSelection, type Transaction } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
 import {
@@ -32,6 +32,20 @@ interface SourceRevealMeta {
 }
 
 const key = new PluginKey<SourceRevealPluginState>("markdown-source-reveal");
+
+export function imageSourceCursor(view: EditorView, position: number): number | null {
+  const active = key.getState(view.state)?.active;
+  return active?.kind === "image" && active.from === position ? active.cursor : null;
+}
+
+let nextImageRepairId = 0;
+
+export function recordBrokenImageSource(tr: Transaction, from: number, to: number) {
+  tr.setMeta(key, {
+    active: null,
+    repair: { id: --nextImageRepairId, from, to, kind: "image" },
+  } satisfies SourceRevealMeta);
+}
 
 function highlightSource(element: Element, raw: string, presentation: SourcePresentation) {
   const separator = raw.lastIndexOf("](");
@@ -76,6 +90,7 @@ function createSourceWidget(
     emphasis: "斜体",
     strike_through: "删除线",
     inlineCode: "行内代码",
+    image: "图片",
   };
   input.setAttribute("aria-label", `Markdown ${labels[initial.kind]}源码`);
   input.rows = 1;
@@ -254,7 +269,7 @@ export function createMilkdownSourceReveal(readOnly: boolean) {
       props: {
         decorations(state) {
           const active = key.getState(state)?.active;
-          if (!active) return null;
+          if (!active || active.kind === "image") return null;
           const bounds = sourceContentBounds(active);
           const decorations = [
             Decoration.widget(

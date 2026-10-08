@@ -9,6 +9,11 @@ const schema = new Schema({
     heading: { content: "inline*", group: "block", attrs: { level: { default: 1 } } },
     text: { group: "inline" },
     hardbreak: { inline: true, group: "inline", selectable: false },
+    image: {
+      inline: true,
+      group: "inline",
+      attrs: { src: {}, alt: { default: "" }, title: { default: "" } },
+    },
   },
   marks: {
     strong: {},
@@ -121,4 +126,29 @@ it("preserves leading, repeated and trailing line breaks as ordinary inline brea
     { type: "text", text: "文字" },
     { type: "hardbreak" },
   ]);
+});
+
+it("accepts exactly one safe Markdown image and preserves its editable attributes", () => {
+  const image = schema.nodes.image.create({ src: "./山景.jpg", alt: "山景", title: "标题" });
+  const parsed = paragraph(image);
+  const result = sourceRevealContent('![山景](./山景.jpg "标题")', "image", () => parsed, schema);
+  expect(result.presentation).toBe("image");
+  expect(result.content.toJSON()).toEqual([image.toJSON()]);
+});
+
+it("renders incomplete, multiline, unsafe or mixed image source as literal text", () => {
+  const image = schema.nodes.image.create({ src: "https://example.com/a.jpg" });
+  for (const [raw, parsed] of [
+    ["![未完成](", paragraph(schema.text("![未完成]("))],
+    ["![图片](https://example.com/a.jpg)\n", paragraph(image)],
+    [
+      "![图片](javascript:alert)",
+      paragraph(schema.nodes.image.create({ src: "javascript:alert" })),
+    ],
+    ["前文 ![图片](https://example.com/a.jpg)", paragraph(schema.text("前文 "), image)],
+    ["![一](a.jpg)![二](b.jpg)", paragraph(image, image)],
+  ] as const) {
+    const result = sourceRevealContent(raw, "image", () => parsed, schema);
+    expect(result.presentation).toBe("plain");
+  }
 });

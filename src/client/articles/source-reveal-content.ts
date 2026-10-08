@@ -1,5 +1,6 @@
 import { Fragment, type Node, type Schema } from "@milkdown/kit/prose/model";
 import { markdownSourceAt, type MarkdownSourceKind } from "./markdown-source-range";
+import { validImageReference } from "../../lib/articles/media-preview-url";
 
 export type SourcePresentation = MarkdownSourceKind | "plain";
 
@@ -24,7 +25,17 @@ export function sourceRevealContent(
   }
   const block = doc?.childCount === 1 ? doc.firstChild : null;
   let presentation: SourcePresentation = "plain";
-  if (scope === "heading" && block?.type.name === "heading") {
+  if (scope === "image") {
+    const image =
+      block?.type.name === "paragraph" && block.childCount === 1 ? block.firstChild : null;
+    if (
+      image?.type.name === "image" &&
+      !image.marks.length &&
+      validImageReference(image.attrs.src)
+    ) {
+      presentation = "image";
+    }
+  } else if (scope === "heading" && block?.type.name === "heading") {
     presentation = "heading";
   } else if (block?.type.name === "paragraph" && block.content.size > 0) {
     const range = markdownSourceAt(doc!, 1);

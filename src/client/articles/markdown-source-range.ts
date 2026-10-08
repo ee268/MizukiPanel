@@ -8,7 +8,7 @@ export interface MarkdownMarkRange {
 }
 
 export type MarkdownSourceKind =
-  "heading" | "link" | "strong" | "emphasis" | "strike_through" | "inlineCode";
+  "heading" | "link" | "strong" | "emphasis" | "strike_through" | "inlineCode" | "image";
 
 export interface MarkdownSourceRange {
   from: number;

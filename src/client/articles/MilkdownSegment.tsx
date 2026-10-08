@@ -13,11 +13,11 @@ import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { Box, Typography, useTheme } from "@mui/material";
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from "react";
 import type { SourceSegment } from "../../lib/articles/source-islands";
-import { mediaPreviewUrl } from "./article-media";
 import { readFormatState, type EditorFormatState } from "./editor-format";
 import { articleShortcut, type EditorShortcut } from "./editor-shortcuts";
 import { createMilkdownCodeBlock, type ThemedCodeBlockView } from "./MilkdownCodeBlock";
 import { createMilkdownSourceReveal } from "./MilkdownSourceReveal";
+import { createMilkdownImage, type ThemedImageView } from "./MilkdownImage";
 import { remarkImageTitle } from "./remark-image-title";
 import { remarkLooseStrong } from "./remark-loose-strong";
 
@@ -47,10 +47,12 @@ function SegmentEditor({
   const theme = useTheme();
   const themeRef = useRef(theme);
   const codeBlockViews = useRef(new Set<ThemedCodeBlockView>());
+  const imageViews = useRef(new Set<ThemedImageView>());
   themeRef.current = theme;
 
   useLayoutEffect(() => {
     codeBlockViews.current.forEach((view) => view.refreshTheme());
+    imageViews.current.forEach((view) => view.refreshTheme());
   }, [theme]);
   const onChangeRef = useRef(onChange);
   const onReadyRef = useRef(onReady);
@@ -93,32 +95,20 @@ function SegmentEditor({
                 codeBlockViews.current.add(codeBlockView);
                 return codeBlockView;
               },
-              image: (node) => {
-                const dom = document.createElement("img");
-                dom.loading = "lazy";
-
-                function updateImage(src: string, alt: string, title: string) {
-                  const preview = mediaPreviewUrl(articleId, src);
-                  if (preview) {
-                    dom.src = preview;
-                  } else {
-                    dom.removeAttribute("src");
-                  }
-                  dom.alt = alt;
-                  dom.title = title;
-                }
-
-                updateImage(node.attrs.src, node.attrs.alt, node.attrs.title);
-                return {
-                  dom,
-                  update(next) {
-                    if (next.type !== node.type) {
-                      return false;
-                    }
-                    updateImage(next.attrs.src, next.attrs.alt, next.attrs.title);
-                    return true;
-                  },
-                };
+              image: (node, view, getPos) => {
+                let imageView: ThemedImageView;
+                imageView = createMilkdownImage(
+                  node,
+                  view,
+                  getPos,
+                  ctx,
+                  articleId,
+                  readOnly,
+                  () => themeRef.current,
+                  () => imageViews.current.delete(imageView),
+                );
+                imageViews.current.add(imageView);
+                return imageView;
               },
               list_item: (node, view, getPos) => {
                 const dom = document.createElement("li");
@@ -222,7 +212,8 @@ function SegmentEditor({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (
       event.target instanceof HTMLElement &&
-      event.target.classList.contains("markdown-source-input")
+      (event.target.classList.contains("markdown-source-input") ||
+        event.target.closest(".markdown-image-view"))
     ) {
       return;
     }
@@ -352,6 +343,11 @@ function SegmentEditor({
           py: 0.25,
         },
         "& .milkdown img": { maxWidth: "100%", borderRadius: 1 },
+        "& .markdown-image-view": {
+          display: "inline-block",
+          maxWidth: "100%",
+          verticalAlign: "top",
+        },
         "& .milkdown table": { borderCollapse: "collapse", display: "block", overflowX: "auto" },
         "& .milkdown td, & .milkdown th": {
           border: "1px solid",

@@ -1,0 +1,107 @@
+import { Box, Stack, Typography } from "@mui/material";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { mediaPreviewUrl } from "./article-media";
+import { SyntaxCodeEditor } from "./SyntaxCodeEditor";
+
+interface MarkdownImageCardProps {
+  articleId: string;
+  source: string;
+  src: string;
+  alt: string;
+  title: string;
+  readOnly: boolean;
+  initialCursor: number | null;
+  onChange: (raw: string, cursor: number) => void;
+}
+
+export function MarkdownImageCard({
+  articleId,
+  source,
+  src,
+  alt,
+  title,
+  readOnly,
+  initialCursor,
+  onChange,
+}: MarkdownImageCardProps) {
+  const [editing, setEditing] = useState(initialCursor !== null && !readOnly);
+  const [draft, setDraft] = useState(source);
+  const cardRef = useRef<HTMLSpanElement>(null);
+  const preview = mediaPreviewUrl(articleId, src);
+
+  useEffect(() => {
+    if (!editing) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !cardRef.current?.contains(event.target))
+        setEditing(false);
+    };
+    document.addEventListener("pointerdown", closeOutside, true);
+    return () => document.removeEventListener("pointerdown", closeOutside, true);
+  }, [editing]);
+
+  return (
+    <Stack
+      component="span"
+      ref={cardRef}
+      spacing={1}
+      onKeyDown={(event) => {
+        if (editing && event.key === "Escape" && !event.nativeEvent.isComposing) {
+          event.preventDefault();
+          setEditing(false);
+        }
+      }}
+    >
+      {editing && !readOnly && (
+        <SyntaxCodeEditor
+          label="图片 Markdown 源码"
+          language="markdown"
+          value={draft}
+          readOnly={false}
+          onChange={(raw, cursor) => {
+            setDraft(raw);
+            onChange(raw, cursor);
+          }}
+          onReady={(view) => {
+            view.dispatch({
+              selection: { anchor: Math.min(initialCursor ?? draft.length, draft.length) },
+            });
+            view.focus();
+          }}
+        />
+      )}
+      <Box
+        component={readOnly ? "span" : "button"}
+        type={readOnly ? undefined : "button"}
+        aria-label={readOnly ? undefined : `编辑 Markdown 图片源码：${alt || src}`}
+        onClick={(event: MouseEvent<HTMLElement>) => {
+          if (readOnly) return;
+          event.preventDefault();
+          setEditing(true);
+        }}
+        sx={{
+          display: "block",
+          p: 0,
+          border: 0,
+          background: "transparent",
+          cursor: readOnly ? "default" : "pointer",
+          textAlign: "left",
+          width: "fit-content",
+          maxWidth: "100%",
+        }}
+      >
+        {preview ? (
+          <Box
+            component="img"
+            src={preview}
+            alt={alt}
+            title={title}
+            loading="lazy"
+            sx={{ display: "block", maxWidth: "100%", height: "auto", borderRadius: 1 }}
+          />
+        ) : (
+          <Typography component="span">{alt || "图片地址不可用"}</Typography>
+        )}
+      </Box>
+    </Stack>
+  );
+}
