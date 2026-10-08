@@ -28,6 +28,7 @@ export interface VditorBodyEditorHandle {
   flush: () => void;
 }
 interface VditorBodyEditorProps {
+  onLoadEnd?: () => void;
   article: ArticleRecord;
   source: string;
   busy: boolean;
@@ -41,15 +42,26 @@ interface VditorBodyEditorProps {
 
 export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEditorProps>(
   function VditorBodyEditor(
-    { article, source, busy, readOnly, fontMode, showSave = true, initialMode, onChange, onSave },
+    {
+      article,
+      source,
+      busy,
+      readOnly,
+      fontMode,
+      showSave = true,
+      initialMode,
+      onChange,
+      onSave,
+      onLoadEnd,
+    },
     ref,
   ) {
     const theme = useTheme();
     const host = useRef<HTMLDivElement>(null);
     const frame = useRef<HTMLDivElement>(null);
     const editor = useRef<Vditor | null>(null);
-    const latest = useRef({ source, onChange, onSave, busy, readOnly, theme });
-    latest.current = { source, onChange, onSave, busy, readOnly, theme };
+    const latest = useRef({ source, onChange, onSave, onLoadEnd, busy, readOnly, theme });
+    latest.current = { source, onChange, onSave, onLoadEnd, busy, readOnly, theme };
     const baseline = useRef("");
     const initial = useRef({ value: "", body: "" });
     const [ready, setReady] = useState(false);
@@ -251,11 +263,15 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
               mapImages();
               setToolbar(instance!.vditor.toolbar?.element ?? null);
               setReady(true);
+              latest.current.onLoadEnd?.();
             },
           });
         })
         .catch((cause) => {
-          if (!disposed) setError(cause instanceof Error ? cause.message : "编辑器加载失败");
+          if (!disposed) {
+            setError(cause instanceof Error ? cause.message : "编辑器加载失败");
+            latest.current.onLoadEnd?.();
+          }
         });
       return () => {
         disposed = true;
@@ -295,7 +311,6 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     return (
       <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
         {error && <Alert severity="error">Vditor 加载失败：{error}。请刷新页面重试。</Alert>}
-        {!ready && !error && <Box role="status">正在加载编辑器…</Box>}
         {article.format === "mdx" && (!initialMode || initialMode === "sv") && (
           <Alert severity="info">
             MDX 默认使用分屏源码编辑以保留组件语法。Mizuki 扩展和组件的最终效果可通过真实预览查看。

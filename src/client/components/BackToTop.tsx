@@ -1,20 +1,18 @@
 import VerticalAlignTopOutlined from "@mui/icons-material/VerticalAlignTopOutlined";
 import { Fab, Portal, Tooltip, Zoom } from "@mui/material";
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useState } from "react";
 
 const scrollRegions =
   ".vditor-content, .vditor-ir, .vditor-wysiwyg, .vditor-sv, .vditor-preview, .vditor-reset";
 
-export function ArticleBackToTop({ contentRef }: { contentRef: RefObject<HTMLDivElement | null> }) {
+export function BackToTop() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
     let frame = 0;
     const update = () => {
       frame = 0;
-      const fullscreen = content.querySelector(".vditor--fullscreen");
+      const fullscreen = document.querySelector(".vditor--fullscreen");
       setVisible(
         fullscreen
           ? Array.from(fullscreen.querySelectorAll(scrollRegions)).some(
@@ -27,9 +25,9 @@ export function ArticleBackToTop({ contentRef }: { contentRef: RefObject<HTMLDiv
       if (!frame) frame = window.requestAnimationFrame(update);
     };
     window.addEventListener("scroll", schedule, { passive: true });
-    content.addEventListener("scroll", schedule, { capture: true, passive: true });
+    document.addEventListener("scroll", schedule, { capture: true, passive: true });
     const observer = new MutationObserver(schedule);
-    observer.observe(content, {
+    observer.observe(document.body, {
       subtree: true,
       childList: true,
       attributes: true,
@@ -38,14 +36,14 @@ export function ArticleBackToTop({ contentRef }: { contentRef: RefObject<HTMLDiv
     update();
     return () => {
       window.removeEventListener("scroll", schedule);
-      content.removeEventListener("scroll", schedule, true);
+      document.removeEventListener("scroll", schedule, true);
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };
-  }, [contentRef]);
+  }, []);
 
   function scrollToTop() {
-    const fullscreen = contentRef.current?.querySelector(".vditor--fullscreen");
+    const fullscreen = document.querySelector(".vditor--fullscreen");
     const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ? "instant"
       : "smooth";

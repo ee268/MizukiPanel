@@ -23,6 +23,7 @@ export function useArticles() {
   const [articleLoading, setArticleLoading] = useState(Boolean(selectedId));
   const [articleLoadError, setArticleLoadError] = useState("");
   const [articleLoadAttempt, setArticleLoadAttempt] = useState(0);
+  const [articleLoadVersion, setArticleLoadVersion] = useState(0);
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [frontmatter, setFrontmatter] = useState<FrontmatterRow[]>([]);
   const [source, setSource] = useState("");
@@ -117,6 +118,7 @@ export function useArticles() {
     const controller = new AbortController();
     setArticle(null);
     setArticleLoading(true);
+    setArticleLoadVersion((value) => value + 1);
     setArticleLoadError("");
 
     async function loadArticle() {
@@ -441,6 +443,7 @@ export function useArticles() {
     articles,
     article,
     articleLoading,
+    articleLoadVersion,
     articleLoadError,
     previewPath,
     frontmatter,

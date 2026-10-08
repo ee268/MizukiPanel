@@ -1,7 +1,7 @@
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import DriveFileRenameOutline from "@mui/icons-material/DriveFileRenameOutline";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
-import { useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent } from "react";
 import { flushSync } from "react-dom";
 import { Alert, Box, Button, Paper, Stack, Tab, Tabs, Typography } from "@mui/material";
 import type { ArticleRecord } from "../types";
@@ -12,11 +12,11 @@ import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
 import { useEditorFontMode } from "./useEditorFontMode";
 import { ArticleLoading } from "./ArticleLoading";
-import { ArticleBackToTop } from "./ArticleBackToTop";
 import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import "./editor-fonts.css";
 
 interface ArticleEditorProps {
+  onLoadEnd?: () => void;
   temporary?: boolean;
   article: ArticleRecord | null;
   projectRoot: string;
@@ -40,6 +40,7 @@ interface ArticleEditorProps {
 }
 
 export function ArticleEditor({
+  onLoadEnd,
   temporary = false,
   article,
   projectRoot,
@@ -62,9 +63,11 @@ export function ArticleEditor({
   onSaveBody,
 }: ArticleEditorProps) {
   const vditorRef = useRef<VditorBodyEditorHandle>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
   const fontMode = useEditorFontMode(projectRoot);
   const activeMode = article?.error ? "frontmatter" : mode;
+  useEffect(() => {
+    if (article?.error) onLoadEnd?.();
+  }, [article?.id, article?.version, article?.error, onLoadEnd]);
 
   function saveVisualBody() {
     if (!article || temporary) return;
@@ -99,7 +102,7 @@ export function ArticleEditor({
   if (!article) return <ArticleLoading />;
   return (
     <Stack spacing={2} onKeyDownCapture={handleSaveShortcut}>
-      <Paper ref={contentRef} variant="outlined" sx={{ overflow: "clip" }}>
+      <Paper variant="outlined" sx={{ overflow: "clip" }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
@@ -162,6 +165,7 @@ export function ArticleEditor({
               initialMode={temporary ? "ir" : undefined}
               onChange={onSourceChange}
               onSave={saveDocumentBody}
+              onLoadEnd={onLoadEnd}
             />
           </Box>
         )}
@@ -191,7 +195,6 @@ export function ArticleEditor({
             </>
           ))}
       </Paper>
-      <ArticleBackToTop contentRef={contentRef} />
     </Stack>
   );
 }

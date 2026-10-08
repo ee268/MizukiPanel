@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Box, CircularProgress } from "@mui/material";
 import { Navigate, Route, Routes } from "react-router-dom";
 import RequireAuth from "./auth/RequireAuth";
+import { BackToTop } from "./components/BackToTop";
 
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const WorkspacePage = lazy(() => import("./pages/WorkspacePage"));
@@ -23,21 +24,24 @@ function LoadingFallback() {
 
 export default function App() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route element={<RequireAuth />}>
-          <Route path="/" element={<WorkspacePage />} />
-          <Route path="/articles" element={<ArticlesPage />} />
-          <Route path="/config" element={<ConfigPage />} />
-          <Route path="/features" element={<FeaturesPage />} />
-          <Route path="/media" element={<MediaPage />} />
-          <Route path="/preview" element={<PreviewPage />} />
-          <Route path="/publish" element={<PublishPage />} />
-          <Route path="/about" element={<AboutPage />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+    <>
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<RequireAuth />}>
+            <Route path="/" element={<WorkspacePage />} />
+            <Route path="/articles" element={<ArticlesPage />} />
+            <Route path="/config" element={<ConfigPage />} />
+            <Route path="/features" element={<FeaturesPage />} />
+            <Route path="/media" element={<MediaPage />} />
+            <Route path="/preview" element={<PreviewPage />} />
+            <Route path="/publish" element={<PublishPage />} />
+            <Route path="/about" element={<AboutPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+      <BackToTop />
+    </>
   );
 }

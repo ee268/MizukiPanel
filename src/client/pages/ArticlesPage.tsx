@@ -1,5 +1,5 @@
-import { lazy, Suspense } from "react";
-import { Alert, Button, Container, Paper, Snackbar, Stack, Typography } from "@mui/material";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { Alert, Box, Button, Container, Paper, Snackbar, Stack, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { ArticleDialogs } from "../articles/ArticleDialogs";
 import { ArticleLoading } from "../articles/ArticleLoading";
@@ -18,12 +18,28 @@ export default function ArticlesPage() {
   const navigate = useNavigate();
   const articles = useArticles();
   const selectedTitle = articles.articles.find((item) => item.id === articles.selectedId)?.title;
+  const editing = articles.tutorialOpen || Boolean(articles.selectedId);
+  const [preparedKey, setPreparedKey] = useState<string | null>(null);
+  const editorKey = articles.tutorialOpen
+    ? `tutorial:${articles.report?.root ?? ""}`
+    : `${articles.report?.root ?? ""}:${articles.selectedId}:${articles.articleLoadVersion}`;
+  const reading = articles.tutorialOpen
+    ? !articles.report && !articles.error
+    : articles.articleLoading || articles.article?.id !== articles.selectedId;
+  const loading =
+    editing &&
+    (articles.tutorialOpen || !articles.articleLoadError) &&
+    (reading || preparedKey !== editorKey);
+  const handleLoadEnd = useCallback(() => setPreparedKey(editorKey), [editorKey]);
+  useEffect(() => {
+    if (!editing) setPreparedKey(null);
+  }, [editing]);
 
   return (
     <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, lg: 3 } }}>
       <Stack spacing={2}>
         <ArticlePageHeader
-          editing={articles.tutorialOpen || Boolean(articles.selectedId)}
+          editing={editing}
           mode={articles.report?.mode}
           count={articles.articles.length}
           readOnly={Boolean(articles.report?.readOnly)}
@@ -41,56 +57,89 @@ export default function ArticlesPage() {
           <Alert severity="warning">当前工作区只读，请先在工作区处理配置问题。</Alert>
         )}
 
-        {articles.tutorialOpen ? (
-          <Suspense fallback={<ArticleLoading title="Markdown 教程" phase="preparing" />}>
-            <MarkdownTutorial projectRoot={articles.report?.root ?? ""} />
-          </Suspense>
-        ) : articles.selectedId ? (
-          articles.articleLoadError ? (
-            <Paper variant="outlined" sx={{ p: 4 }}>
-              <Stack spacing={2} sx={{ alignItems: "flex-start" }}>
-                <Typography variant="h6">文章暂时无法打开</Typography>
-                <Typography color="text.secondary">{articles.articleLoadError}</Typography>
-                <Button variant="contained" onClick={articles.retryArticle}>
-                  重新读取
-                </Button>
-              </Stack>
-            </Paper>
-          ) : articles.articleLoading || articles.article?.id !== articles.selectedId ? (
-            <ArticleLoading title={selectedTitle} />
-          ) : (
-            <Suspense fallback={<ArticleLoading title={selectedTitle} phase="preparing" />}>
-              <ArticleEditor
-                article={articles.article}
-                projectRoot={articles.report?.root ?? ""}
-                previewPath={articles.previewPath}
-                frontmatter={articles.frontmatter}
-                source={articles.source}
-                mode={articles.mode}
-                busy={articles.busy}
-                dirty={articles.dirty}
-                sourceDirty={articles.sourceDirty}
-                readOnly={Boolean(articles.report?.readOnly)}
-                onFrontmatterChange={articles.setFrontmatter}
-                onSourceChange={articles.setSource}
-                onModeChange={articles.setMode}
-                onPreview={(path) => {
-                  if (
-                    articles.dirty &&
-                    !window.confirm("当前文章有未保存的修改，确定离开并查看真实预览吗？")
-                  ) {
-                    return;
-                  }
-                  navigate(`/preview?path=${encodeURIComponent(path)}`);
-                }}
-                onRename={() => articles.setRenameOpen(true)}
-                onDelete={() => articles.setDeleteOpen(true)}
-                onSaveFrontmatter={articles.saveFrontmatter}
-                onSaveDocument={articles.saveDocument}
-                onSaveBody={articles.saveBody}
+        {editing ? (
+          <Box sx={{ position: "relative" }} aria-busy={loading}>
+            {loading && (
+              <ArticleLoading
+                title={
+                  articles.tutorialOpen
+                    ? "Markdown 教程"
+                    : (selectedTitle ?? articles.article?.title)
+                }
               />
-            </Suspense>
-          )
+            )}
+            <Box
+              inert={loading}
+              aria-hidden={loading || undefined}
+              sx={
+                loading
+                  ? {
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      maxHeight: "100%",
+                      overflow: "hidden",
+                      visibility: "hidden",
+                    }
+                  : undefined
+              }
+            >
+              {articles.tutorialOpen ? (
+                reading ? null : (
+                  <Suspense fallback={null}>
+                    <MarkdownTutorial
+                      projectRoot={articles.report?.root ?? ""}
+                      onLoadEnd={handleLoadEnd}
+                    />
+                  </Suspense>
+                )
+              ) : articles.articleLoadError ? (
+                <Paper variant="outlined" sx={{ p: 4 }}>
+                  <Stack spacing={2} sx={{ alignItems: "flex-start" }}>
+                    <Typography variant="h6">文章暂时无法打开</Typography>
+                    <Typography color="text.secondary">{articles.articleLoadError}</Typography>
+                    <Button variant="contained" onClick={articles.retryArticle}>
+                      重新读取
+                    </Button>
+                  </Stack>
+                </Paper>
+              ) : reading ? null : (
+                <Suspense fallback={null}>
+                  <ArticleEditor
+                    article={articles.article}
+                    projectRoot={articles.report?.root ?? ""}
+                    previewPath={articles.previewPath}
+                    frontmatter={articles.frontmatter}
+                    source={articles.source}
+                    mode={articles.mode}
+                    busy={articles.busy}
+                    dirty={articles.dirty}
+                    sourceDirty={articles.sourceDirty}
+                    readOnly={Boolean(articles.report?.readOnly)}
+                    onFrontmatterChange={articles.setFrontmatter}
+                    onSourceChange={articles.setSource}
+                    onModeChange={articles.setMode}
+                    onPreview={(path) => {
+                      if (
+                        articles.dirty &&
+                        !window.confirm("当前文章有未保存的修改，确定离开并查看真实预览吗？")
+                      ) {
+                        return;
+                      }
+                      navigate(`/preview?path=${encodeURIComponent(path)}`);
+                    }}
+                    onRename={() => articles.setRenameOpen(true)}
+                    onDelete={() => articles.setDeleteOpen(true)}
+                    onSaveFrontmatter={articles.saveFrontmatter}
+                    onSaveDocument={articles.saveDocument}
+                    onSaveBody={articles.saveBody}
+                    onLoadEnd={handleLoadEnd}
+                  />
+                </Suspense>
+              )}
+            </Box>
+          </Box>
         ) : (
           <ArticleList
             articles={articles.pagedArticles}

@@ -6,6 +6,7 @@ import tutorialSource from "./markdown-tutorial.mdx?raw";
 
 interface MarkdownTutorialProps {
   projectRoot: string;
+  onLoadEnd?: () => void;
 }
 
 const tutorialArticle: ArticleRecord = {
@@ -27,7 +28,7 @@ const tutorialArticle: ArticleRecord = {
   frontmatter: [{ key: "title", value: "Markdown 教程" }],
 };
 
-export function MarkdownTutorial({ projectRoot }: MarkdownTutorialProps) {
+export function MarkdownTutorial({ projectRoot, onLoadEnd }: MarkdownTutorialProps) {
   const [source, setSource] = useState(tutorialSource);
   const [mode, setMode] = useState<ArticleEditorMode>("visual");
 
@@ -53,6 +54,7 @@ export function MarkdownTutorial({ projectRoot }: MarkdownTutorialProps) {
       onSaveFrontmatter={() => {}}
       onSaveDocument={() => {}}
       onSaveBody={() => {}}
+      onLoadEnd={onLoadEnd}
     />
   );
 }

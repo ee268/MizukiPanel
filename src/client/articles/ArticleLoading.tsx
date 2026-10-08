@@ -15,12 +15,9 @@ const inkPulse = keyframes`
 
 interface ArticleLoadingProps {
   title?: string;
-  phase?: "reading" | "preparing";
 }
 
-export function ArticleLoading({ title, phase = "reading" }: ArticleLoadingProps) {
-  const preparing = phase === "preparing";
-
+export function ArticleLoading({ title }: ArticleLoadingProps) {
   return (
     <Paper
       variant="outlined"
@@ -99,9 +96,9 @@ export function ArticleLoading({ title, phase = "reading" }: ArticleLoadingProps
           </Box>
         </Box>
         <Stack spacing={0.5} sx={{ alignItems: "center" }}>
-          <Typography variant="h6">{preparing ? "正在整理正文" : "正在展开文章"}</Typography>
+          <Typography variant="h6">正在展开文章</Typography>
           <Typography color="text.secondary" sx={{ overflowWrap: "anywhere", textWrap: "balance" }}>
-            {title ? `《${title}》` : "文章"} · {preparing ? "正在准备编辑区域" : "正在读取内容"}
+            {title ? `《${title}》` : "文章"} · 正在准备内容与编辑区域
           </Typography>
         </Stack>
         <Stack direction="row" spacing={1} aria-hidden="true">
