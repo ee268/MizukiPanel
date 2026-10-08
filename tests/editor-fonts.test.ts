@@ -4,7 +4,6 @@ import path from "node:path";
 import { expect, it } from "vitest";
 import { readEditorFont, readEditorFontMode } from "../src/lib/server/editor-fonts";
 import type { ProjectReport } from "../src/lib/server/project";
-import { markdownPreviewDocument } from "../src/client/articles/markdown-preview-document";
 
 it("uses the connected Mizuki font mode and its local font files", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "mizuki-editor-fonts-"));
@@ -39,13 +38,4 @@ it("uses the connected Mizuki font mode and its local font files", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
-
-it("keeps preview fonts scoped to the rendered document", () => {
-  const result = { html: "<p>正文</p>", css: "", hue: 240, differences: [], milliseconds: 1 };
-  const custom = markdownPreviewDocument(result, "light", "/katex.css", "custom");
-  const system = markdownPreviewDocument(result, "light", "/katex.css", "system");
-  expect(custom).toContain("/api/editor-fonts/body");
-  expect(custom).toContain("MizukiEditorCjk");
-  expect(system).not.toContain("/api/editor-fonts/body");
 });

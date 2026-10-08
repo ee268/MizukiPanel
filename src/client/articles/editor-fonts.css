@@ -32,52 +32,10 @@
   unicode-range: U+0060;
 }
 
-.mizuki-document-content[data-font-mode="system"],
-.mizuki-document-content[data-font-mode="system"] .milkdown .editor,
-.mizuki-document-content[data-font-mode="system"] .MuiTypography-root,
-.mizuki-document-content[data-font-mode="system"] .MuiFormLabel-root,
-.mizuki-document-content[data-font-mode="system"] .MuiButton-root,
-.mizuki-document-content[data-font-mode="system"] .MuiChip-label,
-.mizuki-document-content[data-font-mode="system"] .MuiInputBase-input {
+.mizuki-document-content[data-font-mode="system"] {
   font-family: MizukiSourceDelimiters, ui-sans-serif, system-ui, sans-serif;
 }
-
-.mizuki-document-content[data-font-mode="system"] .markdown-source-reveal {
-  font-family: MizukiSourceDelimiters, ui-sans-serif, system-ui, sans-serif;
-}
-
-.mizuki-document-content[data-font-mode="system"] :is(code, pre),
-.mizuki-document-content[data-font-mode="system"] .milkdown code,
-.mizuki-document-content[data-font-mode="system"] pre.MuiTypography-root,
-.mizuki-document-content[data-font-mode="system"] .mizuki-code-card .MuiInputBase-input,
-.mizuki-document-source[data-font-mode="system"] .MuiInputBase-input {
-  font-family: var(--mizuki-panel-font-mono);
-}
-
-.mizuki-document-content[data-font-mode="custom"],
-.mizuki-document-content[data-font-mode="custom"] .milkdown .editor,
-.mizuki-document-content[data-font-mode="custom"] .MuiTypography-root,
-.mizuki-document-content[data-font-mode="custom"] .MuiFormLabel-root,
-.mizuki-document-content[data-font-mode="custom"] .MuiButton-root,
-.mizuki-document-content[data-font-mode="custom"] .MuiChip-label,
-.mizuki-document-content[data-font-mode="custom"] .MuiInputBase-input {
+.mizuki-document-content[data-font-mode="custom"] {
   font-family:
     MizukiSourceDelimiters, MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
-}
-
-.mizuki-document-content[data-font-mode="custom"] .markdown-source-reveal {
-  font-family:
-    MizukiSourceDelimiters, MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
-}
-
-.mizuki-document-content[data-font-mode="custom"] :is(code, pre),
-.mizuki-document-content[data-font-mode="custom"] .milkdown code,
-.mizuki-document-content[data-font-mode="custom"] pre.MuiTypography-root,
-.mizuki-document-content[data-font-mode="custom"] .mizuki-code-card .MuiInputBase-input,
-.mizuki-document-source[data-font-mode="custom"] .MuiInputBase-input {
-  font-family: MizukiEditorCode, MizukiEditorCjk, var(--mizuki-panel-font-mono);
-}
-
-.mizuki-document-content[data-font-mode="custom"] .milkdown .editor :not(pre) > code {
-  font-family: MizukiEditorCode, MizukiEditorCjk, var(--mizuki-panel-font-mono);
 }

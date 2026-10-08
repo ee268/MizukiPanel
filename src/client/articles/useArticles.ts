@@ -135,7 +135,7 @@ export function useArticles() {
         setFrontmatter(data.article.frontmatter.map(createFrontmatterRow));
         setSource(data.article.source);
         setPreviewPath(data.previewPath);
-        setMode(data.article.error ? "source" : "visual");
+        setMode(data.article.error ? "frontmatter" : "visual");
         setError("");
       } catch (cause) {
         if (controller.signal.aborted || selectedIdRef.current !== id) return;
@@ -266,7 +266,7 @@ export function useArticles() {
     }
 
     if (sourceDirty && hasSourceHeaderChange(source, article.source)) {
-      setError("完整源码中的 Frontmatter 也已修改，请先在完整源码模式保存或撤销该修改");
+      setError("Frontmatter 修复草稿尚未保存，请先保存修复");
       return;
     }
 
@@ -294,7 +294,7 @@ export function useArticles() {
     }
   }
 
-  async function saveSource() {
+  async function saveDocument() {
     if (!article) {
       return;
     }
@@ -311,7 +311,7 @@ export function useArticles() {
       if (pendingFrontmatter) {
         setFrontmatter(pendingFrontmatter);
       }
-      setNotice("文章源码已保存");
+      setNotice(article.error ? "Frontmatter 修复已保存" : "文章正文已保存");
       await loadList();
     } catch (cause) {
       setError(errorMessage(cause, "保存失败"));
@@ -327,7 +327,7 @@ export function useArticles() {
 
     const body = draftBody(source);
     if (body === null || hasSourceHeaderChange(source, article.source)) {
-      setError("完整源码中的 Frontmatter 已修改，请先保存完整源码，再保存正文");
+      setError("Frontmatter 修复草稿尚未保存，请先保存修复，再保存正文");
       return;
     }
 
@@ -478,7 +478,7 @@ export function useArticles() {
     retryArticle,
     showList,
     saveFrontmatter,
-    saveSource,
+    saveDocument,
     saveBody,
     createArticle,
     renameArticle,

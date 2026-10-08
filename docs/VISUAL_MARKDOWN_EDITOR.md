@@ -1,6 +1,6 @@
 # 文章正文混合编辑与单篇 Markdown 渲染设计
 
-当前默认编辑器已切换为 Vditor，接入方式和使用边界见 [Vditor 编辑器说明](VDITOR_EDITOR.md)。以下 Milkdown 混合编辑实现保留为备用方案，入口为文章右上角“更多 → 使用备用编辑器”。
+当前默认编辑器已切换为 Vditor，接入方式和使用边界见 [Vditor 编辑器说明](VDITOR_EDITOR.md)。Milkdown 编辑器及独立完整源码模式现已移除，以下内容仅为历史设计记录，不代表当前界面。
 
 > 状态：约定的 13 个实施阶段已完成。第 1 阶段的独立渲染[可行性验证](MARKDOWN_RENDERER_FEASIBILITY.md)、第 2 阶段的[原文片段保护](SOURCE_FRAGMENT_PRESERVATION.md)、第 3 阶段的[正文保存契约](ARTICLE_BODY_SAVE.md)、第 4 阶段的基础混合编辑、第 5 阶段的 GFM 与媒体操作、第 6 阶段的格式工具栏、第 7 阶段的指令块编辑、第 8 阶段的行内扩展编辑、第 9 阶段的数学、图表源码与代码组编辑、第 10 阶段的 MDX 原文卡片、第 11 阶段的组件属性卡片、第 12 阶段的 `.md` 单篇实时预览及第 13 阶段的[发布回归](MARKDOWN_EDITOR_RELEASE_QA.md)均已完成。已知的最终页面差异仍按下述边界展示。
 

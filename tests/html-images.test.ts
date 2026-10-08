@@ -1,7 +1,4 @@
 import { expect, it } from "vitest";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { SourceSegmentEditor } from "../src/client/articles/SourceSegmentEditor";
 import { parseHtmlImages, removeHtmlImage } from "../src/lib/articles/html-images";
 import { parseQuotedHtmlImages, replaceQuotedText } from "../src/lib/articles/quoted-html-images";
 import { collectSourceIslandEdits } from "../src/lib/articles/source-island-edits";
@@ -79,23 +76,6 @@ it("keeps quoted text and its HTML image in the same visual block", async () => 
   });
   expect(replaceArticleSegments(article, new Map())).toBe(source);
 
-  const markup = renderToStaticMarkup(
-    createElement(SourceSegmentEditor, {
-      articleId: "qml.md",
-      article,
-      segment: segment!,
-      readOnly: false,
-      onChange: () => {},
-      onValidityChange: () => {},
-    }),
-  );
-  expect(markup).toContain("<blockquote");
-  expect(markup).toContain("放个安装过程的动图");
-  expect(markup).toContain('aria-label="引用文字"');
-  expect(markup).toContain('rows="2"');
-  expect(markup).toContain("<img");
-  expect(markup).toContain("22.gif");
-
   const changed = replaceArticleSegments(
     article,
     new Map([[segment!.id, quote.replace("22.gif", "updated.gif")]]),
@@ -126,67 +106,4 @@ it("keeps parser failures as unchanged body text", () => {
   expect(article.mode).toBe("source");
   expect(article.segments[0].raw).toContain("<Widget value={} />");
   expect(replaceArticleSegments(article, new Map())).toBe(source);
-});
-
-it("shows an HTML image visually and unknown syntax as plain body text", () => {
-  const imageArticle = segmentArticleSource(
-    '---\ntitle: Image\n---\n\n<img src="https://example.com/a.png" alt="A" />\n',
-    "md",
-  );
-  const imageSegment = imageArticle.segments.find((part) => part.syntax === "html")!;
-  const imageMarkup = renderToStaticMarkup(
-    createElement(SourceSegmentEditor, {
-      articleId: "post.md",
-      article: imageArticle,
-      segment: imageSegment,
-      readOnly: false,
-      onChange: () => {},
-      onValidityChange: () => {},
-    }),
-  );
-  expect(imageMarkup).toContain("<img");
-  expect(imageMarkup).toContain('src="https://example.com/a.png"');
-  expect(imageMarkup.match(/<button\b/g)).toHaveLength(1);
-  expect(imageMarkup).not.toContain("HTML 原文");
-
-  const unknownArticle = segmentArticleSource(
-    "---\ntitle: Unknown\n---\n\n:::unknown\ntext\n:::\n",
-    "md",
-  );
-  const unknown = unknownArticle.segments.find((part) => part.syntax === "containerDirective")!;
-  const unknownMarkup = renderToStaticMarkup(
-    createElement(SourceSegmentEditor, {
-      articleId: "post.md",
-      article: unknownArticle,
-      segment: unknown,
-      readOnly: false,
-      onChange: () => {},
-      onValidityChange: () => {},
-    }),
-  );
-  expect(unknownMarkup).toContain("<textarea");
-  expect(unknownMarkup).toContain(":::unknown");
-  expect(unknownMarkup).not.toContain("源码片段");
-});
-
-it("shows malformed image HTML as body text without an image", () => {
-  const raw = '<img src="https://example.com/a.png" alt="A" /';
-  const article = segmentArticleSource(`---\ntitle: Invalid image\n---\n\n${raw}\n`, "md");
-  const fragment = article.segments.find((part) => part.raw.includes("<img"));
-  expect(fragment).toBeDefined();
-  expect(fragment?.mode).toBe("source");
-  const markup = renderToStaticMarkup(
-    createElement(SourceSegmentEditor, {
-      articleId: "post.md",
-      article,
-      segment: fragment!,
-      readOnly: false,
-      onChange: () => {},
-      onValidityChange: () => {},
-    }),
-  );
-  expect(markup).toContain(raw.replaceAll("<", "&lt;").replaceAll('"', "&quot;"));
-  expect(markup).not.toContain("<img");
-  expect(markup).not.toContain("图片 HTML 源码");
-  expect(markup).not.toContain("warning");
 });

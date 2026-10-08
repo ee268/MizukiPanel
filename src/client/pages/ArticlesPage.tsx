@@ -86,7 +86,7 @@ export default function ArticlesPage() {
                 onRename={() => articles.setRenameOpen(true)}
                 onDelete={() => articles.setDeleteOpen(true)}
                 onSaveFrontmatter={articles.saveFrontmatter}
-                onSaveSource={articles.saveSource}
+                onSaveDocument={articles.saveDocument}
                 onSaveBody={articles.saveBody}
               />
             </Suspense>

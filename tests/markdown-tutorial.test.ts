@@ -61,7 +61,7 @@ it("keeps tutorial edits local and hides article save and delete controls", () =
       previewPath: null,
       frontmatter: [],
       source: tutorialSource,
-      mode: "source",
+      mode: "visual",
       busy: false,
       readOnly: false,
       dirty: false,
@@ -73,11 +73,13 @@ it("keeps tutorial edits local and hides article save and delete controls", () =
       onRename: () => {},
       onDelete: () => {},
       onSaveFrontmatter: () => {},
-      onSaveSource: () => {},
+      onSaveDocument: () => {},
       onSaveBody: () => {},
     }),
   );
-  expect(sourceHtml).toContain("完整文章源码");
+  expect(sourceHtml).not.toContain("完整文章源码");
+  expect(sourceHtml).not.toContain("使用备用编辑器");
+  expect(sourceHtml).not.toContain("源码模式");
   expect(sourceHtml).not.toContain("保存源码");
   expect(sourceHtml).not.toContain("删除</button>");
 });

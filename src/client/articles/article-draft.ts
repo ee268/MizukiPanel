@@ -35,26 +35,8 @@ export function rebaseBody(nextSource: string, draftSource: string): string {
   const next = splitArticleSource(nextSource);
   const draft = splitArticleSource(draftSource);
   if (!next || !draft) {
-    throw new Error("无法合并正文草稿，请改用完整源码模式");
+    throw new Error("无法合并正文草稿，请先修复 Frontmatter");
   }
 
   return nextSource.slice(0, next.bodyStart) + draft.body;
-}
-
-export function preserveSegmentBoundary(
-  original: string,
-  markdown: string,
-  leftInline = false,
-  rightInline = false,
-): string {
-  if (!original.trim()) {
-    return original + markdown.trim();
-  }
-
-  const leading = original.match(/^(?:\r?\n)*/)?.[0] ?? "";
-  const trailing = original.match(/(?:\r?\n)*$/)?.[0] ?? "";
-  const leftSpace = leftInline ? (original.match(/^[\t ]+/)?.[0] ?? "") : "";
-  const rightSpace = rightInline ? (original.match(/[\t ]+$/)?.[0] ?? "") : "";
-  const content = markdown.trim();
-  return leading + leftSpace + content + rightSpace + trailing;
 }

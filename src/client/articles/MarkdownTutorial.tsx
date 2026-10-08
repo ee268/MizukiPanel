@@ -51,7 +51,7 @@ export function MarkdownTutorial({ projectRoot }: MarkdownTutorialProps) {
       onRename={() => {}}
       onDelete={() => {}}
       onSaveFrontmatter={() => {}}
-      onSaveSource={() => {}}
+      onSaveDocument={() => {}}
       onSaveBody={() => {}}
     />
   );
