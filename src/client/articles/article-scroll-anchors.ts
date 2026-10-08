@@ -34,14 +34,28 @@ function matchingOffset(source: string, element: Element, start: number) {
 export function collectVisualAnchors(root: HTMLElement, source: string): VisualAnchor[] | null {
   const content = root.querySelector<HTMLElement>(".mizuki-document-content");
   const segments = content?.querySelectorAll<HTMLElement>("[data-article-segment]");
-  if (!content || !segments?.length) return null;
+  const vditor = [
+    ...(content?.querySelectorAll<HTMLElement>(
+      ".vditor-ir > .vditor-reset, .vditor-wysiwyg > .vditor-reset, .vditor-preview > .vditor-reset",
+    ) ?? []),
+  ].find((element) => element.getClientRects().length > 0);
+  if (!content || (!segments?.length && !vditor)) return null;
 
   const normalized = source.replace(/\r\n?/g, "\n");
   const bodyStart = toTextareaOffset(source, splitArticleSource(source)?.bodyStart ?? 0);
   const anchors: VisualAnchor[] = [{ sourceOffset: bodyStart, pageY: pageY(content) }];
   let cursor = bodyStart;
 
-  for (const segment of segments) {
+  if (vditor) {
+    for (const block of vditor.children) {
+      const match = matchingOffset(normalized, block, cursor);
+      if (!match) continue;
+      anchors.push({ sourceOffset: match.offset, pageY: pageY(block as HTMLElement) });
+      cursor = match.offset + match.length;
+    }
+  }
+
+  for (const segment of segments ?? []) {
     if (segment.dataset.articleSegment === "editable") {
       const editor = segment.querySelector<HTMLElement>(".milkdown .editor");
       if (!editor) return null;

@@ -1,0 +1,343 @@
+import { Alert, Box, Button, Stack, useTheme } from "@mui/material";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import type Vditor from "vditor";
+import type { ArticleRecord } from "../types";
+import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import { ArticleModeSelect } from "./ArticleModeSelect";
+import { ImagePickerDialog } from "./ImagePickerDialog";
+import {
+  replaceVditorBody,
+  vditorBody,
+  vditorImageMarkdown,
+  vditorImagePreviewUrl,
+} from "./vditor-source";
+import { loadVditorRuntime } from "./vditor-runtime";
+import { splitArticleSource } from "../../lib/articles/article-source";
+import "vditor/dist/index.css";
+import "./vditor-editor.css";
+
+const cdn = "/assets/vditor";
+export interface VditorBodyEditorHandle {
+  flush: () => void;
+}
+interface VditorBodyEditorProps {
+  article: ArticleRecord;
+  source: string;
+  busy: boolean;
+  readOnly: boolean;
+  fontMode: EditorFontMode;
+  showSave?: boolean;
+  initialMode?: "ir" | "sv" | "wysiwyg";
+  onChange: (source: string) => void;
+  onSave: () => void;
+  onSourceMode: () => void;
+}
+
+export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEditorProps>(
+  function VditorBodyEditor(
+    {
+      article,
+      source,
+      busy,
+      readOnly,
+      fontMode,
+      showSave = true,
+      initialMode,
+      onChange,
+      onSave,
+      onSourceMode,
+    },
+    ref,
+  ) {
+    const theme = useTheme();
+    const host = useRef<HTMLDivElement>(null);
+    const editor = useRef<Vditor | null>(null);
+    const latest = useRef({ source, onChange, onSave, onSourceMode, busy, readOnly, theme });
+    latest.current = { source, onChange, onSave, onSourceMode, busy, readOnly, theme };
+    const baseline = useRef("");
+    const initial = useRef({ value: "", body: "" });
+    const [ready, setReady] = useState(false);
+    const [error, setError] = useState("");
+    const [imageOpen, setImageOpen] = useState(false);
+    const imageRange = useRef<Range | null>(null);
+
+    function flush() {
+      const instance = editor.current;
+      if (!instance?.vditor.lute || latest.current.readOnly || latest.current.busy) return;
+      const value = instance.getValue();
+      if (value === baseline.current) return;
+      baseline.current = value;
+      latest.current.onChange(
+        replaceVditorBody(
+          latest.current.source,
+          value === initial.current.value ? initial.current.body : value,
+        ),
+      );
+    }
+    useImperativeHandle(ref, () => ({ flush }));
+
+    useEffect(() => {
+      let disposed = false;
+      let instance: Vditor | null = null;
+      let initialized = false;
+      const container = host.current!;
+      const mapped = new WeakSet<HTMLImageElement>();
+      const mapImages = () => {
+        container.querySelectorAll<HTMLImageElement>("img").forEach((image) => {
+          const original = image.getAttribute("src") ?? "";
+          const preview = vditorImagePreviewUrl(article.id, original);
+          // CSS replaces the displayed resource while the original src remains available
+          // to Vditor's Markdown serializer and native undo history.
+          if (preview && preview !== original) {
+            const content = `url(${JSON.stringify(preview)})`;
+            if (image.style.content !== content) image.style.content = content;
+            mapped.add(image);
+          } else if (mapped.has(image)) {
+            image.style.removeProperty("content");
+            mapped.delete(image);
+          }
+        });
+      };
+      const observer = new MutationObserver(mapImages);
+      void Promise.all([import("vditor"), loadVditorRuntime()])
+        .then(([{ default: Constructor }]) => {
+          if (disposed) return;
+          instance = new Constructor(container, {
+            cdn,
+            value: vditorBody(latest.current.source),
+            mode: initialMode ?? (article.format === "mdx" ? "sv" : "ir"),
+            lang: "zh_CN",
+            i18n: window.VditorI18n,
+            theme: latest.current.theme.palette.mode === "dark" ? "dark" : "classic",
+            cache: { enable: false },
+            minHeight: 480,
+            height: "auto",
+            undoDelay: 100,
+            placeholder: "开始撰写正文…",
+            icon: "material",
+            resize: { enable: false },
+            link: { isOpen: false },
+            image: { isPreview: false },
+            hint: { emojiPath: `${cdn}/dist/images/emoji` },
+            toolbar: [
+              "headings",
+              "bold",
+              "italic",
+              "strike",
+              "link",
+              "|",
+              "list",
+              "ordered-list",
+              "check",
+              "outdent",
+              "indent",
+              "|",
+              "quote",
+              "line",
+              "code",
+              "inline-code",
+              "table",
+              {
+                name: "article-image",
+                tip: "插入图片",
+                tipPosition: "n",
+                icon: '<svg><use xlink:href="#vditor-icon-image"></use></svg>',
+                click: () => {
+                  if (latest.current.busy || latest.current.readOnly) return;
+                  const range = window.getSelection()?.rangeCount
+                    ? window.getSelection()!.getRangeAt(0)
+                    : null;
+                  imageRange.current =
+                    range && container.contains(range.commonAncestorContainer)
+                      ? range.cloneRange()
+                      : null;
+                  setImageOpen(true);
+                },
+              },
+              "|",
+              "undo",
+              "redo",
+              "|",
+              "edit-mode",
+              "both",
+              "outline",
+              "fullscreen",
+            ],
+            preview: {
+              delay: 200,
+              maxWidth: 1200,
+              actions: [],
+              theme: {
+                current: latest.current.theme.palette.mode === "dark" ? "dark" : "light",
+                path: `${cdn}/dist/css/content-theme`,
+              },
+              markdown: {
+                sanitize: true,
+                autoSpace: false,
+                fixTermTypo: false,
+                codeBlockPreview: true,
+                mathBlockPreview: true,
+              },
+              hljs: {
+                enable: true,
+                style: latest.current.theme.palette.mode === "dark" ? "github-dark" : "github",
+              },
+              math: { engine: "KaTeX" },
+              parse: mapImages,
+            },
+            input: () => flush(),
+            blur: () => flush(),
+            after: () => {
+              initialized = true;
+              if (disposed) {
+                instance?.destroy();
+                return;
+              }
+              editor.current = instance;
+              for (const input of [
+                instance!.vditor.ir?.element,
+                instance!.vditor.wysiwyg?.element,
+                instance!.vditor.sv?.element,
+              ]) {
+                if (!input) continue;
+                input.setAttribute("aria-label", "文章 Markdown 正文");
+                input.setAttribute("aria-multiline", "true");
+              }
+              baseline.current = instance!.getValue();
+              initial.current = {
+                value: baseline.current,
+                body: splitArticleSource(latest.current.source)?.body ?? latest.current.source,
+              };
+              if (latest.current.readOnly || latest.current.busy) instance!.disabled();
+              observer.observe(container, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ["src"],
+              });
+              mapImages();
+              setReady(true);
+            },
+          });
+        })
+        .catch((cause) => {
+          if (!disposed) setError(cause instanceof Error ? cause.message : "编辑器加载失败");
+        });
+      return () => {
+        disposed = true;
+        observer.disconnect();
+        editor.current = null;
+        if (initialized) instance?.destroy();
+      };
+    }, [article.id, article.version, article.format, initialMode]);
+
+    useEffect(() => {
+      if (!ready || !editor.current) return;
+      editor.current.setTheme(
+        theme.palette.mode === "dark" ? "dark" : "classic",
+        theme.palette.mode === "dark" ? "dark" : "light",
+        theme.palette.mode === "dark" ? "github-dark" : "github",
+        `${cdn}/dist/css/content-theme`,
+      );
+    }, [ready, theme.palette.mode]);
+    useEffect(() => {
+      if (!ready || !editor.current) return;
+      if (busy || readOnly) editor.current.disabled();
+      else editor.current.enable();
+      const imageButton = host.current?.querySelector<HTMLButtonElement>(
+        'button[data-type="article-image"]',
+      );
+      if (imageButton) {
+        imageButton.disabled = busy || readOnly;
+        imageButton.classList.toggle("vditor-menu--disabled", busy || readOnly);
+      }
+    }, [ready, busy, readOnly]);
+
+    return (
+      <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: "space-between" }}>
+          <ArticleModeSelect
+            mode="visual"
+            onChange={(mode) => {
+              if (mode === "source") onSourceMode();
+            }}
+          />
+          {showSave && (
+            <Button variant="contained" disabled={!ready || busy || readOnly} onClick={onSave}>
+              保存正文
+            </Button>
+          )}
+        </Stack>
+        {error && (
+          <Alert severity="error">
+            Vditor 加载失败：{error}。可切换源码模式或使用“更多”中的备用编辑器。
+          </Alert>
+        )}
+        {!ready && !error && <Box role="status">正在加载编辑器…</Box>}
+        {article.format === "mdx" && (!initialMode || initialMode === "sv") && (
+          <Alert severity="info">
+            MDX 默认使用分屏源码编辑以保留组件语法。Mizuki 扩展和组件的最终效果可通过真实预览查看。
+          </Alert>
+        )}
+        <Box
+          ref={host}
+          onKeyDownCapture={(event) => {
+            const instance = editor.current;
+            if (
+              !instance ||
+              busy ||
+              readOnly ||
+              event.nativeEvent.isComposing ||
+              (event.key !== "Backspace" && event.key !== "Delete") ||
+              instance.getCurrentMode() === "sv"
+            )
+              return;
+            const selection = window.getSelection();
+            const editable =
+              instance.getCurrentMode() === "ir"
+                ? instance.vditor.ir?.element
+                : instance.vditor.wysiwyg?.element;
+            if (
+              !selection?.rangeCount ||
+              !selection.toString() ||
+              !editable?.contains(selection.getRangeAt(0).commonAncestorContainer)
+            )
+              return;
+            // Vditor's first-key caret recording can collapse a selected HTML block.
+            // Its public deletion API keeps that selection and records the resulting input.
+            event.preventDefault();
+            event.stopPropagation();
+            instance.deleteValue();
+          }}
+          className="mizuki-document-content mizuki-vditor"
+          data-font-mode={fontMode}
+          inert={busy}
+          sx={{
+            "--panel-vditor-bg": theme.palette.background.paper,
+            "--panel-vditor-text": theme.palette.text.secondary,
+            "--panel-vditor-primary": theme.palette.primary.main,
+            "--panel-vditor-border": theme.palette.divider,
+          }}
+        />
+        <ImagePickerDialog
+          open={imageOpen}
+          articleId={article.id}
+          onClose={() => setImageOpen(false)}
+          onInsert={(alt, src) => {
+            const instance = editor.current;
+            if (!instance || busy || readOnly) return;
+            instance.focus();
+            if (imageRange.current?.commonAncestorContainer.isConnected) {
+              const selection = window.getSelection();
+              selection?.removeAllRanges();
+              selection?.addRange(imageRange.current);
+            }
+            instance.insertMD(vditorImageMarkdown(alt, src));
+            flush();
+            setImageOpen(false);
+          }}
+        />
+      </Stack>
+    );
+  },
+);

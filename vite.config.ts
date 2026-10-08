@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { createRequire } from "node:module";
 import { defineConfig } from "vitest/config";
+import { vditorAssets } from "./scripts/vditor-assets";
 
 const require = createRequire(import.meta.url);
 const remarkParsePath = require.resolve("remark-parse");
@@ -10,7 +11,7 @@ const workerSafeDecoderPath = createRequire(fromMarkdownPath).resolve(
 );
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), vditorAssets()],
   // The Markdown parser also runs in a Web Worker. Only this decoder needs its
   // DOM-free entry point; changing export conditions globally breaks UI styles.
   resolve: {

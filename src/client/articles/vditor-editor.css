@@ -1,0 +1,39 @@
+.mizuki-vditor.vditor {
+  border-color: var(--panel-vditor-border);
+  border-radius: 8px;
+  --panel-vditor-font: MizukiSourceDelimiters, ui-sans-serif, system-ui, sans-serif;
+  --panel-vditor-mono: var(--mizuki-panel-font-mono);
+}
+.mizuki-vditor[data-font-mode="custom"] {
+  --panel-vditor-font:
+    MizukiSourceDelimiters, MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
+  --panel-vditor-mono: MizukiEditorCode, MizukiEditorCjk, var(--mizuki-panel-font-mono);
+}
+.mizuki-vditor :is(.vditor-ir, .vditor-wysiwyg, .vditor-preview, .vditor-reset) {
+  background: var(--panel-vditor-bg);
+  color: var(--panel-vditor-text);
+}
+.mizuki-vditor :is(.vditor-reset, .vditor-ir, .vditor-wysiwyg) {
+  font-family: var(--panel-vditor-font);
+  font-size: 16px;
+  line-height: 1.85;
+}
+.mizuki-vditor :is(code, textarea, .vditor-ir__marker--code, .vditor-ir__marker--pre),
+.mizuki-vditor .vditor-reset pre {
+  font-family: var(--panel-vditor-mono);
+}
+.mizuki-vditor a {
+  color: var(--panel-vditor-primary);
+  text-decoration: underline dashed;
+  text-underline-offset: 0.2em;
+}
+.mizuki-vditor .vditor-toolbar {
+  flex-wrap: wrap;
+}
+.mizuki-vditor .vditor-ir,
+.mizuki-vditor .vditor-wysiwyg {
+  min-width: 0;
+}
+.mizuki-vditor .vditor-sv {
+  font-family: var(--panel-vditor-mono);
+}
