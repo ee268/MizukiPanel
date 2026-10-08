@@ -24,7 +24,17 @@ export default function AppShell() {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        "--mizuki-panel-header-height": { xs: "57px", sm: "65px" },
+        [`@media (max-width: ${theme.breakpoints.values.sm - 0.05}px) and (orientation: landscape)`]:
+          {
+            "--mizuki-panel-header-height": "49px",
+          },
+      }}
+    >
       <AppHeader
         drawerWidth={effectiveDrawerWidth}
         identity={identity}

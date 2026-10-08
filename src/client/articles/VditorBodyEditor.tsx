@@ -1,5 +1,12 @@
 import { Alert, Box, Button, Stack, useTheme } from "@mui/material";
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { createPortal } from "react-dom";
 import type Vditor from "vditor";
 import type { ArticleRecord } from "../types";
@@ -39,6 +46,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
   ) {
     const theme = useTheme();
     const host = useRef<HTMLDivElement>(null);
+    const frame = useRef<HTMLDivElement>(null);
     const editor = useRef<Vditor | null>(null);
     const latest = useRef({ source, onChange, onSave, busy, readOnly, theme });
     latest.current = { source, onChange, onSave, busy, readOnly, theme };
@@ -70,6 +78,23 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
       let instance: Vditor | null = null;
       let initialized = false;
       const container = host.current!;
+      let originalBodyOverflow = document.body.style.overflow;
+      let originalScroll = { top: 0, left: 0 };
+      const fullscreenEvent = navigator.userAgent.includes("iPhone") ? "touchstart" : "click";
+      const beforeFullscreen = (event: Event) => {
+        if (
+          !(event.target instanceof Element) ||
+          !event.target.closest('button[data-type="fullscreen"]')
+        )
+          return;
+        if (!container.classList.contains("vditor--fullscreen") && frame.current) {
+          // Keep the page height when the editor leaves normal flow.
+          frame.current.style.height = `${container.offsetHeight}px`;
+          originalBodyOverflow = document.body.style.overflow;
+          originalScroll = { top: window.scrollY, left: window.scrollX };
+        }
+      };
+      container.addEventListener(fullscreenEvent, beforeFullscreen, true);
       const mapped = new WeakSet<HTMLImageElement>();
       const mapImages = () => {
         container.querySelectorAll<HTMLImageElement>("img").forEach((image) => {
@@ -101,6 +126,8 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
             cache: { enable: false },
             minHeight: 480,
             height: "auto",
+            toolbarConfig: { pin: true },
+            fullscreen: { index: latest.current.theme.zIndex.drawer + 2 },
             undoDelay: 100,
             placeholder: "开始撰写正文…",
             icon: "material",
@@ -150,7 +177,24 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
               "edit-mode",
               "both",
               "outline",
-              "fullscreen",
+              {
+                name: "fullscreen",
+                click: () => {
+                  if (!container.classList.contains("vditor--fullscreen")) {
+                    if (frame.current) frame.current.style.height = "";
+                    document.body.style.overflow = originalBodyOverflow;
+                    window.scrollTo({ ...originalScroll, behavior: "instant" });
+                  }
+                  container
+                    .querySelector('button[data-type="fullscreen"]')
+                    ?.setAttribute(
+                      "aria-label",
+                      container.classList.contains("vditor--fullscreen")
+                        ? "退出全屏（Esc）"
+                        : "全屏",
+                    );
+                },
+              },
             ],
             preview: {
               delay: 200,
@@ -216,6 +260,11 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
       return () => {
         disposed = true;
         observer.disconnect();
+        container.removeEventListener(fullscreenEvent, beforeFullscreen, true);
+        if (frame.current) frame.current.style.height = "";
+        if (container.classList.contains("vditor--fullscreen")) {
+          document.body.style.overflow = originalBodyOverflow;
+        }
         editor.current = null;
         if (initialized) instance?.destroy();
       };
@@ -252,46 +301,67 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
             MDX 默认使用分屏源码编辑以保留组件语法。Mizuki 扩展和组件的最终效果可通过真实预览查看。
           </Alert>
         )}
-        <Box
-          ref={host}
-          onKeyDownCapture={(event) => {
-            const instance = editor.current;
-            if (
-              !instance ||
-              busy ||
-              readOnly ||
-              event.nativeEvent.isComposing ||
-              (event.key !== "Backspace" && event.key !== "Delete") ||
-              instance.getCurrentMode() === "sv"
-            )
-              return;
-            const selection = window.getSelection();
-            const editable =
-              instance.getCurrentMode() === "ir"
-                ? instance.vditor.ir?.element
-                : instance.vditor.wysiwyg?.element;
-            if (
-              !selection?.rangeCount ||
-              !selection.toString() ||
-              !editable?.contains(selection.getRangeAt(0).commonAncestorContainer)
-            )
-              return;
-            // Vditor's first-key caret recording can collapse a selected HTML block.
-            // Its public deletion API keeps that selection and records the resulting input.
-            event.preventDefault();
-            event.stopPropagation();
-            instance.deleteValue();
-          }}
-          className="mizuki-document-content mizuki-vditor"
-          data-font-mode={fontMode}
-          inert={busy}
-          sx={{
-            "--panel-vditor-bg": theme.palette.background.paper,
-            "--panel-vditor-text": theme.palette.text.secondary,
-            "--panel-vditor-primary": theme.palette.primary.main,
-            "--panel-vditor-border": theme.palette.divider,
-          }}
-        />
+        {/* Vditor owns its runtime classes; theme updates must keep the host className stable. */}
+        <Box ref={frame}>
+          <div
+            ref={host}
+            onKeyDownCapture={(event) => {
+              const instance = editor.current;
+              if (
+                event.key === "Escape" &&
+                !event.nativeEvent.isComposing &&
+                host.current?.classList.contains("vditor--fullscreen")
+              ) {
+                event.preventDefault();
+                event.stopPropagation();
+                host.current.querySelector('button[data-type="fullscreen"]')?.dispatchEvent(
+                  new Event(navigator.userAgent.includes("iPhone") ? "touchstart" : "click", {
+                    bubbles: true,
+                    cancelable: true,
+                  }),
+                );
+                return;
+              }
+              if (
+                !instance ||
+                busy ||
+                readOnly ||
+                event.nativeEvent.isComposing ||
+                (event.key !== "Backspace" && event.key !== "Delete") ||
+                instance.getCurrentMode() === "sv"
+              )
+                return;
+              const selection = window.getSelection();
+              const editable =
+                instance.getCurrentMode() === "ir"
+                  ? instance.vditor.ir?.element
+                  : instance.vditor.wysiwyg?.element;
+              if (
+                !selection?.rangeCount ||
+                !selection.toString() ||
+                !editable?.contains(selection.getRangeAt(0).commonAncestorContainer)
+              )
+                return;
+              // Vditor's first-key caret recording can collapse a selected HTML block.
+              // Its public deletion API keeps that selection and records the resulting input.
+              event.preventDefault();
+              event.stopPropagation();
+              instance.deleteValue();
+            }}
+            className="mizuki-document-content mizuki-vditor"
+            data-font-mode={fontMode}
+            inert={busy}
+            style={
+              {
+                "--panel-vditor-bg": theme.palette.background.paper,
+                "--panel-vditor-text": theme.palette.text.secondary,
+                "--panel-vditor-primary": theme.palette.primary.main,
+                "--panel-vditor-border": theme.palette.divider,
+                "--panel-vditor-toolbar-layer": theme.zIndex.appBar,
+              } as CSSProperties
+            }
+          />
+        </Box>
         {showSave &&
           toolbar &&
           createPortal(

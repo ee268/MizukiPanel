@@ -12,6 +12,7 @@ import { articleShortcut } from "./editor-shortcuts";
 import type { ArticleEditorMode, FrontmatterRow } from "./types";
 import { useEditorFontMode } from "./useEditorFontMode";
 import { ArticleLoading } from "./ArticleLoading";
+import { ArticleBackToTop } from "./ArticleBackToTop";
 import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import "./editor-fonts.css";
 
@@ -61,6 +62,7 @@ export function ArticleEditor({
   onSaveBody,
 }: ArticleEditorProps) {
   const vditorRef = useRef<VditorBodyEditorHandle>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const fontMode = useEditorFontMode(projectRoot);
   const activeMode = article?.error ? "frontmatter" : mode;
 
@@ -97,7 +99,7 @@ export function ArticleEditor({
   if (!article) return <ArticleLoading />;
   return (
     <Stack spacing={2} onKeyDownCapture={handleSaveShortcut}>
-      <Paper variant="outlined" sx={{ overflow: "clip" }}>
+      <Paper ref={contentRef} variant="outlined" sx={{ overflow: "clip" }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
@@ -189,6 +191,7 @@ export function ArticleEditor({
             </>
           ))}
       </Paper>
+      <ArticleBackToTop contentRef={contentRef} />
     </Stack>
   );
 }
