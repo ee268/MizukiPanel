@@ -133,7 +133,7 @@ function createSourceWidget(
     const end = input.selectionEnd;
     const left = event.key === "ArrowLeft" && start === 0 && end === 0;
     const right = event.key === "ArrowRight" && start === input.value.length && end === start;
-    if (event.key === "Escape" || event.key === "Enter" || left || right) {
+    if (event.key === "Escape" || left || right) {
       event.preventDefault();
       const bounds = sourceContentBounds(active);
       close(left ? bounds.from : bounds.to);

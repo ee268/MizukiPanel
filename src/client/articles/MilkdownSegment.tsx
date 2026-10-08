@@ -282,6 +282,8 @@ function SegmentEditor({
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
         },
+        // Reserve the final blank line so the textarea caret stays visible after Enter.
+        "& .markdown-source-measure::after": { content: '"\\200b"' },
         "& .milkdown code:has(.markdown-source-hidden):not(:has(.markdown-source-reveal))": {
           display: "none",
         },
