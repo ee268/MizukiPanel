@@ -278,6 +278,11 @@ function SegmentEditor({
         "& .markdown-link-source-measure": {
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
+          textDecorationLine: "underline",
+          textDecorationStyle: "dashed",
+          textDecorationThickness: "1px",
+          textDecorationColor: theme.palette.primary.main,
+          textUnderlineOffset: "0.2em",
         },
         "& .markdown-link-source-destination": { color: "primary.main" },
         "& .markdown-link-source-input": {
@@ -292,7 +297,9 @@ function SegmentEditor({
           overflow: "hidden",
           background: "transparent",
           color: "transparent",
-          caretColor: "text.primary",
+          // MUI does not resolve palette paths for caretColor; a transparent
+          // textarea would otherwise also have a transparent native caret.
+          caretColor: theme.palette.text.primary,
           font: "inherit",
           lineHeight: "inherit",
           overflowWrap: "anywhere",
