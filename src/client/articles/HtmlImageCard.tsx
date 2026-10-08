@@ -160,6 +160,18 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
     }
   }
 
+  function leaveSource() {
+    setEditing(false);
+    pendingSelection.current = null;
+  }
+
+  function focusBody(side: ImageSide) {
+    leaveSource();
+    requestAnimationFrame(() =>
+      cardRef.current?.querySelector<HTMLElement>(`[data-image-side="${side}"]`)?.focus(),
+    );
+  }
+
   return (
     <Stack spacing={1} ref={cardRef} className="html-image-view">
       {beforeText && (
@@ -213,6 +225,7 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
               label="HTML 图片前光标"
               side="before"
               readOnly={readOnly}
+              onPosition={leaveSource}
               onDelete={caretDelete}
               onInsert={insert}
               onMove={move}
@@ -233,6 +246,15 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
                     onClick={(event: MouseEvent<HTMLElement>) => {
                       if (readOnly) return;
                       event.preventDefault();
+                      if (editing) {
+                        const bounds = event.currentTarget.getBoundingClientRect();
+                        focusBody(
+                          event.detail && event.clientX < bounds.left + bounds.width / 2
+                            ? "before"
+                            : "after",
+                        );
+                        return;
+                      }
                       pendingSelection.current = null;
                       event.currentTarget.focus();
                       setEditing(true);
@@ -298,6 +320,7 @@ export function HtmlImageCard({ articleId, segment, readOnly, onChange }: HtmlIm
               label="HTML 图片后光标"
               side="after"
               readOnly={readOnly}
+              onPosition={leaveSource}
               onDelete={caretDelete}
               onInsert={insert}
               onMove={move}

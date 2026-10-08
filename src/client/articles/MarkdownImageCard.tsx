@@ -42,6 +42,18 @@ export function MarkdownImageCard({
   const cardRef = useRef<HTMLSpanElement>(null);
   const preview = mediaPreviewUrl(articleId, src);
 
+  function leaveSource(side: ImageSide) {
+    setEditing(false);
+    onPosition(side);
+  }
+
+  function focusBody(side: ImageSide) {
+    setEditing(false);
+    requestAnimationFrame(() =>
+      cardRef.current?.querySelector<HTMLElement>(`[data-image-side="${side}"]`)?.focus(),
+    );
+  }
+
   useEffect(() => {
     if (!editing) return;
     const closeOutside = (event: PointerEvent) => {
@@ -91,7 +103,7 @@ export function MarkdownImageCard({
           label="Markdown 图片前光标"
           side="before"
           readOnly={readOnly}
-          onPosition={onPosition}
+          onPosition={leaveSource}
           onDelete={onCaretDelete}
           onInsert={onInsert}
           onMove={onMove}
@@ -103,6 +115,13 @@ export function MarkdownImageCard({
           onClick={(event: MouseEvent<HTMLElement>) => {
             if (readOnly) return;
             event.preventDefault();
+            if (editing) {
+              const bounds = event.currentTarget.getBoundingClientRect();
+              focusBody(
+                event.detail && event.clientX < bounds.left + bounds.width / 2 ? "before" : "after",
+              );
+              return;
+            }
             setEditing(true);
             onSelect();
           }}
@@ -149,7 +168,7 @@ export function MarkdownImageCard({
           label="Markdown 图片后光标"
           side="after"
           readOnly={readOnly}
-          onPosition={onPosition}
+          onPosition={leaveSource}
           onDelete={onCaretDelete}
           onInsert={onInsert}
           onMove={onMove}
