@@ -8,6 +8,8 @@ import { createRoot } from "react-dom/client";
 import { MarkdownImageCard } from "./MarkdownImageCard";
 import { imageSourceCursor, recordBrokenImageSource } from "./MilkdownSourceReveal";
 import { sourceRevealContent } from "./source-reveal-content";
+import type { ImageSide } from "./ImageCaret";
+import { joinBackward, joinForward } from "@milkdown/kit/prose/commands";
 
 export interface ThemedImageView extends NodeView {
   refreshTheme: () => void;
@@ -69,6 +71,75 @@ export function createMilkdownImage(
     view.focus();
   }
 
+  function positionCaret(side: ImageSide) {
+    const start = getPos();
+    if (readOnly || typeof start !== "number") return;
+    const pos = start + (side === "after" ? currentNode.nodeSize : 0);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
+  }
+
+  function insert(side: ImageSide, text: string) {
+    if (!text || readOnly) return;
+    positionCaret(side);
+    const from = view.state.selection.from;
+    const content = sourceRevealContent(text, "image", () => null, view.state.schema).content;
+    const tr = view.state.tr.replaceWith(from, from, content);
+    tr.setSelection(TextSelection.create(tr.doc, tr.mapping.map(from, 1)));
+    view.dispatch(tr);
+    view.focus();
+  }
+
+  function caretDelete(side: ImageSide, key: "Backspace" | "Delete") {
+    if ((side === "after" && key === "Backspace") || (side === "before" && key === "Delete")) {
+      remove();
+      return;
+    }
+    positionCaret(side);
+    const { $from } = view.state.selection;
+    const backwards = key === "Backspace";
+    const neighbor = backwards ? $from.nodeBefore : $from.nodeAfter;
+    if (neighbor) {
+      const size = neighbor.isText
+        ? [...neighbor.text!][backwards ? [...neighbor.text!].length - 1 : 0].length
+        : neighbor.nodeSize;
+      view.dispatch(
+        view.state.tr.delete(
+          $from.pos - (backwards ? size : 0),
+          $from.pos + (backwards ? 0 : size),
+        ),
+      );
+    } else {
+      (backwards ? joinBackward : joinForward)(view.state, view.dispatch, view);
+    }
+    view.focus();
+  }
+
+  function move(side: ImageSide, direction: "left" | "right") {
+    if (
+      (side === "before" && direction === "right") ||
+      (side === "after" && direction === "left")
+    ) {
+      dom
+        .querySelector<HTMLElement>(`[data-image-side="${side === "before" ? "after" : "before"}"]`)
+        ?.focus();
+      return;
+    }
+    positionCaret(side);
+    const next = Math.max(
+      0,
+      Math.min(
+        view.state.doc.content.size,
+        view.state.selection.from + (direction === "left" ? -1 : 1),
+      ),
+    );
+    view.dispatch(
+      view.state.tr.setSelection(
+        TextSelection.near(view.state.doc.resolve(next), direction === "left" ? -1 : 1),
+      ),
+    );
+    view.focus();
+  }
+
   function render() {
     const paragraph = view.state.schema.nodes.paragraph.create(null, currentNode.mark([]));
     const source = ctx
@@ -89,6 +160,10 @@ export function createMilkdownImage(
           onChange={change}
           onSelect={select}
           onDelete={remove}
+          onPosition={positionCaret}
+          onCaretDelete={caretDelete}
+          onInsert={insert}
+          onMove={move}
         />
       </ThemeProvider>,
     );

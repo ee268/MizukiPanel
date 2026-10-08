@@ -348,7 +348,7 @@ function SegmentEditor({
           maxWidth: "100%",
           verticalAlign: "top",
         },
-        "& .markdown-image-view.ProseMirror-selectednode > span > button": {
+        "& .markdown-image-view.ProseMirror-selectednode .image-preview-row > button": {
           outline: "2px solid",
           outlineColor: "primary.main",
           outlineOffset: 3,

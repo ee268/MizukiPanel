@@ -2,6 +2,7 @@ import { Box, Stack, Typography } from "@mui/material";
 import { useEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from "react";
 import { mediaPreviewUrl } from "./article-media";
 import { SyntaxCodeEditor } from "./SyntaxCodeEditor";
+import { ImageCaret, type ImageSide } from "./ImageCaret";
 
 interface MarkdownImageCardProps {
   articleId: string;
@@ -14,6 +15,10 @@ interface MarkdownImageCardProps {
   onChange: (raw: string, cursor: number) => void;
   onSelect: () => void;
   onDelete: () => void;
+  onPosition: (side: ImageSide) => void;
+  onCaretDelete: (side: ImageSide, key: "Backspace" | "Delete") => void;
+  onInsert: (side: ImageSide, text: string) => void;
+  onMove: (side: ImageSide, direction: "left" | "right") => void;
 }
 
 export function MarkdownImageCard({
@@ -27,6 +32,10 @@ export function MarkdownImageCard({
   onChange,
   onSelect,
   onDelete,
+  onPosition,
+  onCaretDelete,
+  onInsert,
+  onMove,
 }: MarkdownImageCardProps) {
   const [editing, setEditing] = useState(initialCursor !== null && !readOnly);
   const [draft, setDraft] = useState(source);
@@ -74,51 +83,77 @@ export function MarkdownImageCard({
         />
       )}
       <Box
-        component={readOnly ? "span" : "button"}
-        type={readOnly ? undefined : "button"}
-        aria-label={readOnly ? undefined : `编辑 Markdown 图片源码：${alt || src}`}
-        onClick={(event: MouseEvent<HTMLElement>) => {
-          if (readOnly) return;
-          event.preventDefault();
-          setEditing(true);
-          onSelect();
-        }}
-        onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
-          if (
-            readOnly ||
-            event.nativeEvent.isComposing ||
-            (event.key !== "Backspace" && event.key !== "Delete")
-          )
-            return;
-          event.preventDefault();
-          event.stopPropagation();
-          onDelete();
-        }}
-        sx={{
-          display: "block",
-          p: 0,
-          border: 0,
-          background: "transparent",
-          cursor: readOnly ? "default" : "pointer",
-          textAlign: "left",
-          width: "fit-content",
-          maxWidth: "100%",
-          borderRadius: 1,
-          "&:focus": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 3 },
-        }}
+        component="span"
+        className="image-preview-row"
+        sx={{ display: "flex", alignItems: "flex-end", width: "100%" }}
       >
-        {preview ? (
-          <Box
-            component="img"
-            src={preview}
-            alt={alt}
-            title={title}
-            loading="lazy"
-            sx={{ display: "block", maxWidth: "100%", height: "auto", borderRadius: 1 }}
-          />
-        ) : (
-          <Typography component="span">{alt || "图片地址不可用"}</Typography>
-        )}
+        <ImageCaret
+          label="Markdown 图片前光标"
+          side="before"
+          readOnly={readOnly}
+          onPosition={onPosition}
+          onDelete={onCaretDelete}
+          onInsert={onInsert}
+          onMove={onMove}
+        />
+        <Box
+          component={readOnly ? "span" : "button"}
+          type={readOnly ? undefined : "button"}
+          aria-label={readOnly ? undefined : `编辑 Markdown 图片源码：${alt || src}`}
+          onClick={(event: MouseEvent<HTMLElement>) => {
+            if (readOnly) return;
+            event.preventDefault();
+            setEditing(true);
+            onSelect();
+          }}
+          onKeyDown={(event: KeyboardEvent<HTMLElement>) => {
+            if (
+              readOnly ||
+              event.nativeEvent.isComposing ||
+              (event.key !== "Backspace" && event.key !== "Delete")
+            )
+              return;
+            event.preventDefault();
+            event.stopPropagation();
+            onDelete();
+          }}
+          sx={{
+            display: "block",
+            p: 0,
+            border: 0,
+            background: "transparent",
+            cursor: readOnly ? "default" : "pointer",
+            textAlign: "left",
+            width: "fit-content",
+            maxWidth: readOnly ? "100%" : "calc(100% - 24px)",
+            minWidth: 0,
+            flexShrink: 1,
+            borderRadius: 1,
+            "&:focus": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 3 },
+          }}
+        >
+          {preview ? (
+            <Box
+              component="img"
+              src={preview}
+              alt={alt}
+              title={title}
+              loading="lazy"
+              sx={{ display: "block", maxWidth: "100%", height: "auto", borderRadius: 1 }}
+            />
+          ) : (
+            <Typography component="span">{alt || "图片地址不可用"}</Typography>
+          )}
+        </Box>
+        <ImageCaret
+          label="Markdown 图片后光标"
+          side="after"
+          readOnly={readOnly}
+          onPosition={onPosition}
+          onDelete={onCaretDelete}
+          onInsert={onInsert}
+          onMove={onMove}
+        />
       </Box>
     </Stack>
   );
