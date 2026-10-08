@@ -28,7 +28,16 @@
   text-underline-offset: 0.2em;
 }
 .mizuki-vditor .vditor-toolbar {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
+}
+.mizuki-vditor .mizuki-vditor-save {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 3px 8px;
 }
 .mizuki-vditor .vditor-ir,
 .mizuki-vditor .vditor-wysiwyg {

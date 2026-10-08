@@ -1,5 +1,6 @@
 import { Alert, Box, Button, Stack, useTheme } from "@mui/material";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type Vditor from "vditor";
 import type { ArticleRecord } from "../types";
 import type { EditorFontMode } from "../../lib/server/editor-fonts";
@@ -44,6 +45,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     const baseline = useRef("");
     const initial = useRef({ value: "", body: "" });
     const [ready, setReady] = useState(false);
+    const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
     const [error, setError] = useState("");
     const [imageOpen, setImageOpen] = useState(false);
     const imageRange = useRef<Range | null>(null);
@@ -203,6 +205,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
                 attributeFilter: ["src"],
               });
               mapImages();
+              setToolbar(instance!.vditor.toolbar?.element ?? null);
               setReady(true);
             },
           });
@@ -242,13 +245,6 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
 
     return (
       <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
-        {showSave && (
-          <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
-            <Button variant="contained" disabled={!ready || busy || readOnly} onClick={onSave}>
-              保存正文
-            </Button>
-          </Stack>
-        )}
         {error && <Alert severity="error">Vditor 加载失败：{error}。请刷新页面重试。</Alert>}
         {!ready && !error && <Box role="status">正在加载编辑器…</Box>}
         {article.format === "mdx" && (!initialMode || initialMode === "sv") && (
@@ -296,6 +292,21 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
             "--panel-vditor-border": theme.palette.divider,
           }}
         />
+        {showSave &&
+          toolbar &&
+          createPortal(
+            <Box className="mizuki-vditor-save">
+              <Button
+                size="small"
+                variant="contained"
+                disabled={!ready || busy || readOnly}
+                onClick={onSave}
+              >
+                保存正文
+              </Button>
+            </Box>,
+            toolbar,
+          )}
         <ImagePickerDialog
           open={imageOpen}
           articleId={article.id}
