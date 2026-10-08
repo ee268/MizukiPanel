@@ -17,6 +17,7 @@ import { mediaPreviewUrl } from "./article-media";
 import { readFormatState, type EditorFormatState } from "./editor-format";
 import { articleShortcut, type EditorShortcut } from "./editor-shortcuts";
 import { createMilkdownCodeBlock, type ThemedCodeBlockView } from "./MilkdownCodeBlock";
+import { createMilkdownLinkSource } from "./MilkdownLinkSource";
 import { remarkImageTitle } from "./remark-image-title";
 import { remarkLooseStrong } from "./remark-loose-strong";
 
@@ -201,6 +202,7 @@ function SegmentEditor({
         .use(gfm)
         .use(remarkLooseStrong)
         .use(remarkImageTitle)
+        .use(createMilkdownLinkSource(readOnly))
         .use(history)
         .use(listener),
     [articleId, readOnly],
@@ -218,6 +220,12 @@ function SegmentEditor({
   }, [loading]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (
+      event.target instanceof HTMLElement &&
+      event.target.classList.contains("markdown-link-source-input")
+    ) {
+      return;
+    }
     if (
       (event.nativeEvent.isComposing || event.keyCode === 229) &&
       (event.ctrlKey || event.metaKey)
@@ -259,6 +267,35 @@ function SegmentEditor({
           textDecorationStyle: "dashed",
           textDecorationThickness: "1px",
           textUnderlineOffset: "0.2em",
+        },
+        "& .markdown-link-source": {
+          position: "relative",
+          display: "inline-block",
+          maxWidth: "100%",
+          verticalAlign: "bottom",
+          color: "text.primary",
+        },
+        "& .markdown-link-source-measure": {
+          whiteSpace: "pre-wrap",
+          overflowWrap: "anywhere",
+        },
+        "& .markdown-link-source-destination": { color: "primary.main" },
+        "& .markdown-link-source-input": {
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          p: 0,
+          border: 0,
+          outline: "none",
+          resize: "none",
+          overflow: "hidden",
+          background: "transparent",
+          color: "transparent",
+          caretColor: "text.primary",
+          font: "inherit",
+          lineHeight: "inherit",
+          overflowWrap: "anywhere",
         },
         "& .milkdown .ProseMirror": {
           outline: "none",
