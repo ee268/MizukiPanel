@@ -17,7 +17,7 @@ import { mediaPreviewUrl } from "./article-media";
 import { readFormatState, type EditorFormatState } from "./editor-format";
 import { articleShortcut, type EditorShortcut } from "./editor-shortcuts";
 import { createMilkdownCodeBlock, type ThemedCodeBlockView } from "./MilkdownCodeBlock";
-import { createMilkdownLinkSource } from "./MilkdownLinkSource";
+import { createMilkdownSourceReveal } from "./MilkdownSourceReveal";
 import { remarkImageTitle } from "./remark-image-title";
 import { remarkLooseStrong } from "./remark-loose-strong";
 
@@ -202,7 +202,7 @@ function SegmentEditor({
         .use(gfm)
         .use(remarkLooseStrong)
         .use(remarkImageTitle)
-        .use(createMilkdownLinkSource(readOnly))
+        .use(createMilkdownSourceReveal(readOnly))
         .use(history)
         .use(listener),
     [articleId, readOnly],
@@ -222,7 +222,7 @@ function SegmentEditor({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (
       event.target instanceof HTMLElement &&
-      event.target.classList.contains("markdown-link-source-input")
+      event.target.classList.contains("markdown-source-input")
     ) {
       return;
     }
@@ -268,24 +268,26 @@ function SegmentEditor({
           textDecorationThickness: "1px",
           textUnderlineOffset: "0.2em",
         },
-        "& .markdown-link-source": {
+        "& .markdown-source-reveal": {
           position: "relative",
           display: "inline-block",
           maxWidth: "100%",
           verticalAlign: "bottom",
           color: "text.primary",
         },
-        "& .markdown-link-source-measure": {
+        "& .markdown-source-measure": {
           whiteSpace: "pre-wrap",
           overflowWrap: "anywhere",
+        },
+        '& .markdown-source-reveal[data-source-kind="link"] .markdown-source-measure': {
           textDecorationLine: "underline",
           textDecorationStyle: "dashed",
           textDecorationThickness: "1px",
           textDecorationColor: theme.palette.primary.main,
           textUnderlineOffset: "0.2em",
         },
-        "& .markdown-link-source-destination": { color: "primary.main" },
-        "& .markdown-link-source-input": {
+        "& .markdown-source-destination": { color: "primary.main" },
+        "& .markdown-source-input": {
           position: "absolute",
           inset: 0,
           width: "100%",

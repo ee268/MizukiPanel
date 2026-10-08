@@ -3,17 +3,21 @@ import type { Node } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey, TextSelection } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
 import { $prose } from "@milkdown/kit/utils";
-import { markdownLinkAt, type MarkdownLinkRange } from "./markdown-link-range";
+import {
+  markdownSourceAt,
+  mapUnchangedSource,
+  sourceContentBounds,
+  sourceCursorOffset,
+  type MarkdownSourceRange,
+} from "./markdown-source-range";
 
-interface LinkSourceState {
+interface SourceRevealState extends MarkdownSourceRange {
   id: number;
-  from: number;
-  to: number;
   raw: string;
   cursor: number;
 }
 
-const key = new PluginKey<LinkSourceState | null>("markdown-link-source");
+const key = new PluginKey<SourceRevealState | null>("markdown-source-reveal");
 
 function highlightSource(element: Element, raw: string) {
   const separator = raw.lastIndexOf("](");
@@ -22,12 +26,15 @@ function highlightSource(element: Element, raw: string) {
     return;
   }
   const destination = document.createElement("span");
-  destination.className = "markdown-link-source-destination";
+  destination.className = "markdown-source-destination";
   destination.textContent = raw.slice(separator + 1);
   element.replaceChildren(document.createTextNode(raw.slice(0, separator + 1)), destination);
 }
 
-function serializeLink(doc: Node, range: MarkdownLinkRange, serialize: (doc: Node) => string) {
+function serializeSource(doc: Node, range: MarkdownSourceRange, serialize: (doc: Node) => string) {
+  if (range.kind === "heading") {
+    return serialize(doc.type.create(null, doc.slice(range.from, range.to).content)).trimEnd();
+  }
   const paragraph = doc.type.schema.nodes.paragraph.create(
     null,
     doc.slice(range.from, range.to).content,
@@ -37,17 +44,26 @@ function serializeLink(doc: Node, range: MarkdownLinkRange, serialize: (doc: Nod
 
 function createSourceWidget(
   view: EditorView,
-  initial: LinkSourceState,
+  initial: SourceRevealState,
   parse: (raw: string) => Node | null,
 ) {
   const wrapper = document.createElement("span");
-  wrapper.className = "markdown-link-source";
+  wrapper.className = "markdown-source-reveal";
+  wrapper.dataset.sourceKind = initial.kind;
   const measure = document.createElement("span");
-  measure.className = "markdown-link-source-measure";
+  measure.className = "markdown-source-measure";
   measure.setAttribute("aria-hidden", "true");
   const input = document.createElement("textarea");
-  input.className = "markdown-link-source-input";
-  input.setAttribute("aria-label", "Markdown 链接源码");
+  input.className = "markdown-source-input";
+  const labels = {
+    heading: "标题",
+    link: "链接",
+    strong: "加粗",
+    emphasis: "斜体",
+    strike_through: "删除线",
+    inlineCode: "行内代码",
+  };
+  input.setAttribute("aria-label", `Markdown ${labels[initial.kind]}源码`);
   input.rows = 1;
   input.spellcheck = false;
   input.value = initial.raw;
@@ -66,17 +82,20 @@ function createSourceWidget(
     if (!active || composing || input.value === active.raw) return;
     // Incomplete syntax stays editable as literal text until it is complete.
     const parsed = parse(input.value);
-    const paragraph = parsed?.childCount === 1 ? parsed.firstChild : null;
-    const content =
-      paragraph?.type.name === "paragraph"
-        ? paragraph.content
-        : input.value
-          ? view.state.schema.text(input.value)
-          : null;
+    const block = parsed?.childCount === 1 ? parsed.firstChild : null;
+    const isHeading = active.kind === "heading";
+    const text = input.value ? view.state.schema.text(input.value) : null;
+    const content = isHeading
+      ? block?.isTextblock && ["heading", "paragraph"].includes(block.type.name)
+        ? block
+        : view.state.schema.nodes.paragraph.create(null, text)
+      : block?.type.name === "paragraph"
+        ? block.content
+        : text;
     const tr = view.state.tr.replaceWith(active.from, active.to, content ?? []);
     const to = tr.mapping.map(active.to, 1);
-    tr.setSelection(TextSelection.create(tr.doc, active.from));
-    tr.setMeta(key, { ...active, to, raw: input.value });
+    tr.setSelection(TextSelection.create(tr.doc, active.from + (isHeading ? 1 : 0)));
+    tr.setMeta(key, { ...active, to, raw: input.value, cursor: input.selectionStart });
     view.dispatch(tr);
   }
 
@@ -99,7 +118,12 @@ function createSourceWidget(
     composing = false;
     update();
   });
-  input.addEventListener("blur", () => close());
+  input.addEventListener("blur", () => {
+    // Let DOM replacement restore native focus before treating blur as an exit.
+    requestAnimationFrame(() => {
+      if (wrapper.isConnected && document.activeElement !== input) close();
+    });
+  });
   input.addEventListener("keydown", (event) => {
     event.stopPropagation();
     if (event.isComposing) return;
@@ -111,7 +135,8 @@ function createSourceWidget(
     const right = event.key === "ArrowRight" && start === input.value.length && end === start;
     if (event.key === "Escape" || event.key === "Enter" || left || right) {
       event.preventDefault();
-      close(left ? active.from : active.to);
+      const bounds = sourceContentBounds(active);
+      close(left ? bounds.from : bounds.to);
     }
   });
 
@@ -128,26 +153,30 @@ function createSourceWidget(
   return wrapper;
 }
 
-export function createMilkdownLinkSource(readOnly: boolean) {
+export function createMilkdownSourceReveal(readOnly: boolean) {
   return $prose((ctx) => {
     let nextId = 0;
-    return new Plugin<LinkSourceState | null>({
+    return new Plugin<SourceRevealState | null>({
       key,
       state: {
         init: () => null,
-        apply(tr, active, _oldState, state) {
+        apply(tr, active, oldState, state) {
           if (tr.getMeta(key) !== undefined) return tr.getMeta(key);
-          if (active && !tr.selectionSet && !tr.docChanged) return active;
+          if (active && !tr.selectionSet) {
+            if (!tr.docChanged) return active;
+            const mapped = mapUnchangedSource(active, oldState.doc, state.doc, tr.mapping);
+            return mapped ? { ...active, ...mapped } : null;
+          }
           if (readOnly || !tr.selectionSet || !state.selection.empty) return null;
-          const range = markdownLinkAt(state.doc, state.selection.from);
+          const range = markdownSourceAt(state.doc, state.selection.from);
           if (!range) return null;
-          const raw = serializeLink(state.doc, range, ctx.get(serializerCtx));
+          const raw = serializeSource(state.doc, range, ctx.get(serializerCtx));
+          const bounds = sourceContentBounds(range);
           return {
+            ...range,
             id: ++nextId,
-            from: range.from,
-            to: range.to,
             raw,
-            cursor: 1 + state.selection.from - range.from,
+            cursor: sourceCursorOffset(raw, state.selection.from - bounds.from),
           };
         },
       },
@@ -155,39 +184,58 @@ export function createMilkdownLinkSource(readOnly: boolean) {
         decorations(state) {
           const active = key.getState(state);
           if (!active) return null;
+          const bounds = sourceContentBounds(active);
           const decorations = [
             Decoration.widget(
-              active.from,
+              bounds.from,
               (view) => createSourceWidget(view, active, ctx.get(parserCtx)),
-              { key: `link-source-${active.id}`, side: -1, stopEvent: () => true },
+              { key: `source-reveal-${active.id}`, side: -1, stopEvent: () => true },
             ),
           ];
-          if (active.to > active.from) {
-            decorations.push(Decoration.inline(active.from, active.to, { style: "display:none" }));
+          if (bounds.to > bounds.from) {
+            decorations.push(Decoration.inline(bounds.from, bounds.to, { style: "display:none" }));
           }
           return DecorationSet.create(state.doc, decorations);
         },
         handleClick(view, position, event) {
-          if (readOnly || !(event.target instanceof Element) || !event.target.closest("a[href]")) {
+          if (
+            readOnly ||
+            !(event.target instanceof Element) ||
+            !event.target.closest("a[href], strong, em, del, code, h1, h2, h3, h4, h5, h6")
+          ) {
             return false;
           }
           const range =
-            markdownLinkAt(view.state.doc, position) ??
-            markdownLinkAt(view.state.doc, Math.max(0, position - 1));
+            markdownSourceAt(view.state.doc, position) ??
+            markdownSourceAt(view.state.doc, Math.max(0, position - 1));
           if (!range) return false;
-          const cursor = Math.max(range.from, Math.min(position, range.to - 1));
+          const bounds = sourceContentBounds(range);
+          const cursor = Math.max(
+            bounds.from,
+            Math.min(position, Math.max(bounds.from, bounds.to - 1)),
+          );
           view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, cursor)));
           return true;
         },
       },
       view: () => ({
-        update(view) {
+        update(view, previousState) {
           const active = key.getState(view.state);
-          const input = view.dom.querySelector<HTMLTextAreaElement>(".markdown-link-source-input");
-          if (!active || !input || input.value === active.raw) return;
-          input.value = active.raw;
-          const measure = input.previousElementSibling;
-          if (measure) highlightSource(measure, active.raw);
+          const input = view.dom.querySelector<HTMLTextAreaElement>(".markdown-source-input");
+          if (!active || !input) return;
+          if (input.value !== active.raw) {
+            input.value = active.raw;
+            const measure = input.previousElementSibling;
+            if (measure) highlightSource(measure, active.raw);
+          }
+          if (key.getState(previousState)?.id !== active.id) return;
+          queueMicrotask(() => {
+            if (!input.isConnected || key.getState(view.state)?.id !== active.id) return;
+            if (document.activeElement === document.body || document.activeElement === view.dom) {
+              input.focus({ preventScroll: true });
+              input.setSelectionRange(active.cursor, active.cursor);
+            }
+          });
         },
       }),
     });
