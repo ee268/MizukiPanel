@@ -39,7 +39,7 @@
 .mizuki-document-content[data-font-mode="system"] .MuiButton-root,
 .mizuki-document-content[data-font-mode="system"] .MuiChip-label,
 .mizuki-document-content[data-font-mode="system"] .MuiInputBase-input {
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: MizukiSourceDelimiters, ui-sans-serif, system-ui, sans-serif;
 }
 
 .mizuki-document-content[data-font-mode="system"] .markdown-source-reveal {
@@ -61,7 +61,8 @@
 .mizuki-document-content[data-font-mode="custom"] .MuiButton-root,
 .mizuki-document-content[data-font-mode="custom"] .MuiChip-label,
 .mizuki-document-content[data-font-mode="custom"] .MuiInputBase-input {
-  font-family: MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
+  font-family:
+    MizukiSourceDelimiters, MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
 }
 
 .mizuki-document-content[data-font-mode="custom"] .markdown-source-reveal {

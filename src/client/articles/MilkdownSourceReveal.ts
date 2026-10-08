@@ -10,18 +10,20 @@ import {
   sourceCursorOffset,
   type MarkdownSourceRange,
 } from "./markdown-source-range";
+import { sourceRevealContent, type SourcePresentation } from "./source-reveal-content";
 
 interface SourceRevealState extends MarkdownSourceRange {
   id: number;
   raw: string;
   cursor: number;
+  presentation: SourcePresentation;
 }
 
 const key = new PluginKey<SourceRevealState | null>("markdown-source-reveal");
 
-function highlightSource(element: Element, raw: string) {
+function highlightSource(element: Element, raw: string, presentation: SourcePresentation) {
   const separator = raw.lastIndexOf("](");
-  if (separator < 0) {
+  if (presentation === "plain" || separator < 0) {
     element.textContent = raw || " ";
     return;
   }
@@ -49,7 +51,7 @@ function createSourceWidget(
 ) {
   const wrapper = document.createElement("span");
   wrapper.className = "markdown-source-reveal";
-  wrapper.dataset.sourceKind = initial.kind;
+  wrapper.dataset.sourceKind = initial.presentation;
   const measure = document.createElement("span");
   measure.className = "markdown-source-measure";
   measure.setAttribute("aria-hidden", "true");
@@ -67,7 +69,7 @@ function createSourceWidget(
   input.rows = 1;
   input.spellcheck = false;
   input.value = initial.raw;
-  highlightSource(measure, initial.raw);
+  highlightSource(measure, initial.raw, initial.presentation);
   wrapper.append(measure, input);
   let composing = false;
 
@@ -77,25 +79,23 @@ function createSourceWidget(
   }
 
   function update() {
-    highlightSource(measure, input.value);
     const active = current();
+    highlightSource(measure, input.value, active?.presentation ?? "plain");
     if (!active || composing || input.value === active.raw) return;
-    // Incomplete syntax stays editable as literal text until it is complete.
-    const parsed = parse(input.value);
-    const block = parsed?.childCount === 1 ? parsed.firstChild : null;
+    const next = sourceRevealContent(input.value, active.kind, parse, view.state.schema);
     const isHeading = active.kind === "heading";
-    const text = input.value ? view.state.schema.text(input.value) : null;
-    const content = isHeading
-      ? block?.isTextblock && ["heading", "paragraph"].includes(block.type.name)
-        ? block
-        : view.state.schema.nodes.paragraph.create(null, text)
-      : block?.type.name === "paragraph"
-        ? block.content
-        : text;
-    const tr = view.state.tr.replaceWith(active.from, active.to, content ?? []);
+    wrapper.dataset.sourceKind = next.presentation;
+    highlightSource(measure, input.value, next.presentation);
+    const tr = view.state.tr.replaceWith(active.from, active.to, next.content);
     const to = tr.mapping.map(active.to, 1);
     tr.setSelection(TextSelection.create(tr.doc, active.from + (isHeading ? 1 : 0)));
-    tr.setMeta(key, { ...active, to, raw: input.value, cursor: input.selectionStart });
+    tr.setMeta(key, {
+      ...active,
+      to,
+      raw: input.value,
+      cursor: input.selectionStart,
+      presentation: next.presentation,
+    });
     view.dispatch(tr);
   }
 
@@ -176,6 +176,7 @@ export function createMilkdownSourceReveal(readOnly: boolean) {
             ...range,
             id: ++nextId,
             raw,
+            presentation: range.kind,
             cursor: sourceCursorOffset(raw, state.selection.from - bounds.from),
           };
         },
@@ -228,10 +229,12 @@ export function createMilkdownSourceReveal(readOnly: boolean) {
           const active = key.getState(view.state);
           const input = view.dom.querySelector<HTMLTextAreaElement>(".markdown-source-input");
           if (!active || !input) return;
-          if (input.value !== active.raw) {
+          const wrapper = input.parentElement!;
+          if (input.value !== active.raw || wrapper.dataset.sourceKind !== active.presentation) {
             input.value = active.raw;
+            wrapper.dataset.sourceKind = active.presentation;
             const measure = input.previousElementSibling;
-            if (measure) highlightSource(measure, active.raw);
+            if (measure) highlightSource(measure, active.raw, active.presentation);
           }
           if (key.getState(previousState)?.id !== active.id) return;
           queueMicrotask(() => {
