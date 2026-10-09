@@ -331,6 +331,26 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
         <Box ref={frame}>
           <div
             ref={host}
+            onClickCapture={(event) => {
+              const instance = editor.current;
+              if (
+                busy ||
+                readOnly ||
+                event.button !== 0 ||
+                event.ctrlKey ||
+                event.metaKey ||
+                event.altKey ||
+                instance?.getCurrentMode() !== "ir" ||
+                !(event.target instanceof Element)
+              )
+                return;
+              const link = event.target.closest('.vditor-ir__node[data-type="a"]');
+              if (!link || !instance.vditor.ir?.element.contains(link)) return;
+              // Vditor returns early for collapsed links even when link.isOpen is false.
+              // Open the existing node before its click handler resolves the caret and markers.
+              link.classList.add("vditor-ir__node--expand");
+              link.classList.remove("vditor-ir__node--hidden");
+            }}
             onKeyDownCapture={(event) => {
               const instance = editor.current;
               if (
