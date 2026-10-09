@@ -88,7 +88,6 @@ export function ProjectTemplateForm({
           <Typography component="h3" variant="h6">
             新文章模板
           </Typography>
-          <Chip size="small" label={base ? `当前项目 · ${base.name}` : "未连接项目"} />
           {controller.dirty && <Chip size="small" color="warning" label="未保存" />}
         </Stack>
         {!base && (

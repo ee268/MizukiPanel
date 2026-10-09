@@ -29,7 +29,6 @@ export function SettingsCard({
           <Typography variant="h6" component="h3">
             {title}
           </Typography>
-          <Chip size="small" label="当前浏览器" />
           {controller.isDirty(group) && <Chip size="small" label="未保存" color="warning" />}
         </Stack>
         {conflict && (
