@@ -1,4 +1,4 @@
-import { isMap, isScalar, isSeq, parseDocument, stringify } from "yaml";
+import { Document, isMap, isScalar, isSeq, parseDocument, stringify } from "yaml";
 import { splitArticleSource } from "../articles/article-source";
 
 export class ArticleValidationError extends Error {
@@ -323,8 +323,7 @@ export function newArticleSource(
   body: string,
   defaults: Record<string, unknown> = {},
 ): string {
-  const document = parseDocument("{}");
-  for (const [key, value] of Object.entries(defaults)) document.set(key, value);
+  const document = new Document(defaults);
   document.set("title", fields.title.trim());
   document.set("published", fields.published.trim());
   document.set("draft", fields.draft);

@@ -57,6 +57,7 @@ it("binds creation to the current project and exact preview while preserving req
   const previewResponse = await app.request("http://localhost/api/articles/preview", post(fields));
   expect(previewResponse.status).toBe(200);
   const preview = await previewResponse.json();
+  expect(preview.source).toMatch(/^---\ncustom:/);
   expect(
     (
       await app.request(

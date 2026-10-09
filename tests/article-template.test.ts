@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
+import { isMap } from "yaml";
 import {
   expandTemplate,
   templateDefaults,
@@ -18,7 +19,7 @@ import {
   settingsProjectKey,
 } from "../src/lib/server/panel-settings";
 import { createArticleFromSource, readArticle } from "../src/lib/server/articles";
-import { parseArticleSource } from "../src/lib/server/article-format";
+import { newArticleSource, parseArticleSource } from "../src/lib/server/article-format";
 import type { ProjectReport } from "../src/lib/server/project";
 const dirs: string[] = [];
 async function fixture(external = false) {
@@ -43,6 +44,19 @@ async function fixture(external = false) {
 }
 afterEach(async () => {
   for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true });
+});
+it("generates readable block YAML while preserving special text, nested defaults and scalar types", () => {
+  const fields = { title: "示例文章", published: "2026-10-09", draft: true };
+  expect(newArticleSource(fields, "# 开始写作")).toBe(
+    "---\ntitle: 示例文章\npublished: 2026-10-09\ndraft: true\n---\n\n# 开始写作",
+  );
+  const title = '标题: "引号"\n第二行';
+  const defaults = { tags: ["one", "two"], custom: { enabled: false, count: 3 } };
+  const source = newArticleSource({ ...fields, title }, "# Body", defaults);
+  const parsed = parseArticleSource(source);
+  expect(parsed.document.contents?.toJSON()).toEqual({ ...defaults, ...fields, title });
+  expect(isMap(parsed.document.contents) && !parsed.document.contents.flow).toBe(true);
+  expect(parsed.parts.body).toBe("\n# Body");
 });
 it("only expands supported variables and safely interpolates YAML values rather than YAML syntax", () => {
   const title = "x: value\nadmin: true {{literal}}";
@@ -90,6 +104,7 @@ it("reads defaults without writing and previews/creates the same content in loca
     };
     const preview = await prepareArticleCreation(report, fields, stateDir);
     expect(preview.id).toMatch(/^2026\/2026-10-09-/);
+    expect(preview.source).toMatch(/^---\ncustom:/);
     expect(parseArticleSource(preview.source).data.custom).toBe(fields.title);
     expect(
       (
