@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Alert, Box, Button, Container, Paper, Snackbar, Stack, Typography } from "@mui/material";
+import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { useNavigate } from "react-router-dom";
 import { ArticleDialogs } from "../articles/ArticleDialogs";
 import { ArticleLoading } from "../articles/ArticleLoading";
@@ -15,6 +16,7 @@ const MarkdownTutorial = lazy(() =>
 );
 
 export default function ArticlesPage() {
+  const noticeDuration = useNoticeDuration(3000);
   const navigate = useNavigate();
   const articles = useArticles();
   const selectedTitle = articles.articles.find((item) => item.id === articles.selectedId)?.title;
@@ -170,7 +172,7 @@ export default function ArticlesPage() {
       />
       <Snackbar
         open={Boolean(articles.notice)}
-        autoHideDuration={3000}
+        autoHideDuration={noticeDuration}
         onClose={() => articles.setNotice("")}
         message={articles.notice}
       />

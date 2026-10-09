@@ -13,6 +13,7 @@ import { registerMarkdownPreviewRoutes } from "./routes/markdown-preview";
 import { registerPreviewRoutes } from "./routes/preview";
 import { registerPublishRoutes } from "./routes/publish";
 import { registerWorkspaceRoutes } from "./routes/workspace";
+import { registerSettingsRoutes } from "./routes/settings";
 
 export interface AppOptions {
   expectedOrigin?: string;
@@ -30,6 +31,7 @@ export function createApp(options: AppOptions = {}) {
   registerSecurityMiddleware(app, expectedOrigin);
   registerAuthRoutes(app);
   registerWorkspaceRoutes(app);
+  registerSettingsRoutes(app);
   registerArticleRoutes(app);
   registerConfigRoutes(app);
   registerFeatureRoutes(app);

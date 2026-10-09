@@ -1,9 +1,11 @@
 import { Alert, Box, Container, Grid, Snackbar, Stack, Typography } from "@mui/material";
+import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { ConfigEditor } from "../config/ConfigEditor";
 import { ConfigList } from "../config/ConfigList";
 import { useConfigs } from "../config/useConfigs";
 
 export default function ConfigPage() {
+  const noticeDuration = useNoticeDuration(5000);
   const configs = useConfigs();
 
   return (
@@ -53,7 +55,7 @@ export default function ConfigPage() {
 
       <Snackbar
         open={Boolean(configs.notice)}
-        autoHideDuration={5000}
+        autoHideDuration={noticeDuration}
         onClose={() => configs.setNotice("")}
         message={configs.notice}
       />

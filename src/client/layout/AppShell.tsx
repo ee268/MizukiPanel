@@ -5,6 +5,7 @@ import { api } from "../api";
 import { useSiteIdentity } from "../hooks/useSiteIdentity";
 import AppHeader from "./AppHeader";
 import Sidebar from "./Sidebar";
+import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
 
 const drawerWidth = 248;
 const collapsedDrawerWidth = 72;
@@ -12,8 +13,14 @@ const collapsedDrawerWidth = 72;
 export default function AppShell() {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up("md"));
+  const preferences = usePersonalSettings();
   const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(() => {
+    const settings = preferences.saved.navigation;
+    return settings.sidebar === "remember"
+      ? settings.lastCollapsed
+      : settings.sidebar !== "expanded";
+  });
   const identity = useSiteIdentity();
   const compact = desktop && collapsed;
   const effectiveDrawerWidth = compact ? collapsedDrawerWidth : drawerWidth;
@@ -47,7 +54,12 @@ export default function AppShell() {
         compact={compact}
         width={effectiveDrawerWidth}
         onClose={() => setOpen(false)}
-        onToggleCollapsed={() => setCollapsed((value) => !value)}
+        onToggleCollapsed={() => {
+          const next = !collapsed;
+          setCollapsed(next);
+          if (preferences.saved.navigation.sidebar === "remember")
+            preferences.rememberSidebar(next);
+        }}
       />
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, pt: 8, ml: { md: 0 } }}>
         <Outlet />

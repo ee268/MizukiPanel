@@ -1,11 +1,14 @@
 import VerticalAlignTopOutlined from "@mui/icons-material/VerticalAlignTopOutlined";
 import { Fab, Portal, Tooltip, Zoom } from "@mui/material";
 import { useEffect, useState } from "react";
+import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
 
 const scrollRegions =
   ".vditor-content, .vditor-ir, .vditor-wysiwyg, .vditor-sv, .vditor-preview, .vditor-reset";
 
 export function BackToTop() {
+  const { effective } = usePersonalSettings();
+  const { backToTop: enabled, backToTopThreshold: threshold } = effective.navigation;
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -16,9 +19,9 @@ export function BackToTop() {
       setVisible(
         fullscreen
           ? Array.from(fullscreen.querySelectorAll(scrollRegions)).some(
-              (region) => region.scrollTop > 240,
+              (region) => region.scrollTop > threshold,
             )
-          : window.scrollY > 240,
+          : window.scrollY > threshold,
       );
     };
     const schedule = () => {
@@ -40,7 +43,7 @@ export function BackToTop() {
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [threshold]);
 
   function scrollToTop() {
     const fullscreen = document.querySelector(".vditor--fullscreen");
@@ -58,7 +61,7 @@ export function BackToTop() {
 
   return (
     <Portal>
-      <Zoom in={visible} unmountOnExit>
+      <Zoom in={enabled && visible} unmountOnExit>
         <Tooltip title="返回顶部">
           <Fab
             size="small"

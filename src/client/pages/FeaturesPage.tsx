@@ -24,6 +24,7 @@ import { resourceLabel } from "../features/common";
 import { errorMessage } from "../shared/errors";
 import { FeatureResource } from "../features/FeatureResource";
 import type { FeatureDataDescriptor, FeatureModule, ProjectReport } from "../types";
+import { useNoticeDuration } from "../settings/useNoticeDuration";
 
 interface IndexResponse {
   report: ProjectReport;
@@ -31,6 +32,7 @@ interface IndexResponse {
   dataResources: FeatureDataDescriptor[];
 }
 export default function FeaturesPage() {
+  const noticeDuration = useNoticeDuration(4500);
   const navigate = useNavigate();
   const [index, setIndex] = useState<IndexResponse | null>(null);
   const [selected, setSelected] = useState("about");
@@ -177,7 +179,7 @@ export default function FeaturesPage() {
       </Stack>
       <Snackbar
         open={Boolean(notice)}
-        autoHideDuration={4500}
+        autoHideDuration={noticeDuration}
         onClose={() => setNotice("")}
         message={notice}
       />

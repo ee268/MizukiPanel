@@ -24,7 +24,7 @@ MizukiPanel 是仅监听本机地址的 React 单页应用和 Hono API 服务。
 
 - `pages/`：组合页面布局和功能组件，不承载文件格式或服务端业务规则。
 - `layout/`：顶部栏、侧栏和页面外壳。
-- `articles/`、`config/`、`features/`、`media/`、`preview/`、`publish/`、`workspace/`：按业务功能组织视图、状态 Hook、局部类型和常量。
+- `articles/`、`config/`、`features/`、`media/`、`preview/`、`publish/`、`workspace/`、`settings/`：按业务功能组织视图、状态 Hook、局部类型和常量。
 - `components/`：可跨页面复用的展示组件。
 - `hooks/`：跨功能使用的 React Hook。
 - `shared/`：不属于某个业务功能的客户端工具和事件约定。
@@ -55,6 +55,7 @@ MizukiPanel 是仅监听本机地址的 React 单页应用和 Hono API 服务。
 ## 状态与持久化
 
 - 当前项目连接保存在被 Git 忽略的 `.local/workspace.json`。
+- 面板个人偏好保存在浏览器，本机/项目偏好位于 `.local/settings.json` 与 `.local/project-settings/`；共享 schema 位于 `src/shared/panel-settings/`，不依赖 React 或服务端。设置实现与阶段边界见 [阶段 1 说明](PANEL_SETTINGS_STAGE_1.md)。
 - Mizuki 内容与配置仍以原项目文件为事实来源，面板不维护第二份业务数据库。
 - 删除的文章和媒体先进入本地回收目录。
 - 配置恢复使用保存时生成的备份文件。

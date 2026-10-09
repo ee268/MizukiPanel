@@ -1,10 +1,12 @@
 import { Alert, Box, Container, Snackbar, Stack, Typography } from "@mui/material";
+import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { DeleteMediaDialog } from "../media/DeleteMediaDialog";
 import { MediaGallery } from "../media/MediaGallery";
 import { MediaUpload } from "../media/MediaUpload";
 import { useMedia } from "../media/useMedia";
 
 export default function MediaPage() {
+  const noticeDuration = useNoticeDuration();
   const media = useMedia();
   const readOnly = Boolean(media.data?.report.readOnly);
 
@@ -58,7 +60,7 @@ export default function MediaPage() {
         />
         <Snackbar
           open={Boolean(media.notice)}
-          autoHideDuration={3500}
+          autoHideDuration={noticeDuration}
           onClose={() => media.setNotice("")}
           message={media.notice}
         />

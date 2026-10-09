@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+import { PersonalSettingsProvider, usePersonalSettings } from "./settings/PersonalSettingsProvider";
 
 export type PanelColorMode = "light" | "dark" | "system";
 
@@ -15,7 +16,6 @@ interface PanelThemeContextValue extends PanelThemeSettings {
   reset: () => void;
 }
 
-const storageKey = "mizuki-panel-theme";
 export const defaultPanelTheme: PanelThemeSettings = { hue: 240, mode: "system" };
 
 export function normalizeHue(value: number): number {
@@ -27,21 +27,6 @@ export function hueColor(hue: number, lightness = 52): string {
   return `hsl(${normalizeHue(hue)} 72% ${lightness}%)`;
 }
 
-function readSettings(): PanelThemeSettings {
-  try {
-    const stored = JSON.parse(
-      localStorage.getItem(storageKey) ?? "{}",
-    ) as Partial<PanelThemeSettings>;
-    const mode =
-      stored.mode === "light" || stored.mode === "dark" || stored.mode === "system"
-        ? stored.mode
-        : defaultPanelTheme.mode;
-    return { hue: normalizeHue(stored.hue ?? defaultPanelTheme.hue), mode };
-  } catch {
-    return defaultPanelTheme;
-  }
-}
-
 const PanelThemeContext = createContext<PanelThemeContextValue | null>(null);
 
 export function usePanelTheme(): PanelThemeContextValue {
@@ -50,7 +35,7 @@ export function usePanelTheme(): PanelThemeContextValue {
   return value;
 }
 
-export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark") {
+export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark", fontSize = 14) {
   const primaryMain = hueColor(hue, 48);
   const primaryHover = hueColor(hue, 40);
   const secondaryHue = (hue + 125) % 360;
@@ -76,6 +61,7 @@ export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark")
     shape: { borderRadius: 12 },
     typography: {
       fontFamily: "var(--mizuki-panel-font-sans)",
+      fontSize,
       h4: { fontWeight: 700 },
       h5: { fontWeight: 700 },
       h6: { fontWeight: 650 },
@@ -140,7 +126,15 @@ export function createPanelMuiTheme(hue: number, resolvedMode: "light" | "dark")
   });
 }
 export function PanelThemeProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState(readSettings);
+  return (
+    <PersonalSettingsProvider>
+      <PanelThemeController>{children}</PanelThemeController>
+    </PersonalSettingsProvider>
+  );
+}
+function PanelThemeController({ children }: { children: ReactNode }) {
+  const preferences = usePersonalSettings();
+  const settings = preferences.effective.appearance;
   const [systemDark, setSystemDark] = useState(
     () => matchMedia("(prefers-color-scheme: dark)").matches,
   );
@@ -151,22 +145,27 @@ export function PanelThemeProvider({ children }: { children: ReactNode }) {
     return () => media.removeEventListener("change", update);
   }, []);
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(settings));
-  }, [settings]);
+    document.documentElement.style.setProperty(
+      "--mizuki-panel-font-sans",
+      settings.font === "system"
+        ? 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"'
+        : 'MizukiPanelBody, MizukiPanelCjk, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+    );
+  }, [settings.font]);
   const resolvedMode = settings.mode === "system" ? (systemDark ? "dark" : "light") : settings.mode;
   const theme = useMemo(
-    () => createPanelMuiTheme(settings.hue, resolvedMode),
-    [resolvedMode, settings.hue],
+    () => createPanelMuiTheme(settings.hue, resolvedMode, settings.fontSize),
+    [resolvedMode, settings.hue, settings.fontSize],
   );
   const value = useMemo<PanelThemeContextValue>(
     () => ({
       ...settings,
       resolvedMode,
-      setHue: (hue) => setSettings((current) => ({ ...current, hue: normalizeHue(hue) })),
-      setMode: (mode) => setSettings((current) => ({ ...current, mode })),
-      reset: () => setSettings(defaultPanelTheme),
+      setHue: (hue) => preferences.quickAppearance({ hue: normalizeHue(hue) }),
+      setMode: (mode) => preferences.quickAppearance({ mode }),
+      reset: () => preferences.quickAppearance(defaultPanelTheme),
     }),
-    [resolvedMode, settings],
+    [resolvedMode, settings, preferences.quickAppearance],
   );
   return (
     <PanelThemeContext.Provider value={value}>

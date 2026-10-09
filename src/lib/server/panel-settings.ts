@@ -1,0 +1,73 @@
+import { randomUUID, createHash } from "node:crypto";
+import { mkdir, readFile, realpath } from "node:fs/promises";
+import path from "node:path";
+import {
+  parseSettings,
+  patchSettings,
+  SettingsValidationError,
+  type SettingsScope,
+  type SettingsSnapshot,
+} from "../../shared/panel-settings";
+import { assertManagedRealPath } from "./path-guard";
+import { contentVersion, StorageConflict, writeManagedFile } from "./storage";
+import { defaultStateDir } from "./workspace";
+
+export async function settingsProjectKey(root: string): Promise<string> {
+  const canonical = await realpath(root);
+  return createHash("sha256")
+    .update(process.platform === "win32" ? canonical.toLowerCase() : canonical)
+    .digest("hex");
+}
+function relativeFile(scope: "machine" | "project", key?: string): string {
+  if (scope === "machine") return "settings.json";
+  if (!key || !/^[a-f0-9]{64}$/.test(key)) throw new SettingsValidationError("项目标识无效。");
+  return `project-settings/${key}.json`;
+}
+export async function readPanelSettings(
+  scope: "machine" | "project",
+  key?: string,
+  stateDir = defaultStateDir(),
+): Promise<SettingsSnapshot> {
+  const relative = relativeFile(scope, key);
+  let raw: string | null = null;
+  try {
+    raw = await readFile(await assertManagedRealPath(stateDir, relative), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  const snapshot = parseSettings(raw, scope);
+  snapshot.version = raw === null ? null : contentVersion(raw);
+  delete snapshot.raw;
+  return snapshot;
+}
+export async function savePanelSettings(
+  input: {
+    scope: "machine" | "project";
+    group: string;
+    fields: unknown;
+    version: string | null;
+    projectKey?: string;
+  },
+  stateDir = defaultStateDir(),
+): Promise<SettingsSnapshot> {
+  await mkdir(stateDir, { recursive: true });
+  const current = await readPanelSettings(input.scope, input.projectKey, stateDir);
+  if (current.version !== input.version)
+    throw new StorageConflict("设置已被其他操作修改，请重新读取后保存。");
+  if (current.readOnly) throw new SettingsValidationError(current.warnings[0]);
+  const next = patchSettings(
+    current.document,
+    input.scope as SettingsScope,
+    input.group,
+    input.fields,
+    randomUUID(),
+  );
+  await writeManagedFile(
+    stateDir,
+    relativeFile(input.scope, input.projectKey),
+    JSON.stringify(next, null, 2) + "\n",
+    current.version,
+    path.join(stateDir, "backups", "settings"),
+  );
+  return readPanelSettings(input.scope, input.projectKey, stateDir);
+}
