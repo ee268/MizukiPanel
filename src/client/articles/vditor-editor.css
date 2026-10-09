@@ -38,6 +38,13 @@
 .mizuki-vditor.vditor .vditor-reset pre > code {
   background: transparent;
 }
+.mizuki-vditor.vditor .vditor-reset :not(pre) > code:not(.hljs):not(.highlight-chroma) {
+  color: var(--panel-vditor-inline-text);
+  background: var(--panel-vditor-inline-bg);
+}
+.mizuki-vditor .vditor-ir__node[data-type="code"] > .vditor-ir__marker {
+  color: var(--panel-vditor-inline-text);
+}
 .mizuki-vditor a {
   color: var(--panel-vditor-primary);
   text-decoration: underline dashed;

@@ -382,6 +382,8 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
                 "--panel-vditor-bg": theme.palette.background.paper,
                 "--panel-vditor-text": theme.palette.text.secondary,
                 "--panel-vditor-strong": theme.palette.text.primary,
+                "--panel-vditor-inline-text": theme.palette.text.primary,
+                "--panel-vditor-inline-bg": theme.palette.action.selected,
                 "--panel-vditor-code-bg": theme.palette.background.default,
                 "--panel-vditor-primary": theme.palette.primary.main,
                 "--panel-vditor-border": theme.palette.divider,
