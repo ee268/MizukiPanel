@@ -20,6 +20,7 @@ import {
 } from "./vditor-source";
 import { loadVditorRuntime } from "./vditor-runtime";
 import { splitArticleSource } from "../../lib/articles/article-source";
+import { useOptionalPersonalSettings } from "../settings/PersonalSettingsProvider";
 import "vditor/dist/index.css";
 import "./vditor-editor.css";
 
@@ -57,6 +58,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     ref,
   ) {
     const theme = useTheme();
+    const preferences = useOptionalPersonalSettings();
     const host = useRef<HTMLDivElement>(null);
     const frame = useRef<HTMLDivElement>(null);
     const editor = useRef<Vditor | null>(null);
@@ -396,6 +398,9 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
             }}
             className="mizuki-document-content mizuki-vditor"
             data-font-mode={fontMode}
+            data-body-font={
+              preferences?.effective.appearance.font === "system" ? "system" : undefined
+            }
             inert={busy}
             style={
               {

@@ -141,10 +141,10 @@ export function AppearanceSettingsForms({ controller }: { controller: Controller
             }
             helperText={
               appearance.value.font === "system"
-                ? "使用系统界面字体。"
+                ? "使用系统字体，同时应用到文章正文和行内代码；代码块保留等宽字体。"
                 : fontsLoaded === false
                   ? "内置字体未能加载，当前已回退系统字体。"
-                  : "使用面板内置字体；文章编辑器的字体偏好独立管理。"
+                  : "界面使用面板内置字体；文章正文沿用当前项目字体。"
             }
           >
             <MenuItem value="panel">面板内置字体</MenuItem>

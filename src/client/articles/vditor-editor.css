@@ -9,6 +9,9 @@
     MizukiSourceDelimiters, MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
   --panel-vditor-mono: MizukiEditorCode, MizukiEditorCjk, var(--mizuki-panel-font-mono);
 }
+.mizuki-vditor[data-body-font="system"] {
+  --panel-vditor-font: MizukiSourceDelimiters, var(--mizuki-panel-font-sans);
+}
 .mizuki-vditor :is(.vditor-ir, .vditor-wysiwyg, .vditor-preview, .vditor-reset) {
   background: var(--panel-vditor-bg);
   color: var(--panel-vditor-text);
