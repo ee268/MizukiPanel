@@ -1,4 +1,4 @@
-import { validTemplateField } from "./article-template";
+import { defaultArticleFrontmatter, validTemplateField } from "./article-template";
 export const settingsSchemaVersion = 1;
 export type SettingsScope = "browser" | "machine" | "project";
 export interface AppearanceSettings {
@@ -131,7 +131,10 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
   project: {
     articleTemplate: {
       body: { default: "# 开始写作", valid: (value) => validTemplateField("body", value) },
-      frontmatter: { default: "", valid: (value) => validTemplateField("frontmatter", value) },
+      frontmatter: {
+        default: defaultArticleFrontmatter,
+        valid: (value) => validTemplateField("frontmatter", value),
+      },
       fileName: { default: "", valid: (value) => validTemplateField("fileName", value) },
     },
     media: {

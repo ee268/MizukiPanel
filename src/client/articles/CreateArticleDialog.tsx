@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import { api, json } from "../api";
+import { defaultArticleFrontmatter } from "../../shared/panel-settings/article-template";
 import {
   localDate,
   type CreationDefaults,
@@ -43,7 +44,7 @@ export function CreateArticleDialog({
     published: localDate(),
     draft: true,
     body: "# 开始写作",
-    frontmatter: "",
+    frontmatter: defaultArticleFrontmatter,
   });
   const [refresh, setRefresh] = useState(0);
   const epoch = useRef(0);

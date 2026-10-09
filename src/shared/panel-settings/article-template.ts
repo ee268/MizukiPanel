@@ -1,6 +1,8 @@
 import { isMap, parseDocument } from "yaml";
 import type { ArticleTemplateSettings } from "./index";
 
+export const defaultArticleFrontmatter = 'title: "{{title}}"\npublished: "{{date}}"';
+
 const variables = new Set(["title", "date", "year", "month", "day", "slug"]);
 export function expandTemplate(text: string, values: Record<string, string>): string {
   if (/\{\{|\}\}/.test(text.replace(/\{\{([^{}]*)\}\}/g, "")))

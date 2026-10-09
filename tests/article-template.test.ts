@@ -76,6 +76,28 @@ it("reads defaults without writing and previews/creates the same content in loca
     const { report, stateDir } = await fixture(external);
     const initial = await readArticleTemplate(report, stateDir);
     expect(initial.values.body).toBe("# 开始写作");
+    expect(
+      templateDefaults(initial.values.frontmatter, { title: "示例文章", date: "2026-10-09" }),
+    ).toEqual({ title: "示例文章", published: "2026-10-09" });
+    const initialPreview = await prepareArticleCreation(
+      report,
+      {
+        id: "required.md",
+        title: "创建表单标题",
+        published: "2026-10-10",
+        draft: true,
+        body: initial.values.body,
+        frontmatter: initial.values.frontmatter,
+        projectKey: initial.projectKey,
+        settingsVersion: initial.settingsVersion,
+      },
+      stateDir,
+    );
+    expect(parseArticleSource(initialPreview.source).data).toEqual({
+      title: "创建表单标题",
+      published: "2026-10-10",
+      draft: true,
+    });
     expect(initial.settingsVersion).toBeNull();
     const key = await settingsProjectKey(report.root);
     const saved = await savePanelSettings(

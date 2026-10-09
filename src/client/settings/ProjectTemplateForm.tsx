@@ -128,8 +128,8 @@ export function ProjectTemplateForm({
             controller.change({ frontmatter: event.target.value });
             setPreview(null);
           }}
-          placeholder={'tags: [笔记]\ncategory: 学习\ncustom: "{{title}}"'}
-          helperText="可包含未知字段；标题、发布日期和草稿状态以创建表单为准。字符串中的占位符会安全替换，不执行代码。"
+          placeholder={'title: "{{title}}"\npublished: "{{date}}"\ntags: [笔记]'}
+          helperText="Mizuki 必填字段为 title 和 published，默认模板使用标题和日期占位符；创建时以表单输入为准，draft 由草稿开关生成。支持其他 YAML 字段。"
         />
         <TextField
           label="文件名规则"
