@@ -25,6 +25,7 @@ import { defaultPersonalSettings } from "../../shared/panel-settings";
 import { defaultEditorMode, editorCodeSize } from "./editor-preferences";
 import { useArticleFonts } from "./useArticleFonts";
 import "vditor/dist/index.css";
+import { imageReference } from "../../shared/media-settings";
 import "./vditor-editor.css";
 
 const cdn = "/assets/vditor";
@@ -503,7 +504,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
           open={imageOpen}
           articleId={article.id}
           onClose={() => setImageOpen(false)}
-          onInsert={(alt, src) => {
+          onInsert={(alt, src, format) => {
             const instance = editor.current;
             if (!instance || busy || readOnly) return;
             instance.focus();
@@ -512,7 +513,9 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
               selection?.removeAllRanges();
               selection?.addRange(imageRange.current);
             }
-            instance.insertMD(vditorImageMarkdown(alt, src));
+            instance.insertMD(
+              format === "html" ? imageReference(src, alt, "html") : vditorImageMarkdown(alt, src),
+            );
             flush();
             setImageOpen(false);
           }}

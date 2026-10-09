@@ -3,6 +3,11 @@ export function mediaPathParts(value: string): string[] {
 }
 
 function normalizeRelativePath(value: string): string | null {
+  try {
+    value = decodeURIComponent(value);
+  } catch {
+    /* Keep literal percent signs in existing paths. */
+  }
   const parts: string[] = [];
   for (const part of mediaPathParts(value)) {
     if (part === ".") continue;

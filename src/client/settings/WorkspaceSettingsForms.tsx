@@ -27,7 +27,7 @@ import { useWorkspaceActions } from "../workspace/useWorkspaceActions";
 import type { WorkspaceData } from "../workspace/types";
 
 type ScopedController = ReturnType<typeof useScopedSettings>;
-function ScopedCard({
+export function ScopedCard({
   title,
   controller,
   children,

@@ -22,12 +22,13 @@ import { api } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { MediaItem } from "../types";
 import { articleMediaReference, mediaPreviewUrl, validImageReference } from "./article-media";
+import { mediaAlt, type MediaSettings } from "../../shared/media-settings";
 
 interface ImagePickerDialogProps {
   open: boolean;
   articleId: string;
   onClose: () => void;
-  onInsert: (alt: string, src: string) => void;
+  onInsert: (alt: string, src: string, format: "markdown" | "html") => void;
 }
 
 type ImageSource = "library" | "url";
@@ -43,6 +44,8 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
   const [alt, setAlt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [format, setFormat] = useState<"markdown" | "html">("markdown");
+  const [altPolicy, setAltPolicy] = useState<MediaSettings["alt"]>("filename");
 
   useEffect(() => {
     if (!open) {
@@ -56,12 +59,17 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
     setQuery("");
     setUrl("");
     setAlt("");
+    setFormat("markdown");
+    setAltPolicy("filename");
     setError("");
     setLoading(true);
-    void api<{ media: MediaItem[] }>("/api/media")
+    void api<{ media: MediaItem[]; preferences: { values: MediaSettings } }>("/api/media")
       .then((data) => {
         if (active) {
           setItems(data.media);
+          setScope(data.preferences.values.scope);
+          setFormat(data.preferences.values.referenceFormat === "html" ? "html" : "markdown");
+          setAltPolicy(data.preferences.values.alt);
         }
       })
       .catch((cause) => {
@@ -98,12 +106,7 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
 
   function select(item: MediaItem) {
     setSelected(item);
-    setAlt(
-      item.path
-        .split("/")
-        .at(-1)
-        ?.replace(/\.[^.]+$/, "") ?? "",
-    );
+    setAlt(mediaAlt(item.path, altPolicy));
   }
 
   return (
@@ -191,13 +194,23 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
             helperText="用于图片无法显示时的说明；装饰性图片可留空。"
             fullWidth
           />
+          <TextField
+            fullWidth
+            select
+            label="插入语法"
+            value={format}
+            onChange={(event) => setFormat(event.target.value as "markdown" | "html")}
+          >
+            <MenuItem value="markdown">Markdown 图片</MenuItem>
+            <MenuItem value="html">HTML img 图片</MenuItem>
+          </TextField>
           {reference && (
             <Typography
               variant="body2"
               color={valid ? "text.secondary" : "error.main"}
               sx={{ overflowWrap: "anywhere" }}
             >
-              {valid ? `Markdown 路径：${reference}` : "图片路径无效或超出文章资源目录"}
+              {valid ? `图片路径：${reference}` : "图片路径无效或超出文章资源目录"}
             </Typography>
           )}
         </Stack>
@@ -206,8 +219,8 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
         <Button onClick={onClose}>取消</Button>
         <Button
           variant="contained"
-          disabled={!valid}
-          onClick={() => onInsert(alt.trim(), reference)}
+          disabled={!valid || loading}
+          onClick={() => onInsert(alt.trim(), reference, format)}
         >
           插入图片
         </Button>

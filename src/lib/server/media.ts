@@ -17,6 +17,7 @@ import type { ProjectReport } from "./project";
 import { assertManagedRealPath, resolveManagedPath } from "./path-guard";
 import { defaultStateDir } from "./workspace";
 import { validateArticleId } from "./articles";
+import { encodeMediaPath } from "../../shared/media-settings";
 
 export type MediaScope = "public" | "article";
 
@@ -36,8 +37,8 @@ export class MediaError extends Error {
   }
 }
 
-const LIMIT = 20 * 1024 * 1024;
-const EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"]);
+export const MEDIA_BYTE_LIMIT = 20 * 1024 * 1024;
+const EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg"]);
 
 function roots(report: ProjectReport) {
   if (report.mode === "blocked") throw new MediaError("项目内容模式尚未就绪");
@@ -78,11 +79,11 @@ export function validateMediaPath(input: string): string {
   )
     throw new MediaError("媒体路径包含不安全的名称");
   if (!EXTENSIONS.has(path.extname(input).toLowerCase()))
-    throw new MediaError("仅支持 PNG、JPEG、GIF、WebP 和 AVIF 图片");
+    throw new MediaError("仅支持 PNG、JPEG、GIF、WebP、AVIF 和 SVG 图片");
   return input;
 }
 
-function detect(buffer: Buffer): string | null {
+export function detectMediaFormat(buffer: Buffer): string | null {
   if (
     buffer.length >= 8 &&
     buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
@@ -104,20 +105,26 @@ function detect(buffer: Buffer): string | null {
     /^(avif|avis)$/.test(buffer.subarray(8, 12).toString("ascii"))
   )
     return ".avif";
+  if (
+    /^\s*(?:<\?xml[^?]*\?>\s*)?(?:<!--[\s\S]*?-->\s*)*<svg(?:\s|>)/i.test(
+      buffer.toString("utf8", 0, Math.min(buffer.length, 4096)),
+    )
+  )
+    return ".svg";
   return null;
 }
 
-function validateBytes(filename: string, bytes: Buffer): void {
+export function validateMediaBytes(filename: string, bytes: Buffer): void {
   if (!bytes.length) throw new MediaError("图片文件不能为空");
-  if (bytes.length > LIMIT) throw new MediaError("单个图片不能超过 20 MB");
-  const detected = detect(bytes);
+  if (bytes.length > MEDIA_BYTE_LIMIT) throw new MediaError("单个图片不能超过 20 MB");
+  const detected = detectMediaFormat(bytes);
   if (!detected) throw new MediaError("图片内容格式不受支持");
   const extension = path.extname(filename).toLowerCase();
   if (extension === ".jpeg" ? detected !== ".jpg" : extension !== detected)
     throw new MediaError("图片扩展名与文件内容不一致");
 }
 
-function targetInfo(
+export function mediaTarget(
   report: ProjectReport,
   scope: MediaScope,
   mediaPath: string,
@@ -126,13 +133,23 @@ function targetInfo(
   const base = roots(report);
   mediaPath = validateMediaPath(mediaPath);
   if (scope === "public") {
-    return { ...base, relative: `${base.images}/${mediaPath}`, reference: `/images/${mediaPath}` };
+    return {
+      ...base,
+      article: undefined,
+      relative: `${base.images}/${mediaPath}`,
+      reference: `/images/${encodeMediaPath(mediaPath)}`,
+    };
   }
   if (!articleId) throw new MediaError("文章图片必须指定文章");
   articleId = validateArticleId(articleId);
   const articleDirectory = path.posix.dirname(articleId);
   const relativeMedia = articleDirectory === "." ? mediaPath : `${articleDirectory}/${mediaPath}`;
-  return { ...base, relative: `${base.posts}/${relativeMedia}`, reference: `./${mediaPath}` };
+  return {
+    ...base,
+    article: `${base.posts}/${articleId}`,
+    relative: `${base.posts}/${relativeMedia}`,
+    reference: `./${encodeMediaPath(mediaPath)}`,
+  };
 }
 
 async function walk(current: string, relative = ""): Promise<string[]> {
@@ -193,10 +210,18 @@ function referencesFor(
   const normalized = mediaPath.replaceAll("\\", "/");
   return sources
     .filter((article) => {
-      if (scope === "public") return article.source.includes(`/images/${normalized}`);
+      if (scope === "public")
+        return (
+          article.source.includes(`/images/${normalized}`) ||
+          article.source.includes(`/images/${encodeMediaPath(normalized)}`)
+        );
       const articleDir = path.posix.dirname(article.id);
       const relative = path.posix.relative(articleDir === "." ? "" : articleDir, normalized);
-      return article.source.includes(`./${relative}`) || article.source.includes(relative);
+      return (
+        article.source.includes(`./${relative}`) ||
+        article.source.includes(relative) ||
+        article.source.includes(encodeMediaPath(relative))
+      );
     })
     .map((article) => article.id);
 }
@@ -214,7 +239,7 @@ function articleReference(
     .sort((a, b) => path.posix.dirname(b).length - path.posix.dirname(a).length);
   const directory = candidates.length ? path.posix.dirname(candidates[0]) : ".";
   const relative = path.posix.relative(directory === "." ? "" : directory, mediaPath);
-  return relative.startsWith(".") ? relative : `./${relative}`;
+  return relative.startsWith(".") ? encodeMediaPath(relative) : `./${encodeMediaPath(relative)}`;
 }
 
 export async function listMedia(report: ProjectReport): Promise<MediaItem[]> {
@@ -233,7 +258,7 @@ export async function listMedia(report: ProjectReport): Promise<MediaItem[]> {
         path: file,
         size: details.size,
         modified: details.mtime.toISOString(),
-        reference: `/images/${file}`,
+        reference: `/images/${encodeMediaPath(file)}`,
         referencedBy: referencesFor("public", file, sources),
       };
     }),
@@ -261,8 +286,13 @@ export async function uploadMedia(
   articleId?: string,
 ) {
   writable(report);
-  const target = targetInfo(report, scope, mediaPath, articleId);
-  validateBytes(mediaPath, bytes);
+  const target = mediaTarget(report, scope, mediaPath, articleId);
+  validateMediaBytes(mediaPath, bytes);
+  if (
+    target.article &&
+    !(await lstat(await assertManagedRealPath(target.root, target.article))).isFile()
+  )
+    throw new MediaError("所属文章不是普通文件");
   const filename = await assertManagedRealPath(target.root, target.relative);
   await mkdir(path.dirname(filename), { recursive: true });
   const temporary = `${filename}.mizuki-panel-${randomUUID()}.tmp`;
@@ -297,7 +327,7 @@ export async function readMedia(
   const filename = await assertManagedRealPath(base.root, relative);
   if (!(await lstat(filename)).isFile()) throw new MediaError("媒体目标不是普通文件");
   const bytes = await readFile(filename);
-  const extension = detect(bytes);
+  const extension = detectMediaFormat(bytes);
   if (!extension) throw new MediaError("媒体内容格式不受支持");
   const types: Record<string, string> = {
     ".png": "image/png",
@@ -305,6 +335,7 @@ export async function readMedia(
     ".gif": "image/gif",
     ".webp": "image/webp",
     ".avif": "image/avif",
+    ".svg": "image/svg+xml",
   };
   return { bytes, type: types[extension] };
 }

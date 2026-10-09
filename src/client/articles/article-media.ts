@@ -1,5 +1,6 @@
 import type { MediaItem } from "../types";
 import { mediaPathParts } from "../../lib/articles/media-preview-url";
+import { encodeMediaPath } from "../../shared/media-settings";
 export { mediaPreviewUrl, validImageReference } from "../../lib/articles/media-preview-url";
 
 function articleDirectory(articleId: string): string[] {
@@ -9,7 +10,7 @@ function articleDirectory(articleId: string): string[] {
 
 export function articleMediaReference(articleId: string, item: MediaItem): string {
   if (item.scope === "public") {
-    return `/images/${item.path.replaceAll("\\", "/")}`;
+    return `/images/${encodeMediaPath(item.path.replaceAll("\\", "/"))}`;
   }
 
   const directory = articleDirectory(articleId);
@@ -20,5 +21,5 @@ export function articleMediaReference(articleId: string, item: MediaItem): strin
   }
 
   const relative = [...directory.slice(shared).map(() => ".."), ...file.slice(shared)].join("/");
-  return relative.startsWith("..") ? relative : `./${relative}`;
+  return relative.startsWith("..") ? encodeMediaPath(relative) : `./${encodeMediaPath(relative)}`;
 }

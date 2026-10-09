@@ -66,7 +66,7 @@ export function createApp(options: AppOptions = {}) {
   registerArticleRoutes(app, stateDir);
   registerConfigRoutes(app);
   registerFeatureRoutes(app);
-  registerMediaRoutes(app);
+  registerMediaRoutes(app, stateDir);
   registerMarkdownPreviewRoutes(app);
   registerPreviewRoutes(app);
   registerPublishRoutes(app);

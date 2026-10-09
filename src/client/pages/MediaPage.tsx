@@ -31,20 +31,7 @@ export default function MediaPage() {
         )}
         {readOnly && <Alert severity="warning">当前工作区只读，媒体写入已禁用。</Alert>}
 
-        <MediaUpload
-          scope={media.scope}
-          articles={media.data?.articles ?? []}
-          articleId={media.articleId}
-          folder={media.folder}
-          file={media.file}
-          busy={media.busy}
-          readOnly={readOnly}
-          onScopeChange={media.setScope}
-          onArticleChange={media.setArticleId}
-          onFolderChange={media.setFolder}
-          onFileChange={media.setFile}
-          onSubmit={media.upload}
-        />
+        <MediaUpload controller={media} readOnly={readOnly} />
         <MediaGallery
           items={media.visibleItems}
           scope={media.scope}

@@ -11,9 +11,19 @@ export function patchVditorLute(source: string): string {
   if (matches.length !== 1 || !matches[0][0].includes(".SplitWhitespace(")) {
     throw new Error("Vditor Lute HTML patch no longer matches; review it before upgrading Vditor.");
   }
-  return source.replace(
-    functionBody,
-    (_, prefix: string) =>
-      `${prefix}function(tokens){return /${openingTag.source}/.test($bytesToString(tokens));}`,
-  );
+  const htmlDecode = "||(j===(9))";
+  if (source.split(htmlDecode).length !== 3) {
+    throw new Error(
+      "Vditor Lute HTML serializer patch no longer matches; review it before upgrading Vditor.",
+    );
+  }
+  // HTML-block code text is already decoded by the DOM parser. Decoding again
+  // turns &quot; inside attribute values into delimiters and destroys valid HTML.
+  return source
+    .replaceAll(htmlDecode, "")
+    .replace(
+      functionBody,
+      (_, prefix: string) =>
+        `${prefix}function(tokens){return /${openingTag.source}/.test($bytesToString(tokens));}`,
+    );
 }

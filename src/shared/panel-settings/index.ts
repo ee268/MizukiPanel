@@ -1,4 +1,5 @@
 import { defaultArticleFrontmatter, validTemplateField } from "./article-template";
+import { validMediaFolder } from "../media-settings";
 export const settingsSchemaVersion = 1;
 export type SettingsScope = "browser" | "machine" | "project";
 export interface AppearanceSettings {
@@ -157,12 +158,16 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
       scope: choice("public", ["public", "article"]),
       folder: {
         default: "",
-        valid: (value) =>
-          typeof value === "string" &&
-          value.length <= 240 &&
-          !/^[\\/]|[:\x00-\x1f]/.test(value) &&
-          !value.split(/[\\/]/).some((part) => part === "." || part === ".."),
+        valid: validMediaFolder,
       },
+      naming: choice("original", ["original", "date", "unique"]),
+      referenceFormat: choice("auto", ["auto", "markdown", "html"]),
+      alt: choice("filename", ["filename", "empty"]),
+      compress: flag(false),
+      quality: number(85, 50, 100),
+      resize: flag(false),
+      maxDimension: number(1920, 64, 8192),
+      format: choice("original", ["original", "png", "jpeg", "webp", "avif"]),
     },
   },
 };

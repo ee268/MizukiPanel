@@ -23,6 +23,7 @@ it.each([
   '<img src = "./photo.png" alt = "图片 说明" style="zoom: 67%;" />',
   '<IMG SRC="./photo.png" TITLE="HTML\t图片" />',
   '<img src="./photo.png" alt="a > b" title="a &amp; b" />',
+  '<img src="./photo.png" alt="示意 &quot;图&quot; &amp; &lt;标签&gt;" />',
 ])("previews a standalone image and preserves its attributes: %s", (tag) => {
   for (const mode of ["", "IR"]) {
     const dom = patched[`Md2Vditor${mode}DOM`](tag);
@@ -30,8 +31,7 @@ it.each([
     expect(dom).toMatch(/<img\b/i);
     const spun = patched[`SpinVditor${mode}DOM`](dom);
     expect(spun).toContain('data-type="html-block"');
-    // Vditor's native serializer decodes HTML entities in source attributes.
-    expect(patched[`Vditor${mode}DOM2Md`](spun).trim()).toBe(tag.replaceAll("&amp;", "&"));
+    expect(patched[`Vditor${mode}DOM2Md`](spun).trim()).toBe(tag);
   }
 });
 

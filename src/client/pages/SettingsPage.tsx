@@ -32,6 +32,7 @@ import { ProjectTemplateForm } from "../settings/ProjectTemplateForm";
 import { useScopedSettings } from "../settings/useScopedSettings";
 import { WorkspaceSettingsForms } from "../settings/WorkspaceSettingsForms";
 import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
+import { MediaSettingsForm } from "../settings/MediaSettingsForm";
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -91,8 +92,21 @@ export default function SettingsPage() {
         : current,
     ),
   );
-  const dirty = controller.dirty || template.dirty || machine.dirty || access.dirty;
-  const saving = controller.saving || template.saving || machine.saving || access.saving;
+  const media = useScopedSettings(
+    "project",
+    "media",
+    overview?.project?.settings ?? null,
+    overview?.project?.key,
+    (settings) => {
+      setOverview((current) =>
+        current?.project ? { ...current, project: { ...current.project, settings } } : current,
+      );
+      refreshWorkspace();
+    },
+  );
+  const dirty = controller.dirty || template.dirty || machine.dirty || access.dirty || media.dirty;
+  const saving =
+    controller.saving || template.saving || machine.saving || access.saving || media.saving;
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&
@@ -159,7 +173,8 @@ export default function SettingsPage() {
       (controller.dirty && !(await controller.save())) ||
       (template.dirty && !(await template.save())) ||
       (machine.dirty && !(await machine.save())) ||
-      (access.dirty && !(await access.save()))
+      (access.dirty && !(await access.save())) ||
+      (media.dirty && !(await media.save()))
     )
       setLeaveError("部分设置尚未保存。已保存范围保留，失败范围的输入仍保留，请继续编辑处理提示。");
     else leave();
@@ -285,6 +300,11 @@ export default function SettingsPage() {
                     dirty={dirty || saving}
                     onRefresh={() => setReload((value) => value + 1)}
                   />
+                ) : item.id === "media" ? (
+                  <MediaSettingsForm
+                    controller={media}
+                    projectRoot={overview?.project?.root ?? ""}
+                  />
                 ) : (
                   <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 } }}>
                     <Typography variant="h6" component="h2">
@@ -335,6 +355,7 @@ export default function SettingsPage() {
               template.reset();
               machine.reset();
               access.reset();
+              media.reset();
               leave();
             }}
             disabled={saving}
@@ -349,7 +370,8 @@ export default function SettingsPage() {
               (controller.dirty && preferences.snapshot.readOnly) ||
               (template.dirty && template.base?.settings.readOnly) ||
               (machine.dirty && machine.readOnly) ||
-              (access.dirty && access.readOnly)
+              (access.dirty && access.readOnly) ||
+              (media.dirty && media.readOnly)
             }
           >
             保存并离开

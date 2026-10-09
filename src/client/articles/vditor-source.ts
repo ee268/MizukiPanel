@@ -21,13 +21,5 @@ export function vditorImageMarkdown(alt: string, src: string): string {
 }
 
 export function vditorImagePreviewUrl(articleId: string, reference: string): string | null {
-  let path = reference;
-  if (!/^https?:\/\//i.test(path)) {
-    try {
-      path = decodeURIComponent(path);
-    } catch {
-      /* A literal percent sign may be part of a filename. */
-    }
-  }
-  return mediaPreviewUrl(articleId, path);
+  return mediaPreviewUrl(articleId, reference);
 }
