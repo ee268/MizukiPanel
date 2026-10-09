@@ -287,6 +287,17 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     }, [article.id, article.version, article.format, initialMode]);
 
     useEffect(() => {
+      if (!toolbar || !host.current) return;
+      const container = host.current;
+      const measureToolbar = () => {
+        container.style.setProperty("--panel-vditor-toolbar-height", `${toolbar.offsetHeight}px`);
+      };
+      const observer = new ResizeObserver(measureToolbar);
+      observer.observe(toolbar);
+      measureToolbar();
+      return () => observer.disconnect();
+    }, [toolbar]);
+    useEffect(() => {
       if (!ready || !editor.current) return;
       editor.current.setTheme(
         theme.palette.mode === "dark" ? "dark" : "classic",

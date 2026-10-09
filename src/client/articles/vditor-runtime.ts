@@ -1,3 +1,5 @@
+import { configureVditorStrong } from "./vditor-strong";
+
 let runtime: Promise<void> | null = null;
 
 function loadScript(src: string, id: string): Promise<void> {
@@ -26,7 +28,9 @@ export function loadVditorRuntime(): Promise<void> {
     loadScript("/assets/vditor/dist/js/i18n/zh_CN.js", "vditorI18nScriptzh_CN"),
     loadScript("/assets/vditor/dist/js/lute/lute.min.js", "vditorLuteScript"),
   ])
-    .then(() => undefined)
+    .then(() => {
+      configureVditorStrong(Lute);
+    })
     .catch((error) => {
       runtime = null;
       throw error;
