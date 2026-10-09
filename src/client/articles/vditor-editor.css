@@ -39,6 +39,7 @@
   background: transparent;
 }
 .mizuki-vditor.vditor .vditor-reset :not(pre) > code:not(.hljs):not(.highlight-chroma) {
+  font-family: var(--panel-vditor-font);
   color: var(--panel-vditor-inline-text);
   background: var(--panel-vditor-inline-bg);
 }
