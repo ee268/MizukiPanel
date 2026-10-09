@@ -29,6 +29,9 @@ import { AppearanceSettingsForms } from "../settings/AppearanceSettingsForms";
 import { EditorSettingsForms } from "../settings/EditorSettingsForms";
 import { useProjectTemplate } from "../settings/useProjectTemplate";
 import { ProjectTemplateForm } from "../settings/ProjectTemplateForm";
+import { useScopedSettings } from "../settings/useScopedSettings";
+import { WorkspaceSettingsForms } from "../settings/WorkspaceSettingsForms";
+import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -41,6 +44,46 @@ export default function SettingsPage() {
   const preferences = usePersonalSettings();
   const controller = usePersonalDrafts();
   const [overview, setOverview] = useState<SettingsOverview | null>(null);
+  const workspace = useWorkspaceSession();
+  const refreshWorkspace = () => {
+    workspace.notify();
+    void workspace.refresh().catch((cause) => setServerError(cause.message));
+  };
+  const machine = useScopedSettings(
+    "machine",
+    "workspace",
+    overview?.machine ?? null,
+    undefined,
+    (settings) => {
+      setOverview((current) => (current ? { ...current, machine: settings } : current));
+      refreshWorkspace();
+    },
+  );
+  const access = useScopedSettings(
+    "project",
+    "access",
+    overview?.project?.settings ?? null,
+    overview?.project?.key,
+    (settings) => {
+      setOverview((current) =>
+        current?.project
+          ? {
+              ...current,
+              project: {
+                ...current.project,
+                settings,
+                readOnlyInfo: {
+                  detected: current.project.readOnlyInfo?.detected ?? false,
+                  settings: settings.readOnly,
+                  preference: settings.document.values.access.readOnly === true,
+                },
+              },
+            }
+          : current,
+      );
+      refreshWorkspace();
+    },
+  );
   const template = useProjectTemplate(overview?.project ?? null, (key, settings) =>
     setOverview((current) =>
       current?.project?.key === key
@@ -48,8 +91,8 @@ export default function SettingsPage() {
         : current,
     ),
   );
-  const dirty = controller.dirty || template.dirty;
-  const saving = controller.saving || template.saving;
+  const dirty = controller.dirty || template.dirty || machine.dirty || access.dirty;
+  const saving = controller.saving || template.saving || machine.saving || access.saving;
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&
@@ -74,7 +117,7 @@ export default function SettingsPage() {
           setServerError(cause instanceof Error ? cause.message : "设置状态读取失败。");
       });
     return () => abort.abort();
-  }, [reload]);
+  }, [reload, workspace.data]);
   useEffect(() => {
     if (!dirty) return;
     const unload = (event: BeforeUnloadEvent) => {
@@ -114,7 +157,9 @@ export default function SettingsPage() {
   async function saveAndLeave() {
     if (
       (controller.dirty && !(await controller.save())) ||
-      (template.dirty && !(await template.save()))
+      (template.dirty && !(await template.save())) ||
+      (machine.dirty && !(await machine.save())) ||
+      (access.dirty && !(await access.save()))
     )
       setLeaveError("部分设置尚未保存。已保存范围保留，失败范围的输入仍保留，请继续编辑处理提示。");
     else leave();
@@ -231,6 +276,15 @@ export default function SettingsPage() {
                       />
                     }
                   />
+                ) : item.id === "workspace" ? (
+                  <WorkspaceSettingsForms
+                    controller={controller}
+                    machine={machine}
+                    access={access}
+                    project={overview?.project ?? null}
+                    dirty={dirty || saving}
+                    onRefresh={() => setReload((value) => value + 1)}
+                  />
                 ) : (
                   <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 } }}>
                     <Typography variant="h6" component="h2">
@@ -279,6 +333,8 @@ export default function SettingsPage() {
             onClick={() => {
               controller.cancelAll();
               template.reset();
+              machine.reset();
+              access.reset();
               leave();
             }}
             disabled={saving}
@@ -291,7 +347,9 @@ export default function SettingsPage() {
             disabled={
               saving ||
               (controller.dirty && preferences.snapshot.readOnly) ||
-              (template.dirty && template.base?.settings.readOnly)
+              (template.dirty && template.base?.settings.readOnly) ||
+              (machine.dirty && machine.readOnly) ||
+              (access.dirty && access.readOnly)
             }
           >
             保存并离开

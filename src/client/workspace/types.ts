@@ -1,6 +1,7 @@
 import type { DashboardOverview, ProjectReport } from "../types";
+import type { WorkspaceMetadata } from "../../shared/workspace";
 
-export interface WorkspaceData {
+export interface WorkspaceData extends WorkspaceMetadata {
   connectedPath: string | null;
   report: ProjectReport | null;
   connectionError: string | null;

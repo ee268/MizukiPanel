@@ -77,6 +77,28 @@ it("separates managed content changes from unrelated repository files", async ()
   expect(overview.canCommit).toBe(true);
   expect(overview.checks.find((check) => check.key === "unmanaged")?.status).toBe("warning");
 });
+it("keeps read-only Git status and differences available but rejects all publish mutations", async () => {
+  const { root, report } = await fixture();
+  await writeFile(path.join(root, "src/content/posts/one.md"), "# Read-only draft\n");
+  const before = git(root, "status", "--porcelain");
+  const restricted = { ...report, readOnly: true };
+  const overview = await publishOverview(restricted);
+  expect([overview.canCommit, overview.canPush, overview.canSync, overview.canBuild]).toEqual([
+    false,
+    false,
+    false,
+    false,
+  ]);
+  expect(overview.checks.find((check) => check.key === "writable")?.status).toBe("error");
+  expect(await publishDiff(restricted, "src/content/posts/one.md")).toContain("Read-only draft");
+  await expect(
+    commitSelected(restricted, ["src/content/posts/one.md"], "feat(content): test"),
+  ).rejects.toThrow("只读");
+  await expect(pushCurrentBranch(restricted)).rejects.toThrow("只读");
+  await expect(revertPanelCommit(restricted)).rejects.toThrow("只读");
+  await expect(startPublishOperation(restricted, "build")).rejects.toThrow("只读");
+  expect(git(root, "status", "--porcelain")).toBe(before);
+});
 
 it("commits only selected managed files and leaves other changes untouched", async () => {
   const { root, report } = await fixture();

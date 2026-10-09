@@ -4,11 +4,15 @@ import { DeleteMediaDialog } from "../media/DeleteMediaDialog";
 import { MediaGallery } from "../media/MediaGallery";
 import { MediaUpload } from "../media/MediaUpload";
 import { useMedia } from "../media/useMedia";
+import { useCurrentProjectReadOnly } from "../workspace/WorkspaceSessionProvider";
 
 export default function MediaPage() {
   const noticeDuration = useNoticeDuration();
   const media = useMedia();
-  const readOnly = Boolean(media.data?.report.readOnly);
+  const readOnly = useCurrentProjectReadOnly(
+    media.data?.report.root,
+    Boolean(media.data?.report.readOnly),
+  );
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>

@@ -21,7 +21,10 @@ export function useProjectTemplate(
     ArticleTemplateSettings | undefined;
   const dirty = groupFingerprint(value) !== groupFingerprint(original ?? defaults);
   const conflict = Boolean(
-    base && (base.key !== project?.key || base.settings.version !== project.settings.version),
+    base &&
+    (base.key !== project?.key ||
+      groupFingerprint(base.settings.document.values.articleTemplate) !==
+        groupFingerprint(project.settings.document.values.articleTemplate)),
   );
   useEffect(() => {
     if (!dirty) {
@@ -64,7 +67,7 @@ export function useProjectTemplate(
           group: "articleTemplate",
           fields: { body: value.body, frontmatter: value.frontmatter, fileName: value.fileName },
           projectKey: base.key,
-          version: base.settings.version,
+          version: project?.settings.version,
         }),
       );
       setBase({ ...base, settings });

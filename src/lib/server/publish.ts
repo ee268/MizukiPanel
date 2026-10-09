@@ -90,10 +90,18 @@ const runtime = (globals[runtimeKey] ??= {
 const panelCommits = (globals[commitsKey] ??= new Map<string, PanelCommit>());
 const syncedHeads = (globals[syncKey] ??= new Map<string, string>());
 
+export function workspacePublishTask() {
+  return runtime.state === "running" && runtime.projectRoot
+    ? { kind: "publish" as const, projectRoot: runtime.projectRoot, canStop: false }
+    : null;
+}
+
 function repositoryRoot(report: ProjectReport): string {
   if (report.mode === "blocked") throw new PublishError("项目内容模式尚未就绪");
-  if (report.readOnly) throw new PublishError("当前工作区为只读，不能执行发布操作");
   return path.resolve(report.contentRoot ?? report.root);
+}
+function requireWritable(report: ProjectReport) {
+  if (report.readOnly) throw new PublishError("当前工作区为只读，不能执行发布操作");
 }
 
 function normalizeGitPath(value: string): string {
@@ -224,8 +232,12 @@ export async function publishOverview(report: ProjectReport): Promise<PublishOve
     {
       key: "writable",
       label: "工作区可写",
-      status: "pass",
-      detail: report.mode === "external" ? "独立内容仓库可写" : "Mizuki 本地内容可写",
+      status: report.readOnly ? "error" : "pass",
+      detail: report.readOnly
+        ? "当前工作区只读，仅可查看发布状态与差异"
+        : report.mode === "external"
+          ? "独立内容仓库可写"
+          : "Mizuki 本地内容可写",
     },
     {
       key: "branch",
@@ -266,7 +278,7 @@ export async function publishOverview(report: ProjectReport): Promise<PublishOve
       detail: upstream ? `上游：${upstream}` : "尚未配置上游分支，可以提交但不能从面板推送",
     },
   ];
-  const blocking = !branch || conflicts.length > 0 || staged.length > 0;
+  const blocking = report.readOnly || !branch || conflicts.length > 0 || staged.length > 0;
   const cleanManaged = managed.length === 0;
   const syncedHead =
     report.mode === "external" && head ? syncedHeads.get(report.root) === head : true;
@@ -283,7 +295,7 @@ export async function publishOverview(report: ProjectReport): Promise<PublishOve
     changes,
     checks,
     canCommit: !blocking && managed.length > 0,
-    canPush: Boolean(branch && upstream && ahead > 0 && !conflicts.length),
+    canPush: Boolean(!report.readOnly && branch && upstream && ahead > 0 && !conflicts.length),
     canSync: report.mode === "external" && !blocking && cleanManaged,
     canBuild: !blocking && cleanManaged && syncedHead,
   };
@@ -355,6 +367,7 @@ export async function commitSelected(
   selected: string[],
   message: string,
 ): Promise<{ sha: string; subject: string }> {
+  requireWritable(report);
   const subject = validateCommitMessage(message);
   const { root, changes } = await changesFor(report);
   if (changes.some((change) => change.staged))
@@ -383,6 +396,7 @@ export async function commitSelected(
 export async function pushCurrentBranch(
   report: ProjectReport,
 ): Promise<{ head: string; upstream: string }> {
+  requireWritable(report);
   const overview = await publishOverview(report);
   if (!overview.branch) throw new PublishError("游离 HEAD 不能推送");
   if (!overview.upstream) throw new PublishError("当前分支没有上游；请先在终端明确配置推送目标");
@@ -396,6 +410,7 @@ export async function pushCurrentBranch(
 }
 
 export async function revertPanelCommit(report: ProjectReport): Promise<{ sha: string }> {
+  requireWritable(report);
   const root = repositoryRoot(report);
   await assertRepository(root);
   const previous = panelCommits.get(root);
@@ -490,6 +505,7 @@ export async function startPublishOperation(
   report: ProjectReport,
   kind: NonNullable<PublishOperationStatus["kind"]>,
 ): Promise<PublishOperationStatus> {
+  requireWritable(report);
   if (runtime.state === "running") throw new PublishError("已有发布操作正在运行");
   if (!["validate", "sync", "build"].includes(kind)) throw new PublishError("不支持的发布操作");
   const overview = await publishOverview(report);

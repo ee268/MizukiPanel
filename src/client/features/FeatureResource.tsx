@@ -4,6 +4,8 @@ import { AnimeSeasons } from "./AnimeSeasons";
 import type { FeatureEditorCallbacks } from "./common";
 import { DataEditor } from "./DataEditor";
 import { TextEditor } from "./TextEditor";
+import { Box } from "@mui/material";
+import { useLiveProjectReport } from "../workspace/WorkspaceSessionProvider";
 
 interface FeatureResourceProps extends FeatureEditorCallbacks {
   resource?: string;
@@ -11,6 +13,18 @@ interface FeatureResourceProps extends FeatureEditorCallbacks {
 }
 
 export function FeatureResource({ resource, report, notify, fail }: FeatureResourceProps) {
+  const currentReport = useLiveProjectReport(report)!;
+  return (
+    <Box
+      component="fieldset"
+      disabled={currentReport.readOnly}
+      sx={{ p: 0, m: 0, border: 0, minWidth: 0 }}
+    >
+      <Resource resource={resource} report={currentReport} notify={notify} fail={fail} />
+    </Box>
+  );
+}
+function Resource({ resource, report, notify, fail }: FeatureResourceProps) {
   if (!resource) {
     return null;
   }

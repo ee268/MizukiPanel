@@ -2,20 +2,30 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public payload: Record<string, unknown> = {},
   ) {
     super(message);
   }
 }
+let workspaceVersion: string | null = null;
+export const setWorkspaceVersion = (value: string | null) => {
+  workspaceVersion = value;
+};
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
+  if (workspaceVersion) headers.set("x-mizuki-workspace", workspaceVersion);
   if (options.body && !(options.body instanceof FormData) && !headers.has("content-type"))
     headers.set("content-type", "application/json");
   const response = await fetch(path, { ...options, headers });
   const payload = (await response.json().catch(() => ({}))) as { message?: string };
   if (!response.ok) {
     if (response.status === 401 && location.pathname !== "/login") location.assign("/login");
-    throw new ApiError(response.status, payload.message ?? `请求失败（${response.status}）`);
+    throw new ApiError(
+      response.status,
+      payload.message ?? `请求失败（${response.status}）`,
+      payload,
+    );
   }
   return payload as T;
 }

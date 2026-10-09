@@ -19,6 +19,9 @@ export interface PersonalSettings {
   notifications: { duration: number };
   editor: EditorSettings;
   drafts: { enabled: boolean; delay: number };
+  workspace: {
+    afterConnect: "/" | "/articles" | "/config" | "/features" | "/media" | "/preview" | "/publish";
+  };
 }
 export interface ArticleTemplateSettings {
   body: string;
@@ -60,6 +63,7 @@ export interface SettingsOverview {
     name: string;
     root: string;
     settings: SettingsSnapshot;
+    readOnlyInfo?: { detected: boolean; preference: boolean; settings: boolean };
   } | null;
   warnings: string[];
 }
@@ -98,6 +102,17 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
     notifications: { duration: number(3500, 2000, 10000) },
     drafts: { enabled: flag(true), delay: number(2000, 1000, 10000) },
+    workspace: {
+      afterConnect: choice("/", [
+        "/",
+        "/articles",
+        "/config",
+        "/features",
+        "/media",
+        "/preview",
+        "/publish",
+      ]),
+    },
     editor: {
       defaultMode: choice("auto", ["auto", "ir", "wysiwyg", "sv"]),
       outline: flag(false),
@@ -129,6 +144,7 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
   },
   project: {
+    access: { readOnly: flag(false) },
     articleTemplate: {
       body: { default: "# 开始写作", valid: (value) => validTemplateField("body", value) },
       frontmatter: {

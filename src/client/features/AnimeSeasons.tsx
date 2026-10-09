@@ -17,6 +17,7 @@ import {
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { AnimeSeason, AnimeSeasonDocument } from "../types";
+import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 
 export function AnimeSeasons({
   notify,
@@ -27,7 +28,8 @@ export function AnimeSeasons({
 }) {
   const [seasons, setSeasons] = useState<AnimeSeason[]>([]);
   const [selected, setSelected] = useState("");
-  const [document, setDocument] = useState<AnimeSeasonDocument | null>(null);
+  const [loadedDocument, setDocument] = useState<AnimeSeasonDocument | null>(null);
+  const document = useLiveProjectDocument(loadedDocument);
   const [content, setContent] = useState("");
   const [newId, setNewId] = useState("");
   const loadList = useCallback(async () => {

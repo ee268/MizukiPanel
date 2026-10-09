@@ -64,6 +64,12 @@ export interface PreviewStatus {
   error: string | null;
 }
 
+export function workspacePreviewTask() {
+  return runtime.child && runtime.child.exitCode === null && !runtime.child.killed
+    ? { kind: "preview" as const, projectRoot: runtime.projectRoot!, canStop: true }
+    : null;
+}
+
 export async function previewStatus(report: ProjectReport): Promise<PreviewStatus> {
   const running = runtime.child && runtime.child.exitCode === null && !runtime.child.killed;
   const reachable = await responds(runtime.port);

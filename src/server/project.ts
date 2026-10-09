@@ -1,11 +1,14 @@
-import { inspectProject, type ProjectReport } from "../lib/server/project";
-import { readWorkspacePath } from "../lib/server/workspace";
-import { ApiError } from "./errors";
+import { AsyncLocalStorage } from "node:async_hooks";
+import type { ProjectReport } from "../lib/server/project";
+import { workspaceSession } from "../lib/server/workspace-session";
+import { defaultStateDir } from "../lib/server/workspace";
 
-export async function currentProject(): Promise<ProjectReport> {
-  const workspace = await readWorkspacePath();
-  if (!workspace) {
-    throw new ApiError(400, "请先连接 Mizuki 工作区");
-  }
-  return inspectProject(workspace);
+const state = new AsyncLocalStorage<string>();
+export const withWorkspaceState = <T>(directory: string, action: () => T): T =>
+  state.run(directory, action);
+
+export async function currentProject(
+  stateDir = state.getStore() ?? defaultStateDir(),
+): Promise<ProjectReport> {
+  return workspaceSession(stateDir).currentReport();
 }

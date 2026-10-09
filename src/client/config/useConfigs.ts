@@ -4,6 +4,10 @@ import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import { notifySiteIdentityChanged } from "../shared/site-identity";
 import type { ConfigDescriptor, ProjectReport, SiteConfigDocument } from "../types";
+import {
+  useLiveProjectDocument,
+  useLiveProjectReport,
+} from "../workspace/WorkspaceSessionProvider";
 
 function notifyIdentityChange(key: string) {
   if (key === "siteConfig" || key === "profileConfig") {
@@ -14,9 +18,11 @@ function notifyIdentityChange(key: string) {
 export function useConfigs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [configs, setConfigs] = useState<ConfigDescriptor[]>([]);
-  const [report, setReport] = useState<ProjectReport | null>(null);
+  const [loadedReport, setReport] = useState<ProjectReport | null>(null);
+  const report = useLiveProjectReport(loadedReport);
   const [selected, setSelected] = useState(() => searchParams.get("key") ?? "siteConfig");
-  const [document, setDocument] = useState<SiteConfigDocument | null>(null);
+  const [loadedDocument, setDocument] = useState<SiteConfigDocument | null>(null);
+  const document = useLiveProjectDocument(loadedDocument);
   const [initializer, setInitializer] = useState("");
   const [tab, setTab] = useState(0);
   const [busy, setBusy] = useState(false);

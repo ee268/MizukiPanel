@@ -22,7 +22,7 @@ export default function WorkspacePage() {
 
         <WorkspaceConnection
           projectPath={workspace.projectPath}
-          connected={Boolean(data?.report)}
+          connected={Boolean(data?.connectedPath)}
           busy={busy}
           onPathChange={workspace.setProjectPath}
           onConnect={workspace.connect}
@@ -84,7 +84,38 @@ export default function WorkspacePage() {
         {data && !data.report && !data.connectionError && (
           <Alert severity="info">连接项目后可查看内容数据总览，并管理文章、媒体和站点配置。</Alert>
         )}
+        {data?.warnings.map((warning) => (
+          <Alert key={warning} severity="warning">
+            {warning}
+          </Alert>
+        ))}
+        {Boolean(data?.recentProjects.length) && (
+          <Stack spacing={1}>
+            <Typography variant="h6">最近项目</Typography>
+            {data?.recentProjects.map((project) => (
+              <Stack key={project.id} direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Box sx={{ flex: 1, overflowWrap: "anywhere" }}>
+                  <Typography>
+                    {project.name}
+                    {data.defaultProject?.id === project.id ? "（默认项目）" : ""}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {project.path}
+                    {project.error ? ` · ${project.error}` : ""}
+                  </Typography>
+                </Box>
+                <Button
+                  disabled={busy || !project.available}
+                  onClick={() => void workspace.connectPath(project.path)}
+                >
+                  连接项目
+                </Button>
+              </Stack>
+            ))}
+          </Stack>
+        )}
       </Stack>
+      {workspace.taskDialog}
     </Container>
   );
 }

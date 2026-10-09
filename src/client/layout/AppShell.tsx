@@ -1,16 +1,28 @@
 import { useState } from "react";
-import { Box, useMediaQuery, useTheme } from "@mui/material";
+import { Alert, Box, Button, useMediaQuery, useTheme } from "@mui/material";
 import { Outlet } from "react-router-dom";
 import { api } from "../api";
 import { useSiteIdentity } from "../hooks/useSiteIdentity";
 import AppHeader from "./AppHeader";
 import Sidebar from "./Sidebar";
 import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
+import {
+  WorkspaceSessionProvider,
+  useWorkspaceSession,
+} from "../workspace/WorkspaceSessionProvider";
 
 const drawerWidth = 248;
 const collapsedDrawerWidth = 72;
 
 export default function AppShell() {
+  return (
+    <WorkspaceSessionProvider>
+      <Shell />
+    </WorkspaceSessionProvider>
+  );
+}
+function Shell() {
+  const workspace = useWorkspaceSession();
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up("md"));
   const preferences = usePersonalSettings();
@@ -62,7 +74,25 @@ export default function AppShell() {
         }}
       />
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, pt: 8, ml: { md: 0 } }}>
-        <Outlet />
+        {workspace.error && (
+          <Alert
+            severity="warning"
+            sx={{ mx: 3, mt: 2 }}
+            action={<Button onClick={() => void workspace.refresh().catch(() => {})}>重试</Button>}
+          >
+            工作区状态读取失败：{workspace.error}。仍可调整浏览器偏好。
+          </Alert>
+        )}
+        {workspace.stale && (
+          <Alert
+            severity="warning"
+            sx={{ mx: 3, mt: 2 }}
+            action={<Button onClick={() => window.location.reload()}>重新载入</Button>}
+          >
+            工作区已切换，当前页面仅保留原输入；保存操作已暂停。
+          </Alert>
+        )}
+        <Outlet key={workspace.outletVersion} />
       </Box>
     </Box>
   );

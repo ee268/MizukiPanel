@@ -6,10 +6,10 @@ import {
   settingsProjectKey,
 } from "../../lib/server/panel-settings";
 import { record, SettingsValidationError } from "../../shared/panel-settings";
-import { readWorkspacePath } from "../../lib/server/workspace";
 import { currentProject } from "../project";
 import { ApiError, errorMessage, mapError } from "../errors";
 import { articleProjectKey } from "../../lib/server/article-template";
+import { workspaceSession, readWorkspaceHistory } from "../../lib/server/workspace-session";
 
 export function registerSettingsRoutes(app: Hono, stateDir?: string) {
   app.get("/api/settings", async (context) => {
@@ -23,9 +23,9 @@ export function registerSettingsRoutes(app: Hono, stateDir?: string) {
     }
     let project = null;
     const warnings: string[] = [];
-    if (await readWorkspacePath(stateDir)) {
+    if (await workspaceSession(stateDir).active()) {
       try {
-        const report = await currentProject();
+        const report = await currentProject(stateDir);
         const key = await settingsProjectKey(report.root);
         project = {
           key,
@@ -33,6 +33,11 @@ export function registerSettingsRoutes(app: Hono, stateDir?: string) {
           root: report.root,
           name: path.basename(report.root),
           settings: await readPanelSettings("project", key, stateDir),
+          readOnlyInfo: {
+            detected: report.detectedReadOnly ?? report.readOnly,
+            preference: report.preferenceReadOnly ?? false,
+            settings: report.settingsReadOnly ?? false,
+          },
         };
       } catch (error) {
         warnings.push(`项目设置暂不可读取：${errorMessage(error)}`);
@@ -52,9 +57,23 @@ export function registerSettingsRoutes(app: Hono, stateDir?: string) {
     try {
       let projectKey: string | undefined;
       if (body.scope === "project") {
-        projectKey = await settingsProjectKey((await currentProject()).root);
+        projectKey = await settingsProjectKey((await currentProject(stateDir)).root);
         if (projectKey !== body.projectKey)
           throw new ApiError(409, "当前项目已切换，请重新读取项目设置。");
+      }
+      if (
+        body.scope === "machine" &&
+        body.group === "workspace" &&
+        record(body.fields) &&
+        body.fields.defaultProject
+      ) {
+        await workspaceSession(stateDir).initialize();
+        const history = await readWorkspaceHistory(stateDir);
+        if (
+          typeof body.fields.defaultProject !== "string" ||
+          !Object.hasOwn(history.document.projects, body.fields.defaultProject)
+        )
+          throw new ApiError(400, "默认项目必须来自已连接过的项目记录。");
       }
       return context.json(
         await savePanelSettings(

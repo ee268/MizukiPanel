@@ -11,6 +11,7 @@ import { ApiError } from "../src/server/errors";
 import { registerSecurityMiddleware } from "../src/server/middleware";
 import { registerSettingsRoutes } from "../src/server/routes/settings";
 import * as settingsService from "../src/lib/server/panel-settings";
+import { workspaceSession } from "../src/lib/server/workspace-session";
 
 vi.mock("../src/server/project", () => ({ currentProject: vi.fn() }));
 const roots: string[] = [];
@@ -98,6 +99,7 @@ it("rejects saves aimed at another project and permits panel preferences for a r
   const projectRoot = path.join(root, "project");
   await mkdir(projectRoot);
   await saveWorkspacePath(projectRoot, state);
+  vi.spyOn(workspaceSession(state), "active").mockResolvedValue(projectRoot);
   const report: ProjectReport = {
     root: projectRoot,
     requestedPath: projectRoot,

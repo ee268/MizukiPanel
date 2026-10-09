@@ -15,6 +15,9 @@ export interface ProjectReport {
   contentRoot: string | null;
   warnings: string[];
   mappings: SourceMapping[];
+  detectedReadOnly?: boolean;
+  preferenceReadOnly?: boolean;
+  settingsReadOnly?: boolean;
 }
 
 export interface GitStatus {

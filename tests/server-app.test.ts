@@ -1,10 +1,16 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { SESSION_COOKIE } from "../src/lib/server/auth";
 import { createApp } from "../src/server/app";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 const originalToken = process.env.PANEL_ACCESS_TOKEN;
+const directories: string[] = [];
 
-afterEach(() => {
+afterEach(async () => {
+  for (const directory of directories.splice(0))
+    await rm(directory, { recursive: true, force: true });
   if (originalToken === undefined) {
     delete process.env.PANEL_ACCESS_TOKEN;
   } else {
@@ -17,7 +23,9 @@ describe("server application", () => {
     const token = "server-app-test-token";
     const origin = "http://127.0.0.1:4173";
     process.env.PANEL_ACCESS_TOKEN = token;
-    const app = createApp({ expectedOrigin: origin });
+    const stateDir = await mkdtemp(path.join(tmpdir(), "mizuki-app-state-"));
+    directories.push(stateDir);
+    const app = createApp({ expectedOrigin: origin, stateDir });
 
     const unauthorized = await app.request(`${origin}/api/session`);
     expect(unauthorized.status).toBe(401);
@@ -57,6 +65,11 @@ describe("server application", () => {
         cookie: cookie!,
         origin,
         "content-type": "application/json",
+        "x-mizuki-workspace": (
+          await (
+            await app.request(`${origin}/api/workspace`, { headers: { cookie: cookie! } })
+          ).json()
+        ).version,
       },
       body: JSON.stringify({ id: "post.md", version: "v1", body: 12 }),
     });

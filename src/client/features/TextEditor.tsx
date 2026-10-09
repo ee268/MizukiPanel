@@ -6,6 +6,7 @@ import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { FeatureTextDocument } from "../types";
 import { LoadingPaper } from "./LoadingPaper";
+import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 
 export function TextEditor({
   resource,
@@ -16,7 +17,8 @@ export function TextEditor({
   notify: (value: string) => void;
   fail: (value: string) => void;
 }) {
-  const [document, setDocument] = useState<FeatureTextDocument | null>(null);
+  const [loadedDocument, setDocument] = useState<FeatureTextDocument | null>(null);
+  const document = useLiveProjectDocument(loadedDocument);
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
   const [backupPath, setBackupPath] = useState<string | null>(null);

@@ -13,6 +13,7 @@ import {
 import { useArticleDrafts } from "./useArticleDrafts";
 import type { LocalDraft } from "./local-drafts";
 import type { CreationFields, CreationPreview } from "./creation-types";
+import { useLiveProjectReport } from "../workspace/WorkspaceSessionProvider";
 
 const ARTICLES_PER_PAGE = 10;
 
@@ -20,7 +21,8 @@ export function useArticles() {
   const [params, setParams] = useSearchParams();
   const tutorialOpen = params.get("tutorial") === "markdown";
   const selectedId = tutorialOpen ? null : params.get("post");
-  const [report, setReport] = useState<ProjectReport | null>(null);
+  const [loadedReport, setReport] = useState<ProjectReport | null>(null);
+  const report = useLiveProjectReport(loadedReport);
   const [projectKey, setProjectKey] = useState("");
   const [articleProjectKey, setArticleProjectKey] = useState("");
   const [sourceRevision, setSourceRevision] = useState(0);

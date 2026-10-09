@@ -23,6 +23,7 @@ import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { ConfigValue, FeatureDataDocument } from "../types";
 import { LoadingPaper } from "./LoadingPaper";
+import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 
 export function DataEditor({
   resource,
@@ -33,7 +34,8 @@ export function DataEditor({
   notify: (value: string) => void;
   fail: (value: string) => void;
 }) {
-  const [document, setDocument] = useState<FeatureDataDocument | null>(null);
+  const [loadedDocument, setDocument] = useState<FeatureDataDocument | null>(null);
+  const document = useLiveProjectDocument(loadedDocument, Boolean(loadedDocument?.warnings.length));
   const [items, setItems] = useState<string[]>([]);
   const [objectText, setObjectText] = useState("");
   const [busy, setBusy] = useState(false);

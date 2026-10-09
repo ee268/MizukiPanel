@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { ApiError } from "./errors";
+import { ApiError, mapError } from "./errors";
 import { registerSecurityMiddleware } from "./middleware";
 import { registerArticleRoutes } from "./routes/articles";
 import { registerAuthRoutes } from "./routes/auth";
@@ -14,10 +14,14 @@ import { registerPreviewRoutes } from "./routes/preview";
 import { registerPublishRoutes } from "./routes/publish";
 import { registerWorkspaceRoutes } from "./routes/workspace";
 import { registerSettingsRoutes } from "./routes/settings";
+import { defaultStateDir } from "../lib/server/workspace";
+import { workspaceSession, serializeWorkspaceMutation } from "../lib/server/workspace-session";
+import { withWorkspaceState } from "./project";
 
 export interface AppOptions {
   expectedOrigin?: string;
   clientRoot?: string;
+  stateDir?: string;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -29,10 +33,37 @@ export function createApp(options: AppOptions = {}) {
   const clientRoot = options.clientRoot ?? path.join(process.cwd(), "dist");
 
   registerSecurityMiddleware(app, expectedOrigin);
+  const stateDir = options.stateDir ?? defaultStateDir();
+  app.use("/api/*", (context, next) =>
+    withWorkspaceState(stateDir, async () => {
+      const route = context.req.path;
+      if (route.startsWith("/api/auth/") || route === "/api/session") return next();
+      const work = async () => {
+        const expected = context.req.header("x-mizuki-workspace");
+        const session = workspaceSession(stateDir);
+        await session.initialize();
+        if (
+          !expected &&
+          !["GET", "HEAD"].includes(context.req.method) &&
+          route !== "/api/workspace/select-directory"
+        )
+          throw new ApiError(409, "请先读取工作区状态，再提交操作。");
+        if (expected && route !== "/api/workspace" && expected !== session.version)
+          throw new ApiError(
+            409,
+            "工作区已切换，请确认当前输入后重新载入页面；未将修改写入其他项目。",
+          );
+        return next();
+      };
+      return context.req.method === "GET" || route === "/api/workspace/select-directory"
+        ? work()
+        : serializeWorkspaceMutation(work);
+    }),
+  );
   registerAuthRoutes(app);
-  registerWorkspaceRoutes(app);
-  registerSettingsRoutes(app);
-  registerArticleRoutes(app);
+  registerWorkspaceRoutes(app, stateDir);
+  registerSettingsRoutes(app, stateDir);
+  registerArticleRoutes(app, stateDir);
   registerConfigRoutes(app);
   registerFeatureRoutes(app);
   registerMediaRoutes(app);
@@ -41,6 +72,11 @@ export function createApp(options: AppOptions = {}) {
   registerPublishRoutes(app);
 
   app.onError((error, context) => {
+    try {
+      mapError(error);
+    } catch (mapped) {
+      error = mapped as Error;
+    }
     const status = error instanceof ApiError ? error.status : 500;
     if (status === 500) {
       console.error(error);

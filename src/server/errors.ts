@@ -8,6 +8,7 @@ import { ProjectError } from "../lib/server/project";
 import { PublishError } from "../lib/server/publish";
 import { StorageConflict } from "../lib/server/storage";
 import { WorkspacePickerError } from "../lib/server/workspace";
+import { WorkspaceError } from "../lib/server/workspace-session";
 
 export class ApiError extends Error {
   constructor(
@@ -38,12 +39,15 @@ export function mapError(error: unknown): never {
     error instanceof PathGuardError ||
     error instanceof ProjectError ||
     error instanceof PublishError ||
-    error instanceof WorkspacePickerError
+    error instanceof WorkspacePickerError ||
+    error instanceof WorkspaceError
   ) {
     throw new ApiError(400, error.message);
   }
   if ((error as NodeJS.ErrnoException)?.code === "ENOENT") {
     throw new ApiError(404, "目标文件不存在或已被移动");
   }
+  if (["EACCES", "EPERM", "EROFS"].includes((error as NodeJS.ErrnoException)?.code ?? ""))
+    throw new ApiError(403, "目录不可读写，请检查权限；操作未完成。");
   throw error;
 }

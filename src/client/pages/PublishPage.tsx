@@ -18,9 +18,11 @@ import { PublishChecks } from "../publish/PublishChecks";
 import { PublishDialogs } from "../publish/PublishDialogs";
 import { PublishSidebar } from "../publish/PublishSidebar";
 import { usePublish } from "../publish/usePublish";
+import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
 
 export default function PublishPage() {
   const publish = usePublish();
+  const workspace = useWorkspaceSession();
   const { overview } = publish;
 
   if (!overview && !publish.error) {
@@ -31,7 +33,7 @@ export default function PublishPage() {
     );
   }
 
-  const disabled = publish.busy || publish.running;
+  const disabled = publish.busy || publish.running || workspace.data?.report?.readOnly === true;
   const steps = publishSteps(overview?.mode === "external");
 
   return (
