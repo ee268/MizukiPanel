@@ -22,6 +22,22 @@
 .mizuki-vditor .vditor-reset pre {
   font-family: var(--panel-vditor-mono);
 }
+.mizuki-vditor .vditor-reset :is(strong, b),
+.mizuki-vditor .vditor-ir__node[data-type="strong"] > .vditor-ir__marker {
+  color: var(--panel-vditor-strong);
+}
+.mizuki-vditor .vditor-reset pre:not(.vditor-ir__marker),
+.mizuki-vditor .vditor-ir__node--expand[data-type="code-block"] > pre.vditor-ir__marker--pre {
+  background: var(--panel-vditor-code-bg);
+  border: 1px solid var(--panel-vditor-border);
+  border-radius: 6px;
+}
+.mizuki-vditor .vditor-ir__node--expand[data-type="code-block"] > pre.vditor-ir__marker--pre {
+  display: block;
+}
+.mizuki-vditor.vditor .vditor-reset pre > code {
+  background: transparent;
+}
 .mizuki-vditor a {
   color: var(--panel-vditor-primary);
   text-decoration: underline dashed;
