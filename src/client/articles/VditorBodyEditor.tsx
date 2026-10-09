@@ -382,8 +382,15 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
                 "--panel-vditor-bg": theme.palette.background.paper,
                 "--panel-vditor-text": theme.palette.text.secondary,
                 "--panel-vditor-strong": theme.palette.text.primary,
-                "--panel-vditor-inline-text": theme.palette.text.primary,
-                "--panel-vditor-inline-bg": theme.palette.action.selected,
+                "--panel-vditor-accent":
+                  theme.palette.mode === "dark"
+                    ? "color-mix(in srgb, var(--panel-vditor-primary) 50%, white)"
+                    : theme.palette.primary.dark,
+                "--panel-vditor-inline-text": "var(--panel-vditor-accent)",
+                "--panel-vditor-inline-bg":
+                  theme.palette.mode === "dark"
+                    ? "color-mix(in srgb, var(--panel-vditor-primary) 24%, transparent)"
+                    : "color-mix(in srgb, var(--panel-vditor-primary) 10%, transparent)",
                 "--panel-vditor-code-bg": theme.palette.background.default,
                 "--panel-vditor-primary": theme.palette.primary.main,
                 "--panel-vditor-border": theme.palette.divider,

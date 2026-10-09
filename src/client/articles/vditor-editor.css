@@ -45,10 +45,15 @@
 .mizuki-vditor .vditor-ir__node[data-type="code"] > .vditor-ir__marker {
   color: var(--panel-vditor-inline-text);
 }
-.mizuki-vditor a {
-  color: var(--panel-vditor-primary);
+.mizuki-vditor.vditor :is(a, .vditor-ir__link),
+.mizuki-vditor .vditor-ir__node:is([data-type="a"], [data-type="link-ref"]) .vditor-ir__marker {
+  color: var(--panel-vditor-accent);
   text-decoration: underline dashed;
+  text-decoration-color: var(--panel-vditor-accent);
   text-underline-offset: 0.2em;
+}
+.mizuki-vditor.vditor a :is(strong, b) {
+  color: inherit;
 }
 .mizuki-vditor .vditor-toolbar {
   display: flex;
