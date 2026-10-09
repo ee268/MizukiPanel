@@ -11,6 +11,8 @@ import {
 } from "@mui/material";
 import type { FormEvent } from "react";
 import type { ArticleRecord } from "../types";
+import { CreateArticleDialog } from "./CreateArticleDialog";
+import type { CreationFields, CreationPreview } from "./creation-types";
 
 interface ArticleDialogsProps {
   article: ArticleRecord | null;
@@ -21,7 +23,8 @@ interface ArticleDialogsProps {
   onCreateOpenChange: (open: boolean) => void;
   onRenameOpenChange: (open: boolean) => void;
   onDeleteOpenChange: (open: boolean) => void;
-  onCreate: (event: FormEvent<HTMLFormElement>) => void;
+  onCreate: (fields: CreationFields, preview: CreationPreview) => Promise<void>;
+  readOnly: boolean;
   onRename: (event: FormEvent<HTMLFormElement>) => void;
   onDelete: () => void;
 }
@@ -36,48 +39,19 @@ export function ArticleDialogs({
   onRenameOpenChange,
   onDeleteOpenChange,
   onCreate,
+  readOnly,
   onRename,
   onDelete,
 }: ArticleDialogsProps) {
   return (
     <>
-      <Dialog open={createOpen} onClose={() => onCreateOpenChange(false)} fullWidth maxWidth="md">
-        <Box component="form" onSubmit={onCreate}>
-          <DialogTitle>新建文章</DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <TextField name="id" label="文章文件路径" placeholder="notes/my-post.md" required />
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField name="title" label="标题" required fullWidth />
-                <TextField
-                  name="published"
-                  label="发布日期"
-                  defaultValue={new Date().toISOString().slice(0, 10)}
-                  required
-                  fullWidth
-                />
-              </Stack>
-              <TextField
-                name="body"
-                label="正文（Markdown 或 MDX）"
-                multiline
-                minRows={10}
-                defaultValue="# 开始写作"
-                slotProps={{ input: { sx: { fontFamily: "var(--mizuki-panel-font-mono)" } } }}
-              />
-              <label>
-                <input type="checkbox" name="draft" defaultChecked /> 先保存为草稿
-              </label>
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => onCreateOpenChange(false)}>取消</Button>
-            <Button variant="contained" type="submit" disabled={busy}>
-              创建
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
+      <CreateArticleDialog
+        open={createOpen}
+        busy={busy}
+        readOnly={readOnly}
+        onClose={() => onCreateOpenChange(false)}
+        onCreate={onCreate}
+      />
 
       <Dialog open={renameOpen} onClose={() => onRenameOpenChange(false)} fullWidth maxWidth="sm">
         <Box component="form" onSubmit={onRename}>

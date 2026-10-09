@@ -321,8 +321,10 @@ export function patchArticleSource(source: string, fields: ArticleFields): strin
 export function newArticleSource(
   fields: Pick<ArticleFields, "title" | "published" | "draft">,
   body: string,
+  defaults: Record<string, unknown> = {},
 ): string {
   const document = parseDocument("{}");
+  for (const [key, value] of Object.entries(defaults)) document.set(key, value);
   document.set("title", fields.title.trim());
   document.set("published", fields.published.trim());
   document.set("draft", fields.draft);

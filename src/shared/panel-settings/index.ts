@@ -1,3 +1,4 @@
+import { validTemplateField } from "./article-template";
 export const settingsSchemaVersion = 1;
 export type SettingsScope = "browser" | "machine" | "project";
 export interface AppearanceSettings {
@@ -17,6 +18,12 @@ export interface PersonalSettings {
   navigation: NavigationSettings;
   notifications: { duration: number };
   editor: EditorSettings;
+  drafts: { enabled: boolean; delay: number };
+}
+export interface ArticleTemplateSettings {
+  body: string;
+  frontmatter: string;
+  fileName: string;
 }
 export interface EditorSettings {
   defaultMode: "auto" | "ir" | "wysiwyg" | "sv";
@@ -47,7 +54,13 @@ export interface SettingsSnapshot {
 }
 export interface SettingsOverview {
   machine: SettingsSnapshot;
-  project: { key: string; name: string; root: string; settings: SettingsSnapshot } | null;
+  project: {
+    key: string;
+    articleKey: string;
+    name: string;
+    root: string;
+    settings: SettingsSnapshot;
+  } | null;
   warnings: string[];
 }
 type Field = { default: unknown; valid: (value: unknown) => boolean };
@@ -84,6 +97,7 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
       backToTopThreshold: number(240, 100, 1000),
     },
     notifications: { duration: number(3500, 2000, 10000) },
+    drafts: { enabled: flag(true), delay: number(2000, 1000, 10000) },
     editor: {
       defaultMode: choice("auto", ["auto", "ir", "wysiwyg", "sv"]),
       outline: flag(false),
@@ -115,6 +129,11 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
   },
   project: {
+    articleTemplate: {
+      body: { default: "# 开始写作", valid: (value) => validTemplateField("body", value) },
+      frontmatter: { default: "", valid: (value) => validTemplateField("frontmatter", value) },
+      fileName: { default: "", valid: (value) => validTemplateField("fileName", value) },
+    },
     media: {
       scope: choice("public", ["public", "article"]),
       folder: {

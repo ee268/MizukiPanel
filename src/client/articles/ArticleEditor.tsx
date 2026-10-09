@@ -17,6 +17,7 @@ import "./editor-fonts.css";
 
 interface ArticleEditorProps {
   onLoadEnd?: () => void;
+  sourceRevision?: number;
   temporary?: boolean;
   article: ArticleRecord | null;
   projectRoot: string;
@@ -41,6 +42,7 @@ interface ArticleEditorProps {
 
 export function ArticleEditor({
   onLoadEnd,
+  sourceRevision,
   temporary = false,
   article,
   projectRoot,
@@ -163,6 +165,7 @@ export function ArticleEditor({
               fontMode={fontMode}
               showSave={!temporary}
               autoMode={temporary ? "ir" : undefined}
+              sourceRevision={sourceRevision}
               onChange={onSourceChange}
               onSave={saveDocumentBody}
               onLoadEnd={onLoadEnd}

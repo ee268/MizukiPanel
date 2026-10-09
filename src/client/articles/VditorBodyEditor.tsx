@@ -40,6 +40,7 @@ interface VditorBodyEditorProps {
   showSave?: boolean;
   initialMode?: "ir" | "sv" | "wysiwyg";
   autoMode?: "ir" | "sv";
+  sourceRevision?: number;
   onChange: (source: string) => void;
   onSave: () => void;
 }
@@ -55,6 +56,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
       showSave = true,
       initialMode,
       autoMode,
+      sourceRevision = 0,
       onChange,
       onSave,
       onLoadEnd,
@@ -81,8 +83,11 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     const [error, setError] = useState("");
     const [imageOpen, setImageOpen] = useState(false);
     const imageRange = useRef<Range | null>(null);
+    const restoredRevision = useRef(sourceRevision);
+    const restoringSource = useRef(false);
 
     function flush() {
+      if (restoringSource.current) return;
       const instance = editor.current;
       if (!instance?.vditor.lute || latest.current.readOnly || latest.current.busy) return;
       const value = instance.getValue();
@@ -343,6 +348,21 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
         if (input) input.spellcheck = settings.spellcheck;
       }
     }, [ready, settings.spellcheck]);
+    useEffect(() => {
+      if (!ready || !editor.current || restoredRevision.current === sourceRevision) return;
+      restoredRevision.current = sourceRevision;
+      restoringSource.current = true;
+      try {
+        editor.current.setValue(vditorBody(latest.current.source), false);
+      } finally {
+        restoringSource.current = false;
+      }
+      baseline.current = editor.current.getValue();
+      initial.current = {
+        value: baseline.current,
+        body: splitArticleSource(latest.current.source)?.body ?? latest.current.source,
+      };
+    }, [ready, sourceRevision]);
     useEffect(() => {
       if (!ready || !editor.current) return;
       if (busy || readOnly) editor.current.disabled();

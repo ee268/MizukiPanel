@@ -9,6 +9,7 @@ import { record, SettingsValidationError } from "../../shared/panel-settings";
 import { readWorkspacePath } from "../../lib/server/workspace";
 import { currentProject } from "../project";
 import { ApiError, errorMessage, mapError } from "../errors";
+import { articleProjectKey } from "../../lib/server/article-template";
 
 export function registerSettingsRoutes(app: Hono, stateDir?: string) {
   app.get("/api/settings", async (context) => {
@@ -28,6 +29,7 @@ export function registerSettingsRoutes(app: Hono, stateDir?: string) {
         const key = await settingsProjectKey(report.root);
         project = {
           key,
+          articleKey: await articleProjectKey(report),
           root: report.root,
           name: path.basename(report.root),
           settings: await readPanelSettings("project", key, stateDir),

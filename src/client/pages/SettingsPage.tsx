@@ -27,6 +27,8 @@ import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
 import { usePersonalDrafts } from "../settings/usePersonalDrafts";
 import { AppearanceSettingsForms } from "../settings/AppearanceSettingsForms";
 import { EditorSettingsForms } from "../settings/EditorSettingsForms";
+import { useProjectTemplate } from "../settings/useProjectTemplate";
+import { ProjectTemplateForm } from "../settings/ProjectTemplateForm";
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -38,13 +40,22 @@ export default function SettingsPage() {
     : "appearance";
   const preferences = usePersonalSettings();
   const controller = usePersonalDrafts();
+  const [overview, setOverview] = useState<SettingsOverview | null>(null);
+  const template = useProjectTemplate(overview?.project ?? null, (key, settings) =>
+    setOverview((current) =>
+      current?.project?.key === key
+        ? { ...current, project: { ...current.project, settings } }
+        : current,
+    ),
+  );
+  const dirty = controller.dirty || template.dirty;
+  const saving = controller.saving || template.saving;
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      controller.dirty &&
+      dirty &&
       currentLocation.pathname + currentLocation.search !==
         nextLocation.pathname + nextLocation.search,
   );
-  const [overview, setOverview] = useState<SettingsOverview | null>(null);
   const [serverError, setServerError] = useState("");
   const [reload, setReload] = useState(0);
   const [leaveError, setLeaveError] = useState("");
@@ -65,7 +76,7 @@ export default function SettingsPage() {
     return () => abort.abort();
   }, [reload]);
   useEffect(() => {
-    if (!controller.dirty) return;
+    if (!dirty) return;
     const unload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
@@ -90,7 +101,7 @@ export default function SettingsPage() {
       window.removeEventListener("beforeunload", unload);
       document.removeEventListener("click", logout, true);
     };
-  }, [controller.dirty]);
+  }, [dirty]);
   function leave() {
     setLeaveError("");
     if (logoutOpen) {
@@ -101,8 +112,12 @@ export default function SettingsPage() {
     } else if (blocker.state === "blocked") blocker.proceed();
   }
   async function saveAndLeave() {
-    if (await controller.save()) leave();
-    else setLeaveError("保存未完成，请继续编辑并处理提示，或选择放弃修改。");
+    if (
+      (controller.dirty && !(await controller.save())) ||
+      (template.dirty && !(await template.save()))
+    )
+      setLeaveError("部分设置尚未保存。已保存范围保留，失败范围的输入仍保留，请继续编辑处理提示。");
+    else leave();
   }
   const cancelLeave = () => {
     setLeaveError("");
@@ -209,6 +224,12 @@ export default function SettingsPage() {
                     controller={controller}
                     projectRoot={overview?.project?.root ?? ""}
                     active={sectionId === "editor"}
+                    template={
+                      <ProjectTemplateForm
+                        controller={template}
+                        onRefresh={() => setReload((value) => value + 1)}
+                      />
+                    }
                   />
                 ) : (
                   <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 } }}>
@@ -251,22 +272,27 @@ export default function SettingsPage() {
           )}
         </DialogContent>
         <DialogActions sx={{ flexWrap: "wrap" }}>
-          <Button onClick={cancelLeave} disabled={controller.saving}>
+          <Button onClick={cancelLeave} disabled={saving}>
             继续编辑
           </Button>
           <Button
             onClick={() => {
               controller.cancelAll();
+              template.reset();
               leave();
             }}
-            disabled={controller.saving}
+            disabled={saving}
           >
             放弃修改
           </Button>
           <Button
             variant="contained"
             onClick={() => void saveAndLeave()}
-            disabled={controller.saving || preferences.snapshot.readOnly}
+            disabled={
+              saving ||
+              (controller.dirty && preferences.snapshot.readOnly) ||
+              (template.dirty && template.base?.settings.readOnly)
+            }
           >
             保存并离开
           </Button>
@@ -279,7 +305,7 @@ export default function SettingsPage() {
       >
         <DialogTitle id="settings-recover-title">恢复浏览器默认设置</DialogTitle>
         <DialogContent>
-          将保存原数据副本并重置当前浏览器的外观、导航、操作提示与编辑器偏好。文章和项目文件不受影响。
+          将保存原数据副本并重置当前浏览器的外观、导航、操作提示、编辑器与草稿保存偏好。文章、本地恢复副本和项目模板不受影响。
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRecoverOpen(false)}>取消</Button>

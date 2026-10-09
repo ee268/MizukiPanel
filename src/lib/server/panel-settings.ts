@@ -11,6 +11,8 @@ import {
 import { assertManagedRealPath } from "./path-guard";
 import { contentVersion, StorageConflict, writeManagedFile } from "./storage";
 import { defaultStateDir } from "./workspace";
+import { newArticleSource } from "./article-format";
+import { expandTemplate, templateDefaults } from "../../shared/panel-settings/article-template";
 
 export async function settingsProjectKey(root: string): Promise<string> {
   const canonical = await realpath(root);
@@ -62,6 +64,26 @@ export async function savePanelSettings(
     input.fields,
     randomUUID(),
   );
+  if (input.scope === "project" && input.group === "articleTemplate") {
+    try {
+      const values = next.values.articleTemplate;
+      const variables = {
+        title: "示例文章",
+        date: "2026-10-09",
+        year: "2026",
+        month: "10",
+        day: "09",
+        slug: "example",
+      };
+      newArticleSource(
+        { title: variables.title, published: variables.date, draft: true },
+        expandTemplate(values.body as string, variables),
+        templateDefaults(values.frontmatter as string, variables),
+      );
+    } catch (cause) {
+      throw new SettingsValidationError(`模板默认字段无效：${(cause as Error).message}`);
+    }
+  }
   await writeManagedFile(
     stateDir,
     relativeFile(input.scope, input.projectKey),

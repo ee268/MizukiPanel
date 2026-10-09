@@ -19,6 +19,7 @@ import type { ArticleRecord } from "../types";
 import { usePersonalSettings } from "./PersonalSettingsProvider";
 import { SettingsCard, type SettingsController } from "./SettingsCard";
 import "../articles/editor-fonts.css";
+import { DraftSettingsForm } from "./DraftSettingsForm";
 
 const previewSource =
   '# 字体与编辑预览\n\n调整设置，查看正文、**加粗**、[链接](https://example.com)和 `行内代码` 的效果。\n\n## 代码与大纲\n\n```js\nfunction example() {\n\treturn "制表宽度只影响显示";\n}\n```\n';
@@ -62,10 +63,12 @@ export function EditorSettingsForms({
   controller,
   projectRoot,
   active,
+  template,
 }: {
   controller: SettingsController;
   projectRoot: string;
   active: boolean;
+  template?: React.ReactNode;
 }) {
   const settings = controller.drafts.editor.value;
   const preferences = usePersonalSettings();
@@ -103,7 +106,7 @@ export function EditorSettingsForms({
           文章编辑
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-          偏好保存在当前浏览器，适用于文章和教程；不修改站点字体配置或正文。
+          显示与草稿保存偏好属于当前浏览器，新文章模板属于当前项目；不会改动现有文章或站点字体配置。
         </Typography>
       </Box>
       <SettingsCard title="编辑器" group="editor" controller={controller}>
@@ -243,6 +246,8 @@ export function EditorSettingsForms({
           </Typography>
         </Stack>
       </SettingsCard>
+      <DraftSettingsForm controller={controller} />
+      {template}
       {active && <EditorPreview projectRoot={projectRoot} />}
     </Stack>
   );

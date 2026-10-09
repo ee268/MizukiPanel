@@ -55,6 +55,7 @@ export function FrontmatterEditor({
           <Stack key={entry.rowId} direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
             <TextField
               aria-label="Frontmatter 字段名"
+              disabled={busy || readOnly}
               value={entry.key}
               onChange={(event) => update(entry.rowId, "key", event.target.value)}
               placeholder="字段名"
@@ -62,6 +63,7 @@ export function FrontmatterEditor({
             />
             <TextField
               aria-label={`${entry.key || "未命名"} 字段内容`}
+              disabled={busy || readOnly}
               value={entry.value}
               onChange={(event) => update(entry.rowId, "value", event.target.value)}
               placeholder="YAML 内容，如 true、[tag1, tag2] 或文本"
@@ -71,7 +73,11 @@ export function FrontmatterEditor({
               fullWidth
             />
             <Tooltip title="删除字段">
-              <IconButton color="error" onClick={() => remove(entry.rowId)}>
+              <IconButton
+                color="error"
+                disabled={busy || readOnly}
+                onClick={() => remove(entry.rowId)}
+              >
                 <DeleteOutline />
               </IconButton>
             </Tooltip>
@@ -79,7 +85,7 @@ export function FrontmatterEditor({
         ))}
       </Stack>
       <Stack direction="row" sx={{ mt: 2, justifyContent: "space-between" }}>
-        <Button startIcon={<AddOutlined />} onClick={add}>
+        <Button startIcon={<AddOutlined />} disabled={busy || readOnly} onClick={add}>
           添加字段
         </Button>
         <Button

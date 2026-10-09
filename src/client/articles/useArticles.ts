@@ -10,6 +10,9 @@ import {
   type ArticleFilter,
   type FrontmatterRow,
 } from "./types";
+import { useArticleDrafts } from "./useArticleDrafts";
+import type { LocalDraft } from "./local-drafts";
+import type { CreationFields, CreationPreview } from "./creation-types";
 
 const ARTICLES_PER_PAGE = 10;
 
@@ -18,6 +21,9 @@ export function useArticles() {
   const tutorialOpen = params.get("tutorial") === "markdown";
   const selectedId = tutorialOpen ? null : params.get("post");
   const [report, setReport] = useState<ProjectReport | null>(null);
+  const [projectKey, setProjectKey] = useState("");
+  const [articleProjectKey, setArticleProjectKey] = useState("");
+  const [sourceRevision, setSourceRevision] = useState(0);
   const [articles, setArticles] = useState<ArticleListItem[]>([]);
   const [article, setArticle] = useState<ArticleRecord | null>(null);
   const [articleLoading, setArticleLoading] = useState(Boolean(selectedId));
@@ -44,6 +50,17 @@ export function useArticles() {
   const frontmatterDirty = article ? frontmatterChanged(frontmatter, article) : false;
   const sourceDirty = article ? source !== article.source : false;
   const dirty = frontmatterDirty || sourceDirty;
+  const currentEdit = useRef({ dirty, articleProjectKey });
+  currentEdit.current = { dirty, articleProjectKey };
+  const drafts = useArticleDrafts({
+    projectKey: articleProjectKey,
+    article,
+    source,
+    frontmatter,
+    dirty,
+    busy,
+    readOnly: Boolean(report?.readOnly),
+  });
 
   useEffect(() => {
     if (!dirty) {
@@ -91,10 +108,13 @@ export function useArticles() {
 
   const loadList = useCallback(async () => {
     try {
-      const data = await api<{ report: ProjectReport; articles: ArticleListItem[] }>(
-        "/api/articles",
-      );
+      const data = await api<{
+        report: ProjectReport;
+        projectKey: string;
+        articles: ArticleListItem[];
+      }>("/api/articles");
       setReport(data.report);
+      setProjectKey(data.projectKey);
       setArticles(data.articles);
       setError("");
     } catch (cause) {
@@ -125,6 +145,7 @@ export function useArticles() {
       try {
         const data = await api<{
           report: ProjectReport;
+          projectKey: string;
           article: ArticleRecord;
           previewPath: string | null;
         }>(`/api/article?id=${encodeURIComponent(id)}`, {
@@ -133,6 +154,7 @@ export function useArticles() {
         if (controller.signal.aborted || selectedIdRef.current !== id) return;
 
         setReport(data.report);
+        setArticleProjectKey(data.projectKey);
         setArticle(data.article);
         setFrontmatter(data.article.frontmatter.map(createFrontmatterRow));
         setSource(data.article.source);
@@ -206,19 +228,22 @@ export function useArticles() {
     };
   }, [selectedId, tutorialOpen]);
 
-  function openTutorial() {
+  async function openTutorial() {
+    if (dirty && !window.confirm("当前文章有未保存的修改，确定离开吗？")) return;
+    await drafts.pause();
     listScrollPosition.current = window.scrollY;
     window.scrollTo({ top: 0, behavior: "auto" });
     setParams({ tutorial: "markdown" });
   }
 
-  function choose(id: string) {
+  async function choose(id: string) {
     if (selectedId && dirty && !window.confirm("当前文章有未保存的修改，确定离开吗？")) {
       return;
     }
     if (!selectedId) {
       listScrollPosition.current = window.scrollY;
     }
+    await drafts.pause();
     setArticle(null);
     setArticleLoading(true);
     setArticleLoadError("");
@@ -232,10 +257,11 @@ export function useArticles() {
     setArticleLoadAttempt((attempt) => attempt + 1);
   }
 
-  function showList() {
+  async function showList() {
     if (selectedId && dirty && !window.confirm("当前文章有未保存的修改，确定返回文章列表吗？")) {
       return;
     }
+    await drafts.pause();
     shouldRestoreListScroll.current = true;
     setParams({});
   }
@@ -261,6 +287,50 @@ export function useArticles() {
     setError("");
     setMode(nextMode);
   }
+  async function restoreDraft(row: LocalDraft, reviewedVersion?: string) {
+    if (dirty) {
+      setError("当前已有未保存修改，请先手动保存或返回后重新打开文章，再恢复其他草稿。");
+      return;
+    }
+    const id = article?.id;
+    if (!id) return;
+    try {
+      await drafts.verify(row);
+      const data = await api<{
+        article: ArticleRecord;
+        projectKey: string;
+        report: ProjectReport;
+        previewPath: string | null;
+      }>(`/api/article?id=${encodeURIComponent(id)}`);
+      await drafts.verify(row);
+      if (data.article.version !== row.baseVersion && reviewedVersion !== data.article.version)
+        throw new Error("磁盘版本已变化，请先打开草稿差异查看最新文件，再恢复；当前文件未改变。");
+      if (currentEdit.current.dirty) throw new Error("读取期间编辑区已有修改，未覆盖当前输入。");
+      if (
+        selectedIdRef.current !== id ||
+        data.projectKey !== row.projectKey ||
+        row.articleId !== id
+      )
+        throw new Error("目标项目或文章已变化，未恢复到其他文章。");
+      if (
+        data.article.version !== row.baseVersion &&
+        !window.confirm(
+          "磁盘版本与草稿基线不同。仅将草稿放入编辑区，不写入磁盘；请先在差异视图中核对，之后手动保存才会修改文章。继续恢复？",
+        )
+      )
+        return;
+      setArticle(data.article);
+      setReport(data.report);
+      setPreviewPath(data.previewPath);
+      drafts.markRestored(row);
+      setSource(row.source);
+      setFrontmatter(row.frontmatter);
+      setSourceRevision((value) => value + 1);
+      setNotice("草稿已恢复到编辑区，尚未写入磁盘。");
+    } catch (cause) {
+      setError(errorMessage(cause, "草稿恢复失败，副本仍保留"));
+    }
+  }
 
   async function saveFrontmatter() {
     if (!article) {
@@ -273,6 +343,7 @@ export function useArticles() {
     }
 
     setBusy(true);
+    await drafts.pause();
     setError("");
     try {
       const data = await api<{ article: ArticleRecord; previewPath: string | null }>(
@@ -281,8 +352,15 @@ export function useArticles() {
           id: article.id,
           version: article.version,
           entries: frontmatter.map(({ key, value, originalKey }) => ({ key, value, originalKey })),
+          projectKey: articleProjectKey,
         }),
       );
+      await drafts.clearSaved(!sourceDirty);
+      if (
+        selectedIdRef.current !== article.id ||
+        currentEdit.current.articleProjectKey !== articleProjectKey
+      )
+        return;
       applyArticle(data.article, data.previewPath);
       if (sourceDirty) {
         setSource(rebaseBody(data.article.source, source));
@@ -302,13 +380,25 @@ export function useArticles() {
     }
 
     setBusy(true);
+    await drafts.pause();
     setError("");
     try {
       const data = await api<{ article: ArticleRecord; previewPath: string | null }>(
         "/api/article/source",
-        json("PUT", { id: article.id, version: article.version, source }),
+        json("PUT", {
+          id: article.id,
+          version: article.version,
+          source,
+          projectKey: articleProjectKey,
+        }),
       );
       const pendingFrontmatter = frontmatterDirty ? frontmatter : null;
+      await drafts.clearSaved(!frontmatterDirty);
+      if (
+        selectedIdRef.current !== article.id ||
+        currentEdit.current.articleProjectKey !== articleProjectKey
+      )
+        return;
       applyArticle(data.article, data.previewPath);
       if (pendingFrontmatter) {
         setFrontmatter(pendingFrontmatter);
@@ -334,15 +424,28 @@ export function useArticles() {
     }
 
     setBusy(true);
+    await drafts.pause();
     setError("");
     try {
       const { collectSourceIslandEdits } = await import("../../lib/articles/source-island-edits");
       const sourceEdits = collectSourceIslandEdits(article.source, source, article.format);
       const data = await api<{ article: ArticleRecord; previewPath: string | null }>(
         "/api/article/body",
-        json("PUT", { id: article.id, version: article.version, body, sourceEdits }),
+        json("PUT", {
+          id: article.id,
+          version: article.version,
+          body,
+          sourceEdits,
+          projectKey: articleProjectKey,
+        }),
       );
       const pendingFrontmatter = frontmatterDirty ? frontmatter : null;
+      await drafts.clearSaved(!frontmatterDirty);
+      if (
+        selectedIdRef.current !== article.id ||
+        currentEdit.current.articleProjectKey !== articleProjectKey
+      )
+        return;
       applyArticle(data.article, data.previewPath);
       if (pendingFrontmatter) {
         setFrontmatter(pendingFrontmatter);
@@ -356,27 +459,25 @@ export function useArticles() {
     }
   }
 
-  async function createArticle(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function createArticle(fields: CreationFields, preview: CreationPreview) {
     setBusy(true);
     setError("");
-    const form = new FormData(event.currentTarget);
     const payload = {
-      id: String(form.get("id")),
-      title: String(form.get("title")),
-      published: String(form.get("published")),
-      draft: form.has("draft"),
-      body: String(form.get("body") ?? ""),
+      ...fields,
+      projectKey: preview.projectKey,
+      settingsVersion: preview.settingsVersion,
+      previewVersion: preview.previewVersion,
     };
 
     try {
-      await api("/api/articles", json("POST", payload));
+      const data = await api<{ article: ArticleRecord }>("/api/articles", json("POST", payload));
       setCreateOpen(false);
       await loadList();
-      choose(payload.id);
+      await choose(data.article.id);
       setNotice("文章已创建");
     } catch (cause) {
       setError(errorMessage(cause, "创建失败"));
+      throw cause;
     } finally {
       setBusy(false);
     }
@@ -392,14 +493,21 @@ export function useArticles() {
       return;
     }
 
-    setBusy(true);
-    setError("");
     const nextId = String(new FormData(event.currentTarget).get("nextId"));
+    setBusy(true);
+    await drafts.pause();
+    setError("");
     try {
       await api(
         "/api/article/rename",
-        json("POST", { id: article.id, nextId, version: article.version }),
+        json("POST", {
+          id: article.id,
+          nextId,
+          version: article.version,
+          projectKey: articleProjectKey,
+        }),
       );
+      await drafts.relocate(nextId);
       setRenameOpen(false);
       await loadList();
       setArticle(null);
@@ -422,9 +530,14 @@ export function useArticles() {
     }
 
     setBusy(true);
+    await drafts.pause();
     setError("");
     try {
-      await api("/api/article", json("DELETE", { id: article.id, version: article.version }));
+      await api(
+        "/api/article",
+        json("DELETE", { id: article.id, version: article.version, projectKey: articleProjectKey }),
+      );
+      await drafts.relocate();
       setDeleteOpen(false);
       setArticle(null);
       shouldRestoreListScroll.current = true;
@@ -440,6 +553,10 @@ export function useArticles() {
 
   return {
     report,
+    projectKey: article ? articleProjectKey : projectKey,
+    sourceRevision,
+    drafts,
+    restoreDraft,
     articles,
     article,
     articleLoading,

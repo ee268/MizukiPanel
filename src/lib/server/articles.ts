@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { validatePostPath } from "../../shared/panel-settings/article-template";
 import { slug as githubSlug } from "github-slugger";
 import { constants } from "node:fs";
 import { copyFile, lstat, mkdir, open, readFile, readdir, rm, unlink } from "node:fs/promises";
@@ -55,25 +56,11 @@ function writable(report: ProjectReport) {
   return location(report);
 }
 export function validateArticleId(input: string): string {
-  if (input !== input.trim() || !input || input.includes("\\") || /^[A-Za-z]:/.test(input))
-    throw new ArticleValidationError("文章路径必须是 posts 内的相对路径");
-  const segments = input.split("/");
-  if (
-    segments.some(
-      (segment) =>
-        !segment ||
-        segment === "." ||
-        segment === ".." ||
-        segment.startsWith(".") ||
-        /[<>:"|?*\x00-\x1f]/.test(segment) ||
-        /[. ]$/.test(segment) ||
-        /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i.test(segment),
-    )
-  )
-    throw new ArticleValidationError("文章路径包含不安全的名称");
-  if (!/\.(md|mdx)$/i.test(segments.at(-1)!))
-    throw new ArticleValidationError("文章文件必须使用 .md 或 .mdx 扩展名");
-  return input;
+  try {
+    return validatePostPath(input);
+  } catch (error) {
+    throw new ArticleValidationError((error as Error).message);
+  }
 }
 function relativePost(report: ProjectReport, id: string) {
   const { prefix } = location(report);
@@ -284,13 +271,27 @@ export async function createArticle(
   fields: Pick<ArticleFields, "title" | "published" | "draft">,
   body: string,
 ) {
-  const { root } = writable(report);
-  id = validateArticleId(id);
+  return createArticleFromSource(report, id, newArticleSource(fields, body));
+}
+export async function validateArticleCreation(report: ProjectReport, id: string, source: string) {
+  writable(report);
+  validateArticleId(id);
   if (!/\.(md|mdx)$/.test(id))
     throw new ArticleValidationError("新文章扩展名必须使用小写 .md 或 .mdx");
-  const source = newArticleSource(fields, body);
   await assertUnique(report, id, source);
-  return writeManagedFile(root, relativePost(report, id), source, null, backupDir());
+}
+const creatingProjects = new Set<string>();
+export async function createArticleFromSource(report: ProjectReport, id: string, source: string) {
+  const { root } = writable(report);
+  if (creatingProjects.has(root))
+    throw new StorageConflict("当前项目正在创建文章，请稍后重新预览再创建。");
+  creatingProjects.add(root);
+  try {
+    await validateArticleCreation(report, id, source);
+    return await writeManagedFile(root, relativePost(report, id), source, null, backupDir());
+  } finally {
+    creatingProjects.delete(root);
+  }
 }
 
 export async function saveArticleSource(

@@ -7,6 +7,7 @@ import { ArticleLoading } from "../articles/ArticleLoading";
 import { ArticleList } from "../articles/ArticleList";
 import { ArticlePageHeader } from "../articles/ArticlePageHeader";
 import { useArticles } from "../articles/useArticles";
+import { DraftLibrary, DraftRecovery } from "../articles/DraftRecovery";
 
 const ArticleEditor = lazy(() =>
   import("../articles/ArticleEditor").then((module) => ({ default: module.ArticleEditor })),
@@ -49,6 +50,28 @@ export default function ArticlesPage() {
           onTutorial={articles.openTutorial}
           onCreate={() => articles.setCreateOpen(true)}
         />
+        <DraftLibrary
+          projectKey={articles.projectKey}
+          article={articles.article}
+          articles={articles.articles}
+          onOpenArticle={articles.choose}
+        />
+        {!articles.tutorialOpen && articles.article && (
+          <DraftRecovery
+            key={articles.article.id}
+            entries={articles.drafts.entries}
+            article={articles.article}
+            dirty={articles.dirty}
+            onRestore={articles.restoreDraft}
+            onDiscard={articles.drafts.discard}
+          />
+        )}
+        {articles.drafts.error && <Alert severity="warning">{articles.drafts.error}</Alert>}
+        {!articles.tutorialOpen && articles.article && (
+          <Typography variant="caption" color="text.secondary">
+            {articles.drafts.status}
+          </Typography>
+        )}
 
         {articles.error && (
           <Alert severity="error" onClose={() => articles.setError("")}>
@@ -110,6 +133,7 @@ export default function ArticlesPage() {
                 <Suspense fallback={null}>
                   <ArticleEditor
                     article={articles.article}
+                    sourceRevision={articles.sourceRevision}
                     projectRoot={articles.report?.root ?? ""}
                     previewPath={articles.previewPath}
                     frontmatter={articles.frontmatter}
@@ -167,6 +191,7 @@ export default function ArticlesPage() {
         onRenameOpenChange={articles.setRenameOpen}
         onDeleteOpenChange={articles.setDeleteOpen}
         onCreate={articles.createArticle}
+        readOnly={Boolean(articles.report?.readOnly)}
         onRename={articles.renameArticle}
         onDelete={articles.removeArticle}
       />
