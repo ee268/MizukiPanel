@@ -13,6 +13,7 @@ const ConfigPage = lazy(() => import("./pages/ConfigPage"));
 const FeaturesPage = lazy(() => import("./pages/FeaturesPage"));
 const PublishPage = lazy(() => import("./pages/PublishPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 function LoadingFallback() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/preview" element={<PreviewPage />} />
             <Route path="/publish" element={<PublishPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

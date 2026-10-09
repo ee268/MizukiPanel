@@ -1,6 +1,7 @@
 import ChevronLeftOutlined from "@mui/icons-material/ChevronLeftOutlined";
 import ChevronRightOutlined from "@mui/icons-material/ChevronRightOutlined";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
+import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
 import {
   Box,
   Divider,
@@ -87,7 +88,33 @@ export default function Sidebar({
           </Tooltip>
         ))}
       </List>
-      <Box sx={{ mt: "auto" }}>
+      <Box sx={{ mt: "auto", flexShrink: 0 }}>
+        <List sx={{ p: compact ? 1 : 1.5 }}>
+          <Tooltip title={compact ? "设置" : ""} placement="right">
+            <ListItemButton
+              component={NavLink}
+              to="/settings"
+              aria-label="设置"
+              onClick={onClose}
+              sx={{
+                borderRadius: 2,
+                justifyContent: compact ? "center" : "flex-start",
+                minHeight: 48,
+                px: compact ? 1 : 2,
+                "&.active": {
+                  bgcolor: "primary.main",
+                  color: "primary.contrastText",
+                  "& .MuiListItemIcon-root": { color: "inherit" },
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: compact ? 0 : 40, justifyContent: "center" }}>
+                <SettingsOutlined />
+              </ListItemIcon>
+              {!compact && <ListItemText primary="设置" />}
+            </ListItemButton>
+          </Tooltip>
+        </List>
         <Divider />
         <Tooltip title={compact ? "关于" : ""} placement="right">
           <ListItemButton
