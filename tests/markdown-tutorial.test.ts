@@ -1,4 +1,7 @@
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { createContext, runInContext } from "node:vm";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import { MarkdownTutorial } from "../src/client/articles/MarkdownTutorial";
@@ -6,6 +9,34 @@ import { ArticleEditor } from "../src/client/articles/ArticleEditor";
 import type { ArticleRecord } from "../src/client/types";
 import tutorialSource from "../src/client/articles/markdown-tutorial.mdx?raw";
 import { segmentArticleSource } from "../src/lib/articles/source-islands";
+import { vditorBody } from "../src/client/articles/vditor-source";
+import { configureVditorStrong } from "../src/client/articles/vditor-strong";
+
+it("renders the tutorial HTML image in every Vditor mode and keeps its editable source", () => {
+  const require = createRequire(import.meta.url);
+  const context = createContext({ TextDecoder, TextEncoder, setTimeout, clearTimeout });
+  runInContext(readFileSync(require.resolve("vditor/dist/js/lute/lute.min.js"), "utf8"), context);
+  configureVditorStrong(context.Lute);
+  const lute = context.Lute.New();
+  lute.SetSanitize(true);
+  const body = vditorBody(tutorialSource);
+  const imageBlock = body.match(/<div>\n<img src="[^\n]+\n<\/div>/)?.[0];
+  expect(imageBlock).toBeDefined();
+  const imageTag = imageBlock!.split("\n")[1];
+  expect(body).toContain("```html\n<div>\n<img\n");
+  for (const mode of ["", "IR"]) {
+    const dom = lute[`Md2Vditor${mode}DOM`](body);
+    expect(dom).toContain('data-type="html-block"');
+    expect(dom).toContain(imageTag);
+    const spun = lute[`SpinVditor${mode}DOM`](dom);
+    expect(spun).toContain(imageTag);
+    const source = lute[`Vditor${mode}DOM2Md`](spun);
+    expect(source).toContain(imageBlock);
+    expect(source).toContain('title="HTML 图片示例"');
+  }
+  expect(lute.Md2HTML(body)).toContain(imageTag);
+  expect(lute.Md2HTML(body)).toContain("&lt;img\n");
+});
 
 it("ships a complete editable tutorial while preserving Mizuki and MDX examples", () => {
   const article = segmentArticleSource(tutorialSource, "mdx");
