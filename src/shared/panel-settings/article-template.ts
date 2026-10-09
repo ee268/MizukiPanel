@@ -1,9 +1,23 @@
 import { isMap, parseDocument } from "yaml";
 import type { ArticleTemplateSettings } from "./index";
 
-export const defaultArticleFrontmatter = 'title: "{{title}}"\npublished: "{{date}}"';
+export const defaultArticleFrontmatter = [
+  'title: "{{title}}"',
+  'published: "{{date}}"',
+  'pubDate: "{{today}}"',
+  'updatedDate: "{{today}}"',
+  'description: "简要介绍文章主题、核心内容和读者收获。"',
+].join("\n");
 
-const variables = new Set(["title", "date", "year", "month", "day", "slug"]);
+export function localCalendarDate(date = new Date()): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+const variables = new Set(["title", "date", "today", "year", "month", "day", "slug"]);
 export function expandTemplate(text: string, values: Record<string, string>): string {
   if (/\{\{|\}\}/.test(text.replace(/\{\{([^{}]*)\}\}/g, "")))
     throw new Error("模板占位符必须使用完整的 {{名称}}。");
@@ -46,6 +60,7 @@ export function validTemplateField(field: keyof ArticleTemplateSettings, value: 
     const sample = {
       title: "示例文章",
       date: "2026-10-09",
+      today: "2026-10-09",
       year: "2026",
       month: "10",
       day: "09",

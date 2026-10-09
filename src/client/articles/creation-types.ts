@@ -22,11 +22,4 @@ export interface CreationPreview {
   settingsVersion: string | null;
   previewVersion: string;
 }
-export function localDate() {
-  const date = new Date();
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
+export { localCalendarDate as localDate } from "../../shared/panel-settings/article-template";

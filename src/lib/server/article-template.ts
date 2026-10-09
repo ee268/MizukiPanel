@@ -1,5 +1,9 @@
 import { slug } from "github-slugger";
-import { expandTemplate, templateDefaults } from "../../shared/panel-settings/article-template";
+import {
+  expandTemplate,
+  localCalendarDate,
+  templateDefaults,
+} from "../../shared/panel-settings/article-template";
 import { record, type ArticleTemplateSettings } from "../../shared/panel-settings";
 import { readPanelSettings, settingsProjectKey } from "./panel-settings";
 import { contentVersion, StorageConflict } from "./storage";
@@ -69,6 +73,7 @@ export async function prepareArticleCreation(
   const variables = {
     title: fields.title.trim(),
     date: fields.published,
+    today: localCalendarDate(),
     year,
     month,
     day,

@@ -207,7 +207,7 @@ export function CreateArticleDialog({
               value={fields.frontmatter}
               onChange={(event) => change({ frontmatter: event.target.value })}
               disabled={busy || !defaults}
-              helperText="来自项目模板，可在本次创建时调整；标题、日期与草稿状态以表单为准。"
+              helperText="来自项目模板，可在本次创建时调整；title、published 与 draft 以表单为准，{{today}} 使用当前系统日期。"
             />
             <FormControlLabel
               label="先保存为草稿"

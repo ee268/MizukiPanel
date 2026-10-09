@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { isMap } from "yaml";
 import {
   expandTemplate,
@@ -43,6 +43,7 @@ async function fixture(external = false) {
   return { report, stateDir: path.join(base, "state") };
 }
 afterEach(async () => {
+  vi.useRealTimers();
   for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true });
 });
 it("generates readable block YAML while preserving special text, nested defaults and scalar types", () => {
@@ -72,13 +73,25 @@ it("only expands supported variables and safely interpolates YAML values rather 
   expect(validTemplateField("frontmatter", "- list")).toBe(false);
 });
 it("reads defaults without writing and previews/creates the same content in local and external repositories", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(2026, 9, 9, 23, 50));
   for (const external of [false, true]) {
     const { report, stateDir } = await fixture(external);
     const initial = await readArticleTemplate(report, stateDir);
     expect(initial.values.body).toBe("# 开始写作");
     expect(
-      templateDefaults(initial.values.frontmatter, { title: "示例文章", date: "2026-10-09" }),
-    ).toEqual({ title: "示例文章", published: "2026-10-09" });
+      templateDefaults(initial.values.frontmatter, {
+        title: "示例文章",
+        date: "2026-10-10",
+        today: "2026-10-09",
+      }),
+    ).toEqual({
+      title: "示例文章",
+      published: "2026-10-10",
+      pubDate: "2026-10-09",
+      updatedDate: "2026-10-09",
+      description: "简要介绍文章主题、核心内容和读者收获。",
+    });
     const initialPreview = await prepareArticleCreation(
       report,
       {
@@ -96,6 +109,9 @@ it("reads defaults without writing and previews/creates the same content in loca
     expect(parseArticleSource(initialPreview.source).data).toEqual({
       title: "创建表单标题",
       published: "2026-10-10",
+      pubDate: "2026-10-09",
+      updatedDate: "2026-10-09",
+      description: "简要介绍文章主题、核心内容和读者收获。",
       draft: true,
     });
     expect(initial.settingsVersion).toBeNull();

@@ -70,6 +70,7 @@ export async function savePanelSettings(
       const variables = {
         title: "示例文章",
         date: "2026-10-09",
+        today: "2026-10-09",
         year: "2026",
         month: "10",
         day: "09",

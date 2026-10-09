@@ -10,7 +10,10 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { expandTemplate } from "../../shared/panel-settings/article-template";
+import {
+  defaultArticleFrontmatter,
+  expandTemplate,
+} from "../../shared/panel-settings/article-template";
 import { api, json } from "../api";
 import { localDate, type CreationPreview } from "../articles/creation-types";
 import type { useProjectTemplate } from "./useProjectTemplate";
@@ -44,6 +47,7 @@ export function ProjectTemplateForm({
             title: "示例文章",
             slug: "示例文章",
             date,
+            today: date,
             year,
             month,
             day,
@@ -128,8 +132,8 @@ export function ProjectTemplateForm({
             controller.change({ frontmatter: event.target.value });
             setPreview(null);
           }}
-          placeholder={'title: "{{title}}"\npublished: "{{date}}"\ntags: [笔记]'}
-          helperText="Mizuki 必填字段为 title 和 published，默认模板使用标题和日期占位符；创建时以表单输入为准，draft 由草稿开关生成。支持其他 YAML 字段。"
+          placeholder={defaultArticleFrontmatter}
+          helperText="title 和 published 为必填字段，以创建表单为准。pubDate、updatedDate 默认使用当前系统日期（YYYY-MM-DD），description 可填写摘要；draft 由草稿开关生成。"
         />
         <TextField
           label="文件名规则"
@@ -144,8 +148,9 @@ export function ProjectTemplateForm({
           helperText="留空时手动指定路径；仅支持 .md/.mdx，相对于 posts。创建前会检查重名和 URL 冲突。"
         />
         <Typography variant="body2" color="text.secondary">
-          可用占位符：{"{{title}}、{{date}}、{{year}}、{{month}}、{{day}}、{{slug}}"}
-          。示例预览使用“示例文章”和当前日期；新建时可调整生成结果。
+          可用占位符：{"{{title}}、{{date}}、{{today}}、{{year}}、{{month}}、{{day}}、{{slug}}"}
+          。date 使用表单发布日期，today
+          使用面板所在系统的当前日期。示例预览使用“示例文章”；新建时可调整生成结果。
         </Typography>
         <Button
           sx={{ alignSelf: "flex-start" }}
