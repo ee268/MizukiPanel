@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { Plugin } from "vite";
+import { patchVditorLute } from "./vditor-lute-patch";
 
 const require = createRequire(import.meta.url);
 const root = path.dirname(require.resolve("vditor/package.json"));
@@ -29,11 +30,16 @@ export function vditorAssets(): Plugin {
     }
   }
   files.set("LICENSE", path.join(root, "LICENSE"));
+  const lutePath = "dist/js/lute/lute.min.js";
+  const lute = patchVditorLute(readFileSync(files.get(lutePath)!, "utf8"));
+  const content = (key: string, filename: string) =>
+    key === lutePath ? lute : readFileSync(filename);
   return {
     name: "local-vditor-assets",
     configureServer(server) {
       server.middlewares.use(prefix, (request, response, next) => {
-        const filename = files.get((request.url ?? "").split("?", 1)[0].replace(/^\//, ""));
+        const key = (request.url ?? "").split("?", 1)[0].replace(/^\//, "");
+        const filename = files.get(key);
         if (!filename) return next();
         const contentTypes: Record<string, string> = {
           ".js": "application/javascript",
@@ -49,7 +55,7 @@ export function vditorAssets(): Plugin {
           "Content-Type",
           contentTypes[path.extname(filename)] ?? "application/octet-stream",
         );
-        response.end(readFileSync(filename));
+        response.end(content(key, filename));
       });
     },
     generateBundle() {
@@ -57,7 +63,7 @@ export function vditorAssets(): Plugin {
         this.emitFile({
           type: "asset",
           fileName: prefix.slice(1) + key,
-          source: readFileSync(filename),
+          source: content(key, filename),
         });
       }
     },

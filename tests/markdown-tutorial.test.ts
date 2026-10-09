@@ -11,19 +11,23 @@ import tutorialSource from "../src/client/articles/markdown-tutorial.mdx?raw";
 import { segmentArticleSource } from "../src/lib/articles/source-islands";
 import { vditorBody } from "../src/client/articles/vditor-source";
 import { configureVditorStrong } from "../src/client/articles/vditor-strong";
+import { patchVditorLute } from "../scripts/vditor-lute-patch";
 
 it("renders the tutorial HTML image in every Vditor mode and keeps its editable source", () => {
   const require = createRequire(import.meta.url);
   const context = createContext({ TextDecoder, TextEncoder, setTimeout, clearTimeout });
-  runInContext(readFileSync(require.resolve("vditor/dist/js/lute/lute.min.js"), "utf8"), context);
+  runInContext(
+    patchVditorLute(readFileSync(require.resolve("vditor/dist/js/lute/lute.min.js"), "utf8")),
+    context,
+  );
   configureVditorStrong(context.Lute);
   const lute = context.Lute.New();
   lute.SetSanitize(true);
   const body = vditorBody(tutorialSource);
-  const imageBlock = body.match(/<div>\n<img src="[^\n]+\n<\/div>/)?.[0];
-  expect(imageBlock).toBeDefined();
-  const imageTag = imageBlock!.split("\n")[1];
-  expect(body).toContain("```html\n<div>\n<img\n");
+  const imageTag = body.match(/^<img src="[^\n]+/m)?.[0];
+  expect(imageTag).toBeDefined();
+  expect(body).not.toContain("<div>");
+  expect(body).toContain("```html\n<img\n");
   for (const mode of ["", "IR"]) {
     const dom = lute[`Md2Vditor${mode}DOM`](body);
     expect(dom).toContain('data-type="html-block"');
@@ -31,7 +35,7 @@ it("renders the tutorial HTML image in every Vditor mode and keeps its editable 
     const spun = lute[`SpinVditor${mode}DOM`](dom);
     expect(spun).toContain(imageTag);
     const source = lute[`Vditor${mode}DOM2Md`](spun);
-    expect(source).toContain(imageBlock);
+    expect(source).toContain(imageTag);
     expect(source).toContain('title="HTML 图片示例"');
   }
   expect(lute.Md2HTML(body)).toContain(imageTag);
