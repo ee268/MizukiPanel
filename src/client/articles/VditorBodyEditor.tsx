@@ -21,6 +21,8 @@ import {
 import { loadVditorRuntime } from "./vditor-runtime";
 import { splitArticleSource } from "../../lib/articles/article-source";
 import { useOptionalPersonalSettings } from "../settings/PersonalSettingsProvider";
+import { defaultPersonalSettings } from "../../shared/panel-settings";
+import { defaultEditorMode, editorBodyFont, editorCodeSize } from "./editor-preferences";
 import "vditor/dist/index.css";
 import "./vditor-editor.css";
 
@@ -37,6 +39,7 @@ interface VditorBodyEditorProps {
   fontMode: EditorFontMode;
   showSave?: boolean;
   initialMode?: "ir" | "sv" | "wysiwyg";
+  autoMode?: "ir" | "sv";
   onChange: (source: string) => void;
   onSave: () => void;
 }
@@ -51,6 +54,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
       fontMode,
       showSave = true,
       initialMode,
+      autoMode,
       onChange,
       onSave,
       onLoadEnd,
@@ -59,11 +63,17 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
   ) {
     const theme = useTheme();
     const preferences = useOptionalPersonalSettings();
+    const settings = preferences?.effective.editor ?? defaultPersonalSettings.editor;
+    const bodyFont = editorBodyFont(
+      settings.bodyFont,
+      preferences?.effective.appearance.font ?? "panel",
+      fontMode,
+    );
     const host = useRef<HTMLDivElement>(null);
     const frame = useRef<HTMLDivElement>(null);
     const editor = useRef<Vditor | null>(null);
-    const latest = useRef({ source, onChange, onSave, onLoadEnd, busy, readOnly, theme });
-    latest.current = { source, onChange, onSave, onLoadEnd, busy, readOnly, theme };
+    const latest = useRef({ source, onChange, onSave, onLoadEnd, busy, readOnly, theme, settings });
+    latest.current = { source, onChange, onSave, onLoadEnd, busy, readOnly, theme, settings };
     const baseline = useRef("");
     const initial = useRef({ value: "", body: "" });
     const [ready, setReady] = useState(false);
@@ -89,6 +99,9 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
 
     useEffect(() => {
       let disposed = false;
+      setReady(false);
+      setToolbar(null);
+      setError("");
       let instance: Vditor | null = null;
       let initialized = false;
       const container = host.current!;
@@ -133,7 +146,10 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
           instance = new Constructor(container, {
             cdn,
             value: vditorBody(latest.current.source),
-            mode: initialMode ?? (article.format === "mdx" ? "sv" : "ir"),
+            mode:
+              initialMode ??
+              defaultEditorMode(article.format, latest.current.settings.defaultMode, autoMode),
+            outline: { enable: latest.current.settings.outline, position: "left" },
             lang: "zh_CN",
             i18n: window.VditorI18n,
             theme: latest.current.theme.palette.mode === "dark" ? "dark" : "classic",
@@ -286,7 +302,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
         editor.current = null;
         if (initialized) instance?.destroy();
       };
-    }, [article.id, article.version, article.format, initialMode]);
+    }, [article.id, article.version, article.format, initialMode, autoMode]);
 
     useEffect(() => {
       if (!toolbar || !host.current) return;
@@ -310,6 +326,25 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     }, [ready, theme.palette.mode]);
     useEffect(() => {
       if (!ready || !editor.current) return;
+      const state = editor.current.vditor;
+      state.options.outline!.enable = settings.outline;
+      // The native outline API updates layout without regenerating the editor or focusing it.
+      state.outline.toggle(state, settings.outline, false);
+    }, [ready, settings.outline]);
+    useEffect(() => {
+      if (!ready || !editor.current) return;
+      const state = editor.current.vditor;
+      state.outline.toggle(state, state.outline.element.style.display === "block", false);
+    }, [ready, settings.outlineWidth]);
+    useEffect(() => {
+      if (!ready || !editor.current) return;
+      const state = editor.current.vditor;
+      for (const input of [state.ir?.element, state.wysiwyg?.element, state.sv?.element]) {
+        if (input) input.spellcheck = settings.spellcheck;
+      }
+    }, [ready, settings.spellcheck]);
+    useEffect(() => {
+      if (!ready || !editor.current) return;
       if (busy || readOnly) editor.current.disabled();
       else editor.current.enable();
       const imageButton = host.current?.querySelector<HTMLButtonElement>(
@@ -324,9 +359,11 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     return (
       <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
         {error && <Alert severity="error">Vditor 加载失败：{error}。请刷新页面重试。</Alert>}
-        {article.format === "mdx" && (!initialMode || initialMode === "sv") && (
+        {article.format === "mdx" && (
           <Alert severity="info">
-            MDX 默认使用分屏源码编辑以保留组件语法。Mizuki 扩展和组件的最终效果可通过真实预览查看。
+            MDX
+            文章默认使用分屏编辑以保留组件语法，教程默认即时渲染。其他模式不提供组件的最终渲染；Mizuki
+            扩展和组件请通过真实预览查看。
           </Alert>
         )}
         {/* Vditor owns its runtime classes; theme updates must keep the host className stable. */}
@@ -398,13 +435,17 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
             }}
             className="mizuki-document-content mizuki-vditor"
             data-font-mode={fontMode}
-            data-body-font={
-              preferences?.effective.appearance.font === "system" ? "system" : undefined
-            }
+            data-body-font={bodyFont}
+            data-code-font={settings.codeFont}
             inert={busy}
             style={
               {
                 "--panel-vditor-bg": theme.palette.background.paper,
+                "--panel-vditor-body-size": `${settings.bodyFontSize}px`,
+                "--panel-vditor-body-line-height": settings.bodyLineHeight,
+                "--panel-vditor-code-size": editorCodeSize(settings),
+                "--panel-vditor-tab-width": settings.tabWidth,
+                "--panel-vditor-outline-width": `${settings.outlineWidth}px`,
                 "--panel-vditor-text": theme.palette.text.secondary,
                 "--panel-vditor-strong": theme.palette.text.primary,
                 "--panel-vditor-accent":

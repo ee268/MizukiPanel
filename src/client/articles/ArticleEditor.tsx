@@ -162,7 +162,7 @@ export function ArticleEditor({
               readOnly={readOnly}
               fontMode={fontMode}
               showSave={!temporary}
-              initialMode={temporary ? "ir" : undefined}
+              autoMode={temporary ? "ir" : undefined}
               onChange={onSourceChange}
               onSave={saveDocumentBody}
               onLoadEnd={onLoadEnd}

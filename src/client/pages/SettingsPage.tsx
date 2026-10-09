@@ -26,6 +26,7 @@ import { settingsSections } from "../settings/sections";
 import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
 import { usePersonalDrafts } from "../settings/usePersonalDrafts";
 import { AppearanceSettingsForms } from "../settings/AppearanceSettingsForms";
+import { EditorSettingsForms } from "../settings/EditorSettingsForms";
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -203,6 +204,12 @@ export default function SettingsPage() {
               >
                 {item.id === "appearance" ? (
                   <AppearanceSettingsForms controller={controller} />
+                ) : item.id === "editor" ? (
+                  <EditorSettingsForms
+                    controller={controller}
+                    projectRoot={overview?.project?.root ?? ""}
+                    active={sectionId === "editor"}
+                  />
                 ) : (
                   <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 } }}>
                     <Typography variant="h6" component="h2">
@@ -272,7 +279,7 @@ export default function SettingsPage() {
       >
         <DialogTitle id="settings-recover-title">恢复浏览器默认设置</DialogTitle>
         <DialogContent>
-          将保存原数据副本并重置当前浏览器的外观、导航与操作提示。文章和项目文件不受影响。
+          将保存原数据副本并重置当前浏览器的外观、导航、操作提示与编辑器偏好。文章和项目文件不受影响。
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRecoverOpen(false)}>取消</Button>

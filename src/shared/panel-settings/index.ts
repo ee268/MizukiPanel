@@ -16,6 +16,19 @@ export interface PersonalSettings {
   appearance: AppearanceSettings;
   navigation: NavigationSettings;
   notifications: { duration: number };
+  editor: EditorSettings;
+}
+export interface EditorSettings {
+  defaultMode: "auto" | "ir" | "wysiwyg" | "sv";
+  outline: boolean;
+  outlineWidth: number;
+  bodyFont: "project" | "system" | "panel";
+  bodyFontSize: number;
+  bodyLineHeight: number;
+  codeFont: "project" | "panel" | "system";
+  codeFontSize: "relative" | number;
+  tabWidth: 2 | 4 | 8;
+  spellcheck: boolean;
 }
 export type PersonalGroup = keyof PersonalSettings;
 export interface SettingsDocument {
@@ -71,6 +84,25 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
       backToTopThreshold: number(240, 100, 1000),
     },
     notifications: { duration: number(3500, 2000, 10000) },
+    editor: {
+      defaultMode: choice("auto", ["auto", "ir", "wysiwyg", "sv"]),
+      outline: flag(false),
+      outlineWidth: number(250, 180, 420),
+      bodyFont: choice("project", ["project", "system", "panel"]),
+      bodyFontSize: number(16, 12, 24),
+      bodyLineHeight: {
+        default: 1.85,
+        valid: (value) =>
+          typeof value === "number" && Number.isFinite(value) && value >= 1.4 && value <= 2.4,
+      },
+      codeFont: choice("project", ["project", "panel", "system"]),
+      codeFontSize: {
+        default: "relative",
+        valid: (value) => value === "relative" || number(14, 10, 24).valid(value),
+      },
+      tabWidth: { default: 4, valid: (value) => value === 2 || value === 4 || value === 8 },
+      spellcheck: flag(false),
+    },
   },
   machine: {
     workspace: {

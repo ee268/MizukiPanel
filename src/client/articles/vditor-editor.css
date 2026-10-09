@@ -10,7 +10,19 @@
   --panel-vditor-mono: MizukiEditorCode, MizukiEditorCjk, var(--mizuki-panel-font-mono);
 }
 .mizuki-vditor[data-body-font="system"] {
-  --panel-vditor-font: MizukiSourceDelimiters, var(--mizuki-panel-font-sans);
+  --panel-vditor-font:
+    MizukiSourceDelimiters, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+.mizuki-vditor[data-body-font="panel"] {
+  --panel-vditor-font:
+    MizukiSourceDelimiters, MizukiPanelBody, MizukiPanelCjk, ui-sans-serif, system-ui, sans-serif;
+}
+.mizuki-vditor[data-code-font="panel"] {
+  --panel-vditor-mono: var(--mizuki-panel-font-mono);
+}
+.mizuki-vditor[data-code-font="system"] {
+  --panel-vditor-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 .mizuki-vditor :is(.vditor-ir, .vditor-wysiwyg, .vditor-preview, .vditor-reset) {
   background: var(--panel-vditor-bg);
@@ -18,8 +30,8 @@
 }
 .mizuki-vditor :is(.vditor-reset, .vditor-ir, .vditor-wysiwyg) {
   font-family: var(--panel-vditor-font);
-  font-size: 16px;
-  line-height: 1.85;
+  font-size: var(--panel-vditor-body-size, 16px);
+  line-height: var(--panel-vditor-body-line-height, 1.85);
 }
 .mizuki-vditor :is(code, textarea, .vditor-ir__marker--code, .vditor-ir__marker--pre),
 .mizuki-vditor .vditor-reset pre {
@@ -40,6 +52,14 @@
 }
 .mizuki-vditor.vditor .vditor-reset pre > code {
   background: transparent;
+}
+.mizuki-vditor.vditor .vditor-reset pre > code,
+.mizuki-vditor .vditor-ir__marker--pre {
+  font-family: var(--panel-vditor-mono);
+  font-size: var(--panel-vditor-code-size, 13.6px);
+}
+.mizuki-vditor :is(pre, code, textarea, .vditor-sv) {
+  tab-size: var(--panel-vditor-tab-width, 4);
 }
 .mizuki-vditor.vditor .vditor-reset :not(pre) > code:not(.hljs):not(.highlight-chroma) {
   font-family: var(--panel-vditor-font);
@@ -70,6 +90,8 @@
   z-index: var(--panel-vditor-toolbar-layer);
 }
 .mizuki-vditor > .vditor-content > .vditor-outline {
+  width: var(--panel-vditor-outline-width, 250px);
+  max-width: 45%;
   position: sticky;
   align-self: flex-start;
   flex-shrink: 0;
@@ -123,4 +145,6 @@
 }
 .mizuki-vditor .vditor-sv {
   font-family: var(--panel-vditor-mono);
+  font-size: var(--panel-vditor-code-size, 13.6px);
+  line-height: var(--panel-vditor-body-line-height, 1.85);
 }

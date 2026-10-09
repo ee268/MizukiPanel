@@ -55,7 +55,7 @@ MizukiPanel 是仅监听本机地址的 React 单页应用和 Hono API 服务。
 ## 状态与持久化
 
 - 当前项目连接保存在被 Git 忽略的 `.local/workspace.json`。
-- 面板个人偏好保存在浏览器，本机/项目偏好位于 `.local/settings.json` 与 `.local/project-settings/`；共享 schema 位于 `src/shared/panel-settings/`，不依赖 React 或服务端。设置实现与阶段边界见 [阶段 1 说明](PANEL_SETTINGS_STAGE_1.md)。
+- 面板个人偏好保存在浏览器，本机/项目偏好位于 `.local/settings.json` 与 `.local/project-settings/`；共享 schema 位于 `src/shared/panel-settings/`，不依赖 React 或服务端。设置实现与阶段边界见 [阶段 1 说明](PANEL_SETTINGS_STAGE_1.md) 和 [阶段 2 说明](PANEL_SETTINGS_STAGE_2.md)。编辑器显示偏好通过 CSS 和 Vditor 大纲/输入属性更新；默认模式仅在打开时读取。
 - Mizuki 内容与配置仍以原项目文件为事实来源，面板不维护第二份业务数据库。
 - 删除的文章和媒体先进入本地回收目录。
 - 配置恢复使用保存时生成的备份文件。

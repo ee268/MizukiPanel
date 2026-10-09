@@ -10,7 +10,7 @@ import {
 } from "../../shared/panel-settings";
 import { usePersonalSettings } from "./PersonalSettingsProvider";
 
-const groups: PersonalGroup[] = ["appearance", "navigation", "notifications"];
+const groups = Object.keys(defaultPersonalSettings) as PersonalGroup[];
 type Drafts = {
   [G in PersonalGroup]: { value: PersonalSettings[G]; base: PersonalSettings[G]; error: string };
 };
