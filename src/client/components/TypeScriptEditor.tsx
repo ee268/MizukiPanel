@@ -33,6 +33,7 @@ export function TypeScriptEditor({
             borderLeftColor: theme.palette.primary.main,
           },
           ".cm-gutters": {
+            fontFamily: "var(--mizuki-panel-font-mono)",
             backgroundColor: theme.palette.background.paper,
             borderRightColor: theme.palette.divider,
             color: theme.palette.text.secondary,
@@ -43,7 +44,7 @@ export function TypeScriptEditor({
           ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
             backgroundColor: "color-mix(in srgb, var(--mui-palette-primary-main) 28%, transparent)",
           },
-          ".cm-scroller": { overflow: "auto" },
+          ".cm-scroller": { overflow: "auto", fontFamily: "var(--mizuki-panel-font-mono)" },
         },
         { dark: theme.palette.mode === "dark" },
       ),

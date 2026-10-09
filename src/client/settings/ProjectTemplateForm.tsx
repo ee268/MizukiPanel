@@ -17,6 +17,8 @@ import {
 import { api, json } from "../api";
 import { localDate, type CreationPreview } from "../articles/creation-types";
 import type { useProjectTemplate } from "./useProjectTemplate";
+import { useEditorFontMode } from "../articles/useEditorFontMode";
+import { useArticleFonts } from "../articles/useArticleFonts";
 export function ProjectTemplateForm({
   controller,
   onRefresh,
@@ -28,6 +30,7 @@ export function ProjectTemplateForm({
   const [previewError, setPreviewError] = useState("");
   const previewRevision = useRef(0);
   const { base, value } = controller;
+  const fonts = useArticleFonts(useEditorFontMode(base?.articleKey ?? ""));
   useEffect(() => {
     previewRevision.current += 1;
     setPreview(null);
@@ -171,7 +174,7 @@ export function ProjectTemplateForm({
               value={preview.source}
               label="生成内容"
               slotProps={{
-                input: { readOnly: true, sx: { fontFamily: "var(--mizuki-panel-font-mono)" } },
+                input: { readOnly: true, sx: { fontFamily: fonts.code } },
               }}
               sx={{ mt: 2 }}
             />

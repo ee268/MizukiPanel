@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { PersonalSettingsProvider, usePersonalSettings } from "./settings/PersonalSettingsProvider";
+import { panelFontFamilies } from "./font-families";
 
 export type PanelColorMode = "light" | "dark" | "system";
 
@@ -147,9 +148,11 @@ function PanelThemeController({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.style.setProperty(
       "--mizuki-panel-font-sans",
-      settings.font === "system"
-        ? 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"'
-        : 'MizukiPanelBody, MizukiPanelCjk, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+      panelFontFamilies[settings.font].body,
+    );
+    document.documentElement.style.setProperty(
+      "--mizuki-panel-font-mono",
+      panelFontFamilies[settings.font].code,
     );
   }, [settings.font]);
   const resolvedMode = settings.mode === "system" ? (systemDark ? "dark" : "light") : settings.mode;

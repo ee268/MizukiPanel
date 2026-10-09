@@ -1,28 +1,9 @@
 .mizuki-vditor.vditor {
   border-color: var(--panel-vditor-border);
   border-radius: 8px;
-  --panel-vditor-font: MizukiSourceDelimiters, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--panel-vditor-font);
+  --panel-vditor-font: MizukiSourceDelimiters, var(--mizuki-panel-font-sans);
   --panel-vditor-mono: var(--mizuki-panel-font-mono);
-}
-.mizuki-vditor[data-font-mode="custom"] {
-  --panel-vditor-font:
-    MizukiSourceDelimiters, MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
-  --panel-vditor-mono: MizukiEditorCode, MizukiEditorCjk, var(--mizuki-panel-font-mono);
-}
-.mizuki-vditor[data-body-font="system"] {
-  --panel-vditor-font:
-    MizukiSourceDelimiters, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-}
-.mizuki-vditor[data-body-font="panel"] {
-  --panel-vditor-font:
-    MizukiSourceDelimiters, MizukiPanelBody, MizukiPanelCjk, ui-sans-serif, system-ui, sans-serif;
-}
-.mizuki-vditor[data-code-font="panel"] {
-  --panel-vditor-mono: var(--mizuki-panel-font-mono);
-}
-.mizuki-vditor[data-code-font="system"] {
-  --panel-vditor-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 .mizuki-vditor :is(.vditor-ir, .vditor-wysiwyg, .vditor-preview, .vditor-reset) {
   background: var(--panel-vditor-bg);
@@ -90,6 +71,7 @@
   z-index: var(--panel-vditor-toolbar-layer);
 }
 .mizuki-vditor > .vditor-content > .vditor-outline {
+  font-family: var(--panel-vditor-font);
   width: var(--panel-vditor-outline-width, 250px);
   max-width: 45%;
   position: sticky;

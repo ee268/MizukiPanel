@@ -9,7 +9,9 @@ import {
   defaultEditorMode,
   editorBodyFont,
   editorCodeSize,
+  editorFontFamilies,
 } from "../src/client/articles/editor-preferences";
+import { panelFontFamilies } from "../src/client/font-families";
 import {
   readPersonalSettings,
   savePersonalSettings,
@@ -32,6 +34,21 @@ it("honors explicit body fonts while preserving the global system-font choice fo
   expect(editorBodyFont("project", "system", "custom")).toBe("system");
   expect(editorBodyFont("panel", "system", "custom")).toBe("panel");
   expect(editorBodyFont("system", "panel", "custom")).toBe("system");
+  const system = editorFontFamilies(defaultPersonalSettings.editor, "system", "custom");
+  expect(system).toMatchObject({ bodyMode: "system", codeMode: "system" });
+  expect(system.code).toBe(panelFontFamilies.system.code);
+  const independent = editorFontFamilies(
+    { bodyFont: "system", codeFont: "panel" },
+    "system",
+    "custom",
+  );
+  expect(independent).toMatchObject({ bodyMode: "system", codeMode: "panel" });
+  expect(independent.code).toBe(panelFontFamilies.panel.code);
+  const custom = editorFontFamilies({ bodyFont: "panel", codeFont: "project" }, "panel", "custom");
+  expect(custom).toMatchObject({ bodyMode: "panel", codeMode: "custom" });
+  expect(custom.code).toContain("MizukiEditorCode");
+  expect(custom.code).toContain("MizukiPanelCjk");
+  expect(custom.code).not.toContain("MizukiEditorCjk");
   expect(editorCodeSize(defaultPersonalSettings.editor)).toBe("13.6px");
   expect(editorCodeSize({ ...defaultPersonalSettings.editor, bodyFontSize: 20 })).toBe("17px");
   expect(

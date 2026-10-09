@@ -1,6 +1,8 @@
 import { Alert, Box, Button, Stack, TextField } from "@mui/material";
 import { splitArticleSource } from "../../lib/articles/article-source";
 import { replaceFrontmatterYaml } from "./frontmatter-repair";
+import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import { useArticleFonts } from "./useArticleFonts";
 
 interface FrontmatterRepairProps {
   source: string;
@@ -8,6 +10,7 @@ interface FrontmatterRepairProps {
   readOnly: boolean;
   onChange: (source: string) => void;
   onSave: () => void;
+  fontMode: EditorFontMode;
 }
 
 export function FrontmatterRepair({
@@ -16,7 +19,9 @@ export function FrontmatterRepair({
   readOnly,
   onChange,
   onSave,
+  fontMode,
 }: FrontmatterRepairProps) {
+  const fonts = useArticleFonts(fontMode);
   const parts = splitArticleSource(source);
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -34,7 +39,7 @@ export function FrontmatterRepair({
           value={parts?.yaml.replace(/\r?\n$/, "") ?? ""}
           disabled={busy || readOnly}
           onChange={(event) => onChange(replaceFrontmatterYaml(source, event.target.value))}
-          slotProps={{ input: { sx: { fontFamily: "var(--mizuki-panel-font-mono)" } } }}
+          slotProps={{ input: { sx: { fontFamily: fonts.code } } }}
         />
         <Button
           variant="contained"

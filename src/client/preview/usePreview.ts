@@ -4,8 +4,11 @@ import { api, json } from "../api";
 import { previewTargetUrl } from "../preview-log";
 import { errorMessage } from "../shared/errors";
 import type { PreviewStatus } from "../types";
+import { useOptionalPersonalSettings } from "../settings/PersonalSettingsProvider";
+import { panelFontFamilies } from "../font-families";
 
 export function usePreview() {
+  const appearance = useOptionalPersonalSettings()?.effective.appearance;
   const [params] = useSearchParams();
   const [preview, setPreview] = useState<PreviewStatus | null>(null);
   const [pagePath, setPagePath] = useState(
@@ -13,6 +16,11 @@ export function usePreview() {
   );
   const [error, setError] = useState("");
   const pendingTab = useRef<Window | null>(null);
+  useEffect(() => {
+    const tab = pendingTab.current;
+    if (appearance && tab && !tab.closed)
+      tab.document.body.style.fontFamily = panelFontFamilies[appearance.font].body;
+  }, [appearance?.font]);
 
   const load = useCallback(async () => {
     try {
@@ -66,8 +74,25 @@ export function usePreview() {
     tab.opener = null;
     tab.document.title = "正在启动 Mizuki";
     tab.document.body.textContent = "Mizuki 正在启动，服务就绪后将自动打开。";
-    tab.document.body.style.cssText =
-      'margin:0;min-height:100vh;display:grid;place-items:center;font:16px "Segoe UI",sans-serif;background:#111318;color:#e5e7eb';
+    const fonts = tab.document.createElement("style");
+    fonts.textContent = [
+      ["MizukiPanelBody", "ZenMaruGothic-Medium", 500],
+      ["MizukiPanelCjk", "loli", 400],
+    ]
+      .map(
+        ([family, file, weight]) =>
+          `@font-face{font-family:${family};src:url(${JSON.stringify(new URL(`/fonts/${file}.woff2`, window.location.href).href)}) format("woff2");font-weight:${weight};font-display:swap;}`,
+      )
+      .join("\n");
+    tab.document.head.append(fonts);
+    tab.document.body.style.cssText = "margin:0;min-height:100vh;display:grid;place-items:center";
+    const current = getComputedStyle(document.body);
+    Object.assign(tab.document.body.style, {
+      fontFamily: current.fontFamily,
+      fontSize: current.fontSize,
+      backgroundColor: current.backgroundColor,
+      color: current.color,
+    });
     return tab;
   }
 

@@ -22,7 +22,8 @@ import { loadVditorRuntime } from "./vditor-runtime";
 import { splitArticleSource } from "../../lib/articles/article-source";
 import { useOptionalPersonalSettings } from "../settings/PersonalSettingsProvider";
 import { defaultPersonalSettings } from "../../shared/panel-settings";
-import { defaultEditorMode, editorBodyFont, editorCodeSize } from "./editor-preferences";
+import { defaultEditorMode, editorCodeSize } from "./editor-preferences";
+import { useArticleFonts } from "./useArticleFonts";
 import "vditor/dist/index.css";
 import "./vditor-editor.css";
 
@@ -66,11 +67,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     const theme = useTheme();
     const preferences = useOptionalPersonalSettings();
     const settings = preferences?.effective.editor ?? defaultPersonalSettings.editor;
-    const bodyFont = editorBodyFont(
-      settings.bodyFont,
-      preferences?.effective.appearance.font ?? "panel",
-      fontMode,
-    );
+    const fonts = useArticleFonts(fontMode);
     const host = useRef<HTMLDivElement>(null);
     const frame = useRef<HTMLDivElement>(null);
     const editor = useRef<Vditor | null>(null);
@@ -455,12 +452,14 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
             }}
             className="mizuki-document-content mizuki-vditor"
             data-font-mode={fontMode}
-            data-body-font={bodyFont}
-            data-code-font={settings.codeFont}
+            data-body-font={fonts.bodyMode}
+            data-code-font={fonts.codeMode}
             inert={busy}
             style={
               {
                 "--panel-vditor-bg": theme.palette.background.paper,
+                "--panel-vditor-font": fonts.body,
+                "--panel-vditor-mono": fonts.code,
                 "--panel-vditor-body-size": `${settings.bodyFontSize}px`,
                 "--panel-vditor-body-line-height": settings.bodyLineHeight,
                 "--panel-vditor-code-size": editorCodeSize(settings),

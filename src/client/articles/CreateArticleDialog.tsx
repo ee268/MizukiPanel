@@ -15,6 +15,8 @@ import {
 } from "@mui/material";
 import { api, json } from "../api";
 import { defaultArticleFrontmatter } from "../../shared/panel-settings/article-template";
+import { useEditorFontMode } from "./useEditorFontMode";
+import { useArticleFonts } from "./useArticleFonts";
 import {
   localDate,
   type CreationDefaults,
@@ -35,6 +37,7 @@ export function CreateArticleDialog({
   onCreate: (fields: CreationFields, preview: CreationPreview) => Promise<void>;
 }) {
   const [defaults, setDefaults] = useState<CreationDefaults | null>(null);
+  const fonts = useArticleFonts(useEditorFontMode(defaults?.projectKey ?? ""));
   const [preview, setPreview] = useState<CreationPreview | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -198,7 +201,7 @@ export function CreateArticleDialog({
               value={fields.body}
               onChange={(event) => change({ body: event.target.value })}
               disabled={busy || !defaults}
-              slotProps={{ input: { sx: { fontFamily: "var(--mizuki-panel-font-mono)" } } }}
+              slotProps={{ input: { sx: { fontFamily: fonts.code } } }}
             />
             <TextField
               label="默认字段（YAML）"
@@ -208,6 +211,7 @@ export function CreateArticleDialog({
               onChange={(event) => change({ frontmatter: event.target.value })}
               disabled={busy || !defaults}
               helperText="来自项目模板，可在本次创建时调整；title、published 与 draft 以表单为准，{{today}} 使用当前系统日期。"
+              slotProps={{ input: { sx: { fontFamily: fonts.code } } }}
             />
             <FormControlLabel
               label="先保存为草稿"
@@ -231,7 +235,7 @@ export function CreateArticleDialog({
                   minRows={6}
                   value={preview.source}
                   slotProps={{
-                    input: { readOnly: true, sx: { fontFamily: "var(--mizuki-panel-font-mono)" } },
+                    input: { readOnly: true, sx: { fontFamily: fonts.code } },
                   }}
                 />
               </>

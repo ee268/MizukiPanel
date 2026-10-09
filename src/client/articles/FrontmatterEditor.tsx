@@ -12,6 +12,8 @@ import {
   Typography,
 } from "@mui/material";
 import { createFrontmatterRow, type FrontmatterRow } from "./types";
+import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import { useArticleFonts } from "./useArticleFonts";
 
 interface FrontmatterEditorProps {
   rows: FrontmatterRow[];
@@ -19,6 +21,7 @@ interface FrontmatterEditorProps {
   readOnly: boolean;
   onChange: (rows: FrontmatterRow[]) => void;
   onSave: () => void;
+  fontMode: EditorFontMode;
 }
 
 export function FrontmatterEditor({
@@ -27,7 +30,9 @@ export function FrontmatterEditor({
   readOnly,
   onChange,
   onSave,
+  fontMode,
 }: FrontmatterEditorProps) {
+  const fonts = useArticleFonts(fontMode);
   function update(rowId: string, field: "key" | "value", value: string) {
     onChange(rows.map((row) => (row.rowId === rowId ? { ...row, [field]: value } : row)));
   }
@@ -65,6 +70,7 @@ export function FrontmatterEditor({
               aria-label={`${entry.key || "未命名"} 字段内容`}
               disabled={busy || readOnly}
               value={entry.value}
+              slotProps={{ input: { sx: { fontFamily: fonts.code } } }}
               onChange={(event) => update(entry.rowId, "value", event.target.value)}
               placeholder="YAML 内容，如 true、[tag1, tag2] 或文本"
               multiline

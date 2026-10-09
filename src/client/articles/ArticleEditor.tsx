@@ -175,6 +175,7 @@ export function ArticleEditor({
         {activeMode === "frontmatter" &&
           (article.error ? (
             <FrontmatterRepair
+              fontMode={fontMode}
               source={source}
               busy={busy}
               readOnly={readOnly}
@@ -189,6 +190,7 @@ export function ArticleEditor({
                 </Alert>
               )}
               <FrontmatterEditor
+                fontMode={fontMode}
                 rows={frontmatter}
                 busy={busy}
                 readOnly={readOnly}

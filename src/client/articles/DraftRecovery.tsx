@@ -16,6 +16,8 @@ import {
 import type { ArticleRecord, ArticleListItem } from "../types";
 import { api } from "../api";
 import { draftError, IndexedDraftStore, notifyDraft, type LocalDraft } from "./local-drafts";
+import { useEditorFontMode } from "./useEditorFontMode";
+import { useArticleFonts } from "./useArticleFonts";
 
 function DraftDetails({
   row,
@@ -30,6 +32,7 @@ function DraftDetails({
 }) {
   const [current, setCurrent] = useState(article);
   const [error, setError] = useState("");
+  const fonts = useArticleFonts(useEditorFontMode(row?.projectKey ?? ""));
   useEffect(() => {
     if (!row) return;
     let active = true;
@@ -96,7 +99,7 @@ function DraftDetails({
                   maxRows={20}
                   fullWidth
                   slotProps={{
-                    input: { readOnly: true, sx: { fontFamily: "var(--mizuki-panel-font-mono)" } },
+                    input: { readOnly: true, sx: { fontFamily: fonts.code } },
                   }}
                 />
                 <TextField
@@ -106,7 +109,7 @@ function DraftDetails({
                   minRows={5}
                   maxRows={12}
                   fullWidth
-                  slotProps={{ input: { readOnly: true } }}
+                  slotProps={{ input: { readOnly: true, sx: { fontFamily: fonts.code } } }}
                 />
               </Stack>
             ))}

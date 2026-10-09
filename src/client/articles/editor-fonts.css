@@ -31,11 +31,3 @@
   font-display: swap;
   unicode-range: U+0060;
 }
-
-.mizuki-document-content[data-font-mode="system"] {
-  font-family: MizukiSourceDelimiters, ui-sans-serif, system-ui, sans-serif;
-}
-.mizuki-document-content[data-font-mode="custom"] {
-  font-family:
-    MizukiSourceDelimiters, MizukiEditorBody, MizukiEditorCjk, ui-sans-serif, system-ui, sans-serif;
-}
