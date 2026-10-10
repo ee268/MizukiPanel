@@ -36,7 +36,7 @@ export async function writeManagedFile(
   relative: string,
   content: string,
   expectedVersion: string | null,
-  backupRoot: string,
+  backupRoot: string | null,
   archive?: ArchiveContext,
 ): Promise<{ version: string; backupPath: string | null }> {
   const filename = await assertManagedRealPath(root, relative);
@@ -58,7 +58,7 @@ export async function writeManagedFile(
     if (current !== null && !(await lstat(filename)).isFile())
       throw new StorageConflict("目标不是普通文件");
     let backupPath: string | null = null;
-    if (current !== null) {
+    if (current !== null && backupRoot !== null) {
       await mkdir(backupRoot, { recursive: true });
       backupPath = path.join(backupRoot, randomUUID() + ".bak");
       await copyFile(filename, backupPath);
@@ -77,6 +77,28 @@ export async function writeManagedFile(
     return { version: contentVersion(content), backupPath };
   } finally {
     await rm(temporary, { force: true });
+    await lock.close();
+    await rm(lockPath, { force: true });
+  }
+}
+export async function removeManagedFile(root: string, relative: string, expectedVersion: string) {
+  const filename = await assertManagedRealPath(root, relative);
+  const lockPath = filename + ".mizuki-panel.lock";
+  let lock;
+  try {
+    lock = await open(lockPath, "wx");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST")
+      throw new StorageConflict("文件正在被其他操作修改");
+    throw error;
+  }
+  try {
+    if ((await versionOf(filename)) !== expectedVersion)
+      throw new StorageConflict("文件自读取后已改变，请重新加载再恢复");
+    const stat = await lstat(filename);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new StorageConflict("目标不是普通文件");
+    await rm(filename);
+  } finally {
     await lock.close();
     await rm(lockPath, { force: true });
   }

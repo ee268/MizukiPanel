@@ -24,7 +24,12 @@ export function ConfigList({ groups, selected, onSelect }: ConfigListProps) {
           <Typography
             variant="overline"
             color="text.secondary"
-            sx={{ display: "block", px: 2, pt: 1.5 }}
+            sx={(theme) => ({
+              display: "block",
+              px: 2,
+              pt: 1.5,
+              fontSize: theme.typography.pxToRem(14),
+            })}
           >
             {group}
           </Typography>
@@ -39,8 +44,13 @@ export function ConfigList({ groups, selected, onSelect }: ConfigListProps) {
                   primary={item.label}
                   secondary={item.key}
                   slotProps={{
+                    primary: { sx: (theme) => ({ fontSize: theme.typography.pxToRem(16) }) },
                     secondary: {
-                      sx: { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 10 },
+                      sx: (theme) => ({
+                        fontFamily: "var(--mizuki-panel-font-mono)",
+                        fontSize: theme.typography.pxToRem(12),
+                        overflowWrap: "anywhere",
+                      }),
                     },
                   }}
                 />

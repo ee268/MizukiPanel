@@ -14,7 +14,7 @@ export default function ConfigPage() {
         <Box data-page-motion="heading">
           <Typography variant="h4">站点配置</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
-            管理 Mizuki 的 18 个可覆盖配置，查看默认值、覆盖值和最终值。
+            管理 Mizuki 的 18 个站点配置，编辑前自动备份，每项最多保留 5 份。
           </Typography>
         </Box>
 
@@ -39,14 +39,13 @@ export default function ConfigPage() {
             <ConfigEditor
               document={configs.document}
               initializer={configs.initializer}
-              tab={configs.tab}
               busy={configs.busy}
-              backupPath={configs.backupPath}
-              onInitializerChange={configs.setInitializer}
-              onTabChange={configs.setTab}
+              backingUp={configs.backingUp}
+              backups={configs.backups}
+              onInitializerChange={configs.changeInitializer}
               onSave={configs.save}
               onDiscard={configs.discardChanges}
-              onClear={() => configs.setInitializer("{}")}
+              onClear={() => configs.changeInitializer("{}")}
               onRestore={configs.restore}
             />
           </Grid>

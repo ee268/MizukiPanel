@@ -1,15 +1,15 @@
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import type { ProjectReport } from "./project";
 import { assertManagedRealPath } from "./path-guard";
 import { defaultStateDir } from "./workspace";
 import {
   contentVersion,
   readManagedFile,
-  restoreManagedFile,
+  removeManagedFile,
   StorageConflict,
   writeManagedFile,
 } from "./storage";
+import { ConfigBackupStore } from "./config-backups";
 import {
   changedConfigPaths,
   createOverrideSource,
@@ -239,7 +239,7 @@ function descriptor(key: string): ConfigDescriptor {
   return result;
 }
 
-const backupDir = () => path.join(defaultStateDir(), "backups");
+const configBackups = () => new ConfigBackupStore(defaultStateDir());
 
 async function optionalFile(root: string, relative: string) {
   try {
@@ -356,6 +356,7 @@ export async function saveConfig(
   key: string,
   initializer: string,
   expectedVersion: string,
+  backupId?: string,
 ) {
   if (report.readOnly) throw new SiteConfigError("当前工作区只读，无法保存配置");
   const item = descriptor(key);
@@ -366,15 +367,46 @@ export async function saveConfig(
   const source = current
     ? replaceConfigInitializer(current.content, destination.exportName, initializer)
     : createOverrideSource(initializer);
-  const saved = await writeManagedFile(
+  const group = { ...destination, projectRoot: report.root, key };
+  const store = configBackups();
+  const backup = backupId
+    ? await store.get(group, backupId)
+    : (await store.create(group, current?.content ?? null)).backup;
+  if (backup.version !== expectedVersion)
+    throw new StorageConflict("编辑前备份与当前配置版本不一致，请重新加载");
+  await writeManagedFile(
     destination.root,
     destination.relative,
     source,
     current?.version ?? null,
-    backupDir(),
-    { domain: "config", projectRoot: report.root },
+    null,
   );
-  return { config: await readConfig(report, key), backupPath: saved.backupPath };
+  return {
+    config: await readConfig(report, key),
+    backupPath: backup.id,
+    backups: await store.list(group),
+  };
+}
+
+export async function listConfigBackups(report: ProjectReport, key: string) {
+  const destination = target(report, descriptor(key));
+  return configBackups().list({ ...destination, projectRoot: report.root, key });
+}
+
+export async function createConfigBackup(
+  report: ProjectReport,
+  key: string,
+  expectedVersion: string,
+) {
+  if (report.readOnly) throw new SiteConfigError("当前工作区只读，无法备份配置");
+  const destination = target(report, descriptor(key));
+  const current = await optionalFile(destination.root, destination.relative);
+  if ((current?.version ?? "") !== expectedVersion)
+    throw new StorageConflict("配置已在其他位置修改，请重新加载");
+  return configBackups().create(
+    { ...destination, projectRoot: report.root, key },
+    current?.content ?? null,
+  );
 }
 
 export async function restoreConfig(
@@ -386,14 +418,20 @@ export async function restoreConfig(
   if (report.readOnly) throw new SiteConfigError("当前工作区只读，无法恢复配置");
   const item = descriptor(key);
   const destination = target(report, item);
-  await restoreManagedFile(
-    destination.root,
-    destination.relative,
-    backupPath,
-    expectedVersion,
-    backupDir(),
-    { domain: "config", projectRoot: report.root },
-  );
+  const group = { ...destination, projectRoot: report.root, key };
+  const snapshot = await configBackups().get(group, backupPath);
+  if (snapshot.source !== null) parseConfigInitializer(snapshot.source, destination.exportName);
+  await createConfigBackup(report, key, expectedVersion);
+  if (snapshot.source !== null)
+    await writeManagedFile(
+      destination.root,
+      destination.relative,
+      snapshot.source,
+      expectedVersion || null,
+      null,
+    );
+  else if (expectedVersion)
+    await removeManagedFile(destination.root, destination.relative, expectedVersion);
   return readConfig(report, key);
 }
 
