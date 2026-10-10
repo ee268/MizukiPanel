@@ -23,6 +23,7 @@ import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import type { AlbumRecord, ProjectReport } from "../types";
 import { useFeaturePagination } from "./useFeaturePagination";
 import { FeaturePagination } from "./FeaturePagination";
+import { SyntaxEditor } from "../components/SyntaxEditor";
 
 export function Albums({
   report,
@@ -190,16 +191,16 @@ export function Albums({
               sx={{ mb: 2 }}
             />
           )}
-          <TextField
+          <SyntaxEditor
+            key={`${album?.id ?? "new"}:${album?.version ?? ""}`}
+            language="json"
             label="info.json"
             value={infoText}
-            onChange={(event) => setInfoText(event.target.value)}
-            multiline
-            minRows={20}
-            maxRows={20}
-            fullWidth
+            onChange={setInfoText}
+            height="400px"
+            minHeight="400px"
+            maxHeight="400px"
             disabled={report.readOnly}
-            sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />
           <Stack direction="row" spacing={1.5} useFlexGap sx={{ mt: 2, flexWrap: "wrap" }}>
             <Button

@@ -21,6 +21,7 @@ import type { AnimeSeason, AnimeSeasonDocument, ProjectReport } from "../types";
 import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 import { useFeaturePagination } from "./useFeaturePagination";
 import { FeaturePagination } from "./FeaturePagination";
+import { SyntaxEditor } from "../components/SyntaxEditor";
 
 export function AnimeSeasons({
   report,
@@ -145,16 +146,16 @@ export function AnimeSeasons({
               sx={{ mb: 2 }}
             />
           )}
-          <TextField
+          <SyntaxEditor
+            key={`${document?.id ?? "new"}:${document?.version ?? ""}`}
+            language="markdown"
             label="季度 Markdown"
             value={content}
-            onChange={(event) => setContent(event.target.value)}
-            multiline
-            minRows={24}
-            maxRows={24}
-            fullWidth
+            onChange={setContent}
+            height="480px"
+            minHeight="480px"
+            maxHeight="480px"
             disabled={readOnly}
-            sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />
           <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
             <Button

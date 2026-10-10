@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import ArrowDownwardOutlined from "@mui/icons-material/ArrowDownwardOutlined";
 import ArrowUpwardOutlined from "@mui/icons-material/ArrowUpwardOutlined";
@@ -15,7 +15,6 @@ import {
   IconButton,
   Paper,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -27,6 +26,7 @@ import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 import { useFeaturePagination } from "./useFeaturePagination";
 import { FeaturePagination } from "./FeaturePagination";
+import { SyntaxEditor } from "../components/SyntaxEditor";
 
 export function DataEditor({
   resource,
@@ -40,6 +40,7 @@ export function DataEditor({
   const [loadedDocument, setDocument] = useState<FeatureDataDocument | null>(null);
   const document = useLiveProjectDocument(loadedDocument, Boolean(loadedDocument?.warnings.length));
   const [items, setItems] = useState<string[]>([]);
+  const itemKeys = useRef<string[]>([]);
   const pagination = useFeaturePagination(items.length);
   const [objectText, setObjectText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -64,9 +65,10 @@ export function DataEditor({
       setDocument(data);
       setBackupPath(null);
       pagination.setPage(0);
-      if (Array.isArray(data.value))
+      if (Array.isArray(data.value)) {
+        itemKeys.current = data.value.map(() => crypto.randomUUID());
         setItems(data.value.map((item) => JSON.stringify(item, null, 2)));
-      else setObjectText(JSON.stringify(data.value, null, 2));
+      } else setObjectText(JSON.stringify(data.value, null, 2));
     } catch (cause) {
       fail(errorMessage(cause, "数据读取失败"));
     } finally {
@@ -77,6 +79,12 @@ export function DataEditor({
     void load();
   }, [load]);
   function move(index: number, offset: number) {
+    const target = index + offset;
+    if (target < 0 || target >= items.length) return;
+    [itemKeys.current[index], itemKeys.current[target]] = [
+      itemKeys.current[target],
+      itemKeys.current[index],
+    ];
     setItems((current) => {
       const next = [...current];
       const target = index + offset;
@@ -108,9 +116,10 @@ export function DataEditor({
       setDocument(result.document);
       setBackupPath(result.backupPath);
       notify("特色页数据已保存。");
-      if (Array.isArray(result.document.value))
+      if (Array.isArray(result.document.value)) {
+        itemKeys.current = result.document.value.map(() => crypto.randomUUID());
         setItems(result.document.value.map((item) => JSON.stringify(item, null, 2)));
-      else setObjectText(JSON.stringify(result.document.value, null, 2));
+      } else setObjectText(JSON.stringify(result.document.value, null, 2));
     } catch (cause) {
       fail(errorMessage(cause, "数据保存失败"));
     } finally {
@@ -163,6 +172,7 @@ export function DataEditor({
               startIcon={<AddOutlined />}
               onClick={() => {
                 pagination.reveal(items.length);
+                itemKeys.current.push(crypto.randomUUID());
                 setItems((current) => [...current, "{}"]);
               }}
               disabled={document.readOnly || busy}
@@ -195,26 +205,18 @@ export function DataEditor({
             {items.slice(pagination.start, pagination.end).map((item, offset) => {
               const index = pagination.start + offset;
               return (
-                <Card variant="outlined" key={index}>
+                <Card variant="outlined" key={itemKeys.current[index]}>
                   <CardContent>
-                    <TextField
+                    <SyntaxEditor
+                      language="json"
                       label={`第 ${index + 1} 项（JSON）`}
                       value={item}
-                      onChange={(event) =>
+                      onChange={(text) =>
                         setItems((current) =>
-                          current.map((value, itemIndex) =>
-                            itemIndex === index ? event.target.value : value,
-                          ),
+                          current.map((value, itemIndex) => (itemIndex === index ? text : value)),
                         )
                       }
-                      multiline
-                      minRows={5}
-                      maxRows={10}
                       disabled={document.readOnly || busy}
-                      fullWidth
-                      sx={{
-                        "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 },
-                      }}
                     />
                   </CardContent>
                   <CardActions>
@@ -245,9 +247,12 @@ export function DataEditor({
                       color="error"
                       disabled={document.readOnly || busy}
                       startIcon={<DeleteOutline />}
-                      onClick={() =>
-                        setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                      }
+                      onClick={() => {
+                        itemKeys.current.splice(index, 1);
+                        setItems((current) =>
+                          current.filter((_, itemIndex) => itemIndex !== index),
+                        );
+                      }}
                     >
                       删除
                     </Button>
@@ -263,16 +268,15 @@ export function DataEditor({
             )}
           </Stack>
         ) : (
-          <TextField
+          <SyntaxEditor
+            language="json"
             label="分组数据（JSON）"
             value={objectText}
-            onChange={(event) => setObjectText(event.target.value)}
-            multiline
-            minRows={24}
-            maxRows={24}
+            onChange={setObjectText}
+            height="480px"
+            minHeight="480px"
+            maxHeight="480px"
             disabled={document.readOnly || busy}
-            fullWidth
-            sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />
         )}
       </Paper>
