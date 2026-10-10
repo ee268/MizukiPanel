@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Box, Button, useMediaQuery, useTheme } from "@mui/material";
 import { Outlet } from "react-router-dom";
 import { api } from "../api";
+import { sessionLifecycle } from "../auth/session-lifecycle";
 import { useSiteIdentity } from "../hooks/useSiteIdentity";
 import AppHeader from "./AppHeader";
 import Sidebar from "./Sidebar";
@@ -38,8 +39,13 @@ function Shell() {
   const effectiveDrawerWidth = compact ? collapsedDrawerWidth : drawerWidth;
 
   async function logout() {
-    await api("/api/auth/logout", { method: "POST" });
-    window.location.assign("/login");
+    await sessionLifecycle.end("logout", "即将退出登录。", undefined, async () => {
+      try {
+        await api("/api/auth/logout", { method: "POST" });
+      } catch (error) {
+        if (!(error instanceof Error && "status" in error && error.status === 401)) throw error;
+      }
+    });
   }
 
   return (

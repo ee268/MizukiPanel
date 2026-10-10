@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { createApp } from "../src/server/app";
-import { SESSION_COOKIE } from "../src/lib/server/auth";
+import { loginCookie } from "./auth-fixture";
 import { saveWorkspacePath } from "../src/lib/server/workspace";
 
 const directories: string[] = [];
@@ -43,7 +43,7 @@ async function fixture() {
   process.env.PANEL_ACCESS_TOKEN = "workspace-test";
   const app = createApp({ expectedOrigin: origin, stateDir });
   const headers = {
-    cookie: `${SESSION_COOKIE}=workspace-test`,
+    cookie: await loginCookie(app, "workspace-test"),
     origin,
     "content-type": "application/json",
   };
@@ -57,7 +57,7 @@ async function fixture() {
       headers: { ...headers, "x-mizuki-workspace": version },
       body: JSON.stringify(body),
     });
-  return { stateDir, app, projects, get, mutate };
+  return { stateDir, app, projects, get, mutate, headers };
 }
 it("rejects cross-tab writes after switching even when article names and file versions match", async () => {
   const { projects, get, mutate } = await fixture();
@@ -209,14 +209,9 @@ it("validates default identities, exposes versioned removal and requires connect
   ).toBe(409);
 });
 it("requires a view token for writes and serializes an in-flight save before a project switch", async () => {
-  const { app, projects, get, mutate } = await fixture();
+  const { app, projects, get, mutate, headers } = await fixture();
   const workspace = await (await get("/api/workspace")).json();
   const article = await (await get("/api/article?id=one.md", workspace.version)).json();
-  const headers = {
-    cookie: `${SESSION_COOKIE}=workspace-test`,
-    origin,
-    "content-type": "application/json",
-  };
   expect(
     (
       await app.request(origin + "/api/article/body", {

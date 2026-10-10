@@ -30,7 +30,7 @@ import "./vditor-editor.css";
 
 const cdn = "/assets/vditor";
 export interface VditorBodyEditorHandle {
-  flush: () => void;
+  flush: (force?: boolean) => void;
 }
 interface VditorBodyEditorProps {
   onLoadEnd?: () => void;
@@ -84,10 +84,11 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     const restoredRevision = useRef(sourceRevision);
     const restoringSource = useRef(false);
 
-    function flush() {
+    function flush(force = false) {
       if (restoringSource.current) return;
       const instance = editor.current;
-      if (!instance?.vditor.lute || latest.current.readOnly || latest.current.busy) return;
+      if (!instance?.vditor.lute || (!force && (latest.current.readOnly || latest.current.busy)))
+        return;
       const value = instance.getValue();
       if (value === baseline.current) return;
       baseline.current = value;

@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
+import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import type { AlbumRecord, ProjectReport } from "../types";
 
 export function Albums({
@@ -36,6 +37,13 @@ export function Albums({
   const [newId, setNewId] = useState("");
   const [upload, setUpload] = useState<File | null>(null);
   const album = useMemo(() => albums.find((item) => item.id === selected), [albums, selected]);
+  useUnsavedSessionRecovery(
+    "相册信息",
+    Boolean(
+      (album ? infoText !== JSON.stringify(album.info, null, 2) : Boolean(infoText)) || newId,
+    ),
+    { kind: "album", id: album?.id ?? newId, infoText, baseVersion: album?.version },
+  );
   const load = useCallback(async () => {
     try {
       const data = await api<{ albums: AlbumRecord[] }>("/api/feature/albums");

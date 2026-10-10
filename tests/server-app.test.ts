@@ -29,7 +29,7 @@ describe("server application", () => {
 
     const unauthorized = await app.request(`${origin}/api/session`);
     expect(unauthorized.status).toBe(401);
-    expect(await unauthorized.json()).toEqual({ message: "登录已失效" });
+    expect(await unauthorized.json()).toMatchObject({ message: "登录已失效", reason: "invalid" });
 
     const login = await app.request(`${origin}/api/auth/login`, {
       method: "POST",
@@ -38,13 +38,15 @@ describe("server application", () => {
     });
     expect(login.status).toBe(200);
     const cookie = login.headers.get("set-cookie");
-    expect(cookie).toContain(`${SESSION_COOKIE}=${token}`);
+    expect(cookie).toContain(`${SESSION_COOKIE}=`);
+    expect(cookie).not.toContain(token);
+    expect(cookie).toContain("HttpOnly");
 
     const session = await app.request(`${origin}/api/session`, {
       headers: { cookie: cookie! },
     });
     expect(session.status).toBe(200);
-    expect(await session.json()).toEqual({ authenticated: true });
+    expect(await session.json()).toMatchObject({ authenticated: true, expiresAt: null });
 
     const invalidOrigin = await app.request(`${origin}/api/auth/logout`, {
       method: "POST",

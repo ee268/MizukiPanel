@@ -4,7 +4,9 @@ import path from "node:path";
 import sharp from "sharp";
 import { Hono } from "hono";
 import { afterEach, expect, it, vi } from "vitest";
-import { SESSION_COOKIE } from "../src/lib/server/auth";
+import { loginCookie } from "./auth-fixture";
+import { registerAuthRoutes } from "../src/server/routes/auth";
+import { PanelSessions } from "../src/lib/server/panel-sessions";
 import { ApiError } from "../src/server/errors";
 import { registerMediaRoutes } from "../src/server/routes/media";
 import { registerSecurityMiddleware } from "../src/server/middleware";
@@ -42,12 +44,13 @@ async function fixture() {
   vi.mocked(currentProject).mockResolvedValue(report);
   const app = new Hono();
   process.env.PANEL_ACCESS_TOKEN = "media-route-test";
-  registerSecurityMiddleware(app, origin);
+  registerSecurityMiddleware(app, origin, new PanelSessions(stateDir));
+  registerAuthRoutes(app);
   registerMediaRoutes(app, stateDir);
   app.onError((error, context) =>
     context.json({ message: error.message }, error instanceof ApiError ? error.status : 500),
   );
-  const headers = { cookie: `${SESSION_COOKIE}=media-route-test`, origin };
+  const headers = { cookie: await loginCookie(app, "media-route-test"), origin };
   const bytes = await sharp({ create: { width: 120, height: 60, channels: 3, background: "red" } })
     .png()
     .toBuffer();

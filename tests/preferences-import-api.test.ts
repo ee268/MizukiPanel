@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
 import { createApp } from "../src/server/app";
-import { SESSION_COOKIE } from "../src/lib/server/auth";
+import { loginCookie } from "./auth-fixture";
 import { workspaceSession } from "../src/lib/server/workspace-session";
 import { readPanelSettings, savePanelSettingsGroups } from "../src/lib/server/panel-settings";
 const roots: string[] = [];
@@ -23,7 +23,7 @@ it("protects import and maintenance routes and binds each atomic scope save to w
   await session.initialize();
   const headers = {
     origin,
-    cookie: `${SESSION_COOKIE}=transfer-test`,
+    cookie: await loginCookie(app, "transfer-test"),
     "content-type": "application/json",
     "x-mizuki-workspace": session.version,
   };

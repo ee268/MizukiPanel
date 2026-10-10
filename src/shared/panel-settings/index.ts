@@ -138,6 +138,12 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
   },
   machine: {
+    session: {
+      idleEnabled: flag(false),
+      idleMinutes: number(30, 5, 240),
+      maximumEnabled: flag(false),
+      maximumHours: number(24, 1, 168),
+    },
     maintenance: { enabled: flag(false), days: number(30, 1, 3650), count: number(20, 1, 1000) },
     logs: { preview: number(300, 100, 5000), publish: number(500, 100, 5000) },
     workspace: {

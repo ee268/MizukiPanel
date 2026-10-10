@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Hono } from "hono";
 import { afterEach, expect, it, vi } from "vitest";
-import { SESSION_COOKIE } from "../src/lib/server/auth";
+import { loginCookie } from "./auth-fixture";
+import { registerAuthRoutes } from "../src/server/routes/auth";
+import { PanelSessions } from "../src/lib/server/panel-sessions";
 import { saveWorkspacePath } from "../src/lib/server/workspace";
 import type { ProjectReport } from "../src/lib/server/project";
 import { currentProject } from "../src/server/project";
@@ -30,13 +32,14 @@ async function fixture() {
   const state = path.join(root, "state");
   const app = new Hono();
   process.env.PANEL_ACCESS_TOKEN = "settings-route-test";
-  registerSecurityMiddleware(app, origin);
+  registerSecurityMiddleware(app, origin, new PanelSessions(state));
+  registerAuthRoutes(app);
   registerSettingsRoutes(app, state);
   app.onError((error, context) =>
     context.json({ message: error.message }, error instanceof ApiError ? error.status : 500),
   );
   const headers = {
-    cookie: `${SESSION_COOKIE}=settings-route-test`,
+    cookie: await loginCookie(app, "settings-route-test"),
     origin,
     "content-type": "application/json",
   };

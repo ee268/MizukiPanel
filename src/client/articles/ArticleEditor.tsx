@@ -14,6 +14,7 @@ import { useEditorFontMode } from "./useEditorFontMode";
 import { ArticleLoading } from "./ArticleLoading";
 import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import "./editor-fonts.css";
+import { useSessionRecovery } from "../auth/useSessionRecovery";
 
 interface ArticleEditorProps {
   onLoadEnd?: () => void;
@@ -67,6 +68,12 @@ export function ArticleEditor({
   const vditorRef = useRef<VditorBodyEditorHandle>(null);
   const fontMode = useEditorFontMode(projectRoot);
   const activeMode = article?.error ? "frontmatter" : mode;
+  useSessionRecovery({
+    label: "编辑器输入",
+    prepare: () => flushSync(() => vditorRef.current?.flush(true)),
+    save: async () => {},
+    snapshot: () => null,
+  });
   useEffect(() => {
     if (article?.error) onLoadEnd?.();
   }, [article?.id, article?.version, article?.error, onLoadEnd]);

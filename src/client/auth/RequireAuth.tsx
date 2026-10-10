@@ -1,19 +1,28 @@
 import { useEffect, useState } from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { Alert, Button, Box, CircularProgress } from "@mui/material";
 import { Navigate } from "react-router-dom";
-import { api } from "../api";
+import { api, ApiError } from "../api";
+import { SessionGuard } from "./SessionGuard";
 import AppShell from "../layout/AppShell";
 
-type AuthState = "loading" | "ready" | "login";
+type AuthState = "loading" | "ready" | "login" | "error";
 
 export default function RequireAuth() {
   const [state, setState] = useState<AuthState>("loading");
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     api("/api/session")
       .then(() => setState("ready"))
-      .catch(() => setState("login"));
-  }, []);
+      .catch((cause) => {
+        if (cause instanceof ApiError && cause.status === 401) setState("login");
+        else {
+          setError(cause.message);
+          setState("error");
+        }
+      });
+  }, [attempt]);
 
   if (state === "loading") {
     return (
@@ -27,5 +36,30 @@ export default function RequireAuth() {
     return <Navigate to="/login" replace />;
   }
 
-  return <AppShell />;
+  if (state === "error")
+    return (
+      <Box sx={{ p: 4 }}>
+        <Alert
+          severity="error"
+          action={
+            <Button
+              onClick={() => {
+                setState("loading");
+                setAttempt((value) => value + 1);
+              }}
+            >
+              重试
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      </Box>
+    );
+  return (
+    <>
+      <AppShell />
+      <SessionGuard />
+    </>
+  );
 }

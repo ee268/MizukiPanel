@@ -214,6 +214,7 @@ export class IndexedDraftStore implements DraftStore {
   }
 }
 export class DraftWriter {
+  private failure: unknown;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private generation = 0;
   private pending: LocalDraft | null = null;
@@ -245,14 +246,21 @@ export class DraftWriter {
     this.tail = this.tail.then(async () => {
       if (!force && generation !== this.generation) return;
       try {
+        this.failure = undefined;
         await this.store.put(row, this.revisions.get(row.key) ?? null);
         this.revisions.set(row.key, row.revision);
         this.result(row);
       } catch (error) {
+        this.failure = error;
         this.result(null, error);
       }
     });
     return this.tail;
+  }
+  async checkpoint(row: LocalDraft): Promise<void> {
+    this.schedule(row, 0);
+    await this.flush(true);
+    if (this.failure) throw this.failure;
   }
   retire(key: string): Promise<void> {
     this.cancel();

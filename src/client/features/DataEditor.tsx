@@ -23,6 +23,7 @@ import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { ConfigValue, FeatureDataDocument } from "../types";
 import { LoadingPaper } from "./LoadingPaper";
+import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 
 export function DataEditor({
@@ -40,6 +41,17 @@ export function DataEditor({
   const [objectText, setObjectText] = useState("");
   const [busy, setBusy] = useState(false);
   const [backupPath, setBackupPath] = useState<string | null>(null);
+  useUnsavedSessionRecovery(
+    "特色页数据",
+    Boolean(
+      document &&
+      (Array.isArray(document.value)
+        ? JSON.stringify(items) !==
+          JSON.stringify(document.value.map((item) => JSON.stringify(item, null, 2)))
+        : objectText !== JSON.stringify(document.value, null, 2)),
+    ),
+    { kind: "featureData", key: resource, items, objectText, baseVersion: document?.version },
+  );
   const load = useCallback(async () => {
     setBusy(true);
     try {

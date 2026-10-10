@@ -14,6 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import { api, json } from "../api";
+import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import { defaultArticleFrontmatter } from "../../shared/panel-settings/article-template";
 import { useEditorFontMode } from "./useEditorFontMode";
 import { useArticleFonts } from "./useArticleFonts";
@@ -51,6 +52,19 @@ export function CreateArticleDialog({
   });
   const [refresh, setRefresh] = useState(0);
   const epoch = useRef(0);
+  useUnsavedSessionRecovery(
+    "新文章表单",
+    Boolean(
+      open &&
+      (fields.title ||
+        fields.id ||
+        fields.published !== localDate() ||
+        !fields.draft ||
+        fields.body !== (defaults?.values.body ?? "# 开始写作") ||
+        fields.frontmatter !== (defaults?.values.frontmatter ?? defaultArticleFrontmatter)),
+    ),
+    { kind: "articleCreation", fields },
+  );
   useEffect(() => {
     if (!open) return;
     const abort = new AbortController();

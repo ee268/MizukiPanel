@@ -14,6 +14,7 @@ import { useArticleDrafts } from "./useArticleDrafts";
 import type { LocalDraft } from "./local-drafts";
 import type { CreationFields, CreationPreview } from "./creation-types";
 import { useLiveProjectReport } from "../workspace/WorkspaceSessionProvider";
+import { sessionLifecycle } from "../auth/session-lifecycle";
 
 const ARTICLES_PER_PAGE = 10;
 
@@ -70,6 +71,7 @@ export function useArticles() {
     }
 
     const preventExit = (event: BeforeUnloadEvent) => {
+      if (sessionLifecycle.canNavigate()) return;
       event.preventDefault();
       event.returnValue = "";
     };

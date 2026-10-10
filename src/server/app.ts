@@ -3,7 +3,8 @@ import path from "node:path";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { ApiError, mapError } from "./errors";
-import { registerSecurityMiddleware } from "./middleware";
+import { registerSecurityMiddleware, authorizeSession } from "./middleware";
+import { PanelSessions } from "../lib/server/panel-sessions";
 import { registerArticleRoutes } from "./routes/articles";
 import { registerAuthRoutes } from "./routes/auth";
 import { registerConfigRoutes } from "./routes/configs";
@@ -23,6 +24,7 @@ export interface AppOptions {
   expectedOrigin?: string;
   clientRoot?: string;
   stateDir?: string;
+  sessions?: PanelSessions;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -33,13 +35,22 @@ export function createApp(options: AppOptions = {}) {
     `http://127.0.0.1:${process.env.PORT ?? 4173}`;
   const clientRoot = options.clientRoot ?? path.join(process.cwd(), "dist");
 
-  registerSecurityMiddleware(app, expectedOrigin);
   const stateDir = options.stateDir ?? defaultStateDir();
+  registerSecurityMiddleware(
+    app,
+    expectedOrigin,
+    options.sessions ?? new PanelSessions(stateDir),
+    serializeWorkspaceMutation,
+  );
   app.use("/api/*", (context, next) =>
     withWorkspaceState(stateDir, async () => {
       const route = context.req.path;
       if (route.startsWith("/api/auth/") || route === "/api/session") return next();
       const work = async () => {
+        if (!["GET", "HEAD"].includes(context.req.method)) {
+          const rejected = await authorizeSession(app, context);
+          if (rejected) return rejected;
+        }
         const expected = context.req.header("x-mizuki-workspace");
         const session = workspaceSession(stateDir);
         await session.initialize();
@@ -56,9 +67,7 @@ export function createApp(options: AppOptions = {}) {
           );
         return next();
       };
-      return context.req.method === "GET" || route === "/api/workspace/select-directory"
-        ? work()
-        : serializeWorkspaceMutation(work);
+      return work();
     }),
   );
   registerAuthRoutes(app);

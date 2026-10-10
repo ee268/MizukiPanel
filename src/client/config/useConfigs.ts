@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import { notifySiteIdentityChanged } from "../shared/site-identity";
+import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import type { ConfigDescriptor, ProjectReport, SiteConfigDocument } from "../types";
 import {
   useLiveProjectDocument,
@@ -29,6 +30,12 @@ export function useConfigs() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [backupPath, setBackupPath] = useState<string | null>(null);
+  useUnsavedSessionRecovery("站点配置", Boolean(document && initializer !== document.initializer), {
+    kind: "siteConfig",
+    key: selected,
+    initializer,
+    baseVersion: document?.version,
+  });
 
   useEffect(() => {
     api<{ report: ProjectReport; configs: ConfigDescriptor[] }>("/api/configs")

@@ -6,6 +6,7 @@ import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { FeatureTextDocument } from "../types";
 import { LoadingPaper } from "./LoadingPaper";
+import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 
 export function TextEditor({
@@ -22,6 +23,12 @@ export function TextEditor({
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
   const [backupPath, setBackupPath] = useState<string | null>(null);
+  useUnsavedSessionRecovery("特色页正文", Boolean(document && content !== document.content), {
+    kind: "featureText",
+    key: resource,
+    content,
+    baseVersion: document?.version,
+  });
   const load = useCallback(async () => {
     try {
       const data = await api<FeatureTextDocument>(`/api/feature/text?key=${resource}`);

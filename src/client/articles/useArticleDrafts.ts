@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArticleRecord } from "../types";
 import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
 import type { FrontmatterRow } from "./types";
+import { useSessionRecovery } from "../auth/useSessionRecovery";
 import {
   draftError,
   draftKey,
@@ -50,6 +51,37 @@ export function useArticleDrafts(input: {
       }),
     [store],
   );
+  function exitSnapshot(): LocalDraft | null {
+    const state = latest.current;
+    if (!state.article || !state.projectKey || !state.dirty) return null;
+    return {
+      schemaVersion: 1,
+      key: draftKey(state.projectKey, state.article.id, sessionId),
+      target: draftTarget(state.projectKey, state.article.id),
+      projectKey: state.projectKey,
+      articleId: state.article.id,
+      sessionId,
+      revision: crypto.randomUUID(),
+      updatedAt: new Date().toISOString(),
+      format: state.article.format,
+      baseVersion: state.article.version,
+      baseSource: state.article.source,
+      baseFrontmatter: state.article.frontmatter,
+      source: state.source,
+      frontmatter: state.frontmatter,
+    };
+  }
+  useSessionRecovery({
+    label: "文章草稿",
+    snapshot: exitSnapshot,
+    save: async () => {
+      const row = exitSnapshot();
+      if (!row) return;
+      if (!saved.drafts.enabled)
+        throw new Error("本地草稿自动保存已关闭，请下载未保存内容后登录。");
+      await writer.checkpoint(row);
+    },
+  });
   const refresh = useCallback(async () => {
     if (!target) {
       setEntries([]);

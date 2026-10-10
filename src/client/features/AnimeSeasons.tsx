@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
+import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import type { AnimeSeason, AnimeSeasonDocument } from "../types";
 import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 
@@ -32,6 +33,11 @@ export function AnimeSeasons({
   const document = useLiveProjectDocument(loadedDocument);
   const [content, setContent] = useState("");
   const [newId, setNewId] = useState("");
+  useUnsavedSessionRecovery(
+    "追番季度",
+    Boolean((document ? content !== document.content : Boolean(content)) || newId),
+    { kind: "animeSeason", id: document?.id ?? newId, content, baseVersion: document?.version },
+  );
   const loadList = useCallback(async () => {
     try {
       const data = await api<{ seasons: AnimeSeason[] }>("/api/feature/anime-seasons");

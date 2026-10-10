@@ -35,6 +35,11 @@ import { MediaSettingsForm } from "../settings/MediaSettingsForm";
 import { TaskSettingsForms } from "../settings/TaskSettingsForms";
 import { MaintenanceSettingsForms } from "../settings/MaintenanceSettingsForms";
 import { PreferenceTransferForm } from "../settings/PreferenceTransferForm";
+import { SessionSettingsForm } from "../settings/SessionSettingsForm";
+import { useSessionRecovery } from "../auth/useSessionRecovery";
+import { sessionLifecycle } from "../auth/session-lifecycle";
+import { exportPreferenceGroups, type PreferenceGroups } from "../../shared/preferences-transfer";
+import { defaultValues } from "../../shared/panel-settings";
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -140,9 +145,69 @@ export default function SettingsPage() {
     undefined,
     (settings) => setOverview((current) => (current ? { ...current, machine: settings } : current)),
   );
-  const scoped = [machine, access, media, previewSettings, publishSettings, retention, maintenance];
+  const sessionSettings = useScopedSettings(
+    "machine",
+    "session",
+    overview?.machine ?? null,
+    undefined,
+    (settings) => {
+      setOverview((current) => (current ? { ...current, machine: settings } : current));
+      void api("/api/session").catch(() => {});
+    },
+  );
+  const scoped = [
+    machine,
+    access,
+    media,
+    previewSettings,
+    publishSettings,
+    retention,
+    maintenance,
+    sessionSettings,
+  ];
   const dirty = controller.dirty || template.dirty || scoped.some((item) => item.dirty);
   const saving = controller.saving || template.saving || scoped.some((item) => item.saving);
+  useSessionRecovery({
+    label: "未保存设置",
+    prepare: () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
+    save: async () => {
+      if (dirty) throw new Error("设置仍有未保存修改，请下载修改副本后登录。");
+    },
+    snapshot: () => {
+      if (!dirty) return null;
+      return {
+        format: "mizuki-panel-preferences",
+        schemaVersion: 1,
+        scopes: {
+          browser: exportPreferenceGroups(
+            "browser",
+            Object.fromEntries(
+              Object.entries(controller.drafts).map(([group, draft]) => [group, draft.value]),
+            ) as unknown as PreferenceGroups,
+          ),
+          machine: exportPreferenceGroups("machine", {
+            ...defaultValues("machine"),
+            workspace: machine.value,
+            logs: retention.value,
+            maintenance: maintenance.value,
+            session: sessionSettings.value,
+          }),
+          ...(overview?.project
+            ? {
+                project: exportPreferenceGroups("project", {
+                  ...defaultValues("project"),
+                  access: access.value,
+                  media: media.value,
+                  preview: previewSettings.value,
+                  publish: publishSettings.value,
+                  articleTemplate: template.value as unknown as Record<string, unknown>,
+                }),
+              }
+            : {}),
+        },
+      };
+    },
+  });
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&
@@ -171,6 +236,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!dirty) return;
     const unload = (event: BeforeUnloadEvent) => {
+      if (sessionLifecycle.canNavigate()) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -354,6 +420,7 @@ export default function SettingsPage() {
                   />
                 ) : (
                   <Stack spacing={3}>
+                    <SessionSettingsForm controller={sessionSettings} />
                     <MaintenanceSettingsForms
                       controller={maintenance}
                       active={sectionId === "maintenance"}

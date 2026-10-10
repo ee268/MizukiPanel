@@ -27,6 +27,7 @@ export const groupLabels: Record<string, string> = {
   logs: "运行日志",
   workspace: "工作区",
   maintenance: "备份保留",
+  session: "会话策略",
   preview: "预览",
   publish: "发布",
   access: "只读偏好",
@@ -108,6 +109,12 @@ export function preferenceDiff(before: PreferenceGroups, after: PreferenceGroups
   );
 }
 const fieldLabels: Record<string, Record<string, string>> = {
+  session: {
+    idleEnabled: "闲置自动退出",
+    idleMinutes: "闲置分钟数",
+    maximumEnabled: "限制最大有效期",
+    maximumHours: "最大有效小时数",
+  },
   appearance: { mode: "主题模式", hue: "主题色相", font: "界面字体", fontSize: "界面字号" },
   navigation: {
     sidebar: "侧栏状态",

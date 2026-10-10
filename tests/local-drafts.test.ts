@@ -47,6 +47,26 @@ function memory() {
   return { entries, store };
 }
 afterEach(() => vi.useRealTimers());
+it("checkpoints the latest source and independent Frontmatter and propagates storage failure", async () => {
+  const db = memory();
+  const writer = new DraftWriter(db.store, () => {});
+  const first = row();
+  writer.schedule(first, 10000);
+  const latest = { ...first, revision: crypto.randomUUID(), source: first.source + "最新正文" };
+  await writer.checkpoint(latest);
+  expect(db.entries.get(latest.key)).toEqual(latest);
+  const put = db.store.put;
+  db.store.put = async () => {
+    throw new Error("quota");
+  };
+  await expect(writer.checkpoint({ ...latest, revision: crypto.randomUUID() })).rejects.toThrow(
+    "quota",
+  );
+  expect(db.entries.get(latest.key)).toEqual(latest);
+  db.store.put = put;
+  await writer.checkpoint({ ...latest, revision: crypto.randomUUID(), source: "retry" });
+  expect(db.entries.get(latest.key)?.source).toBe("retry");
+});
 it("keeps an explicit flush when locking the editor cancels automatic work", async () => {
   const db = memory();
   const writer = new DraftWriter(db.store, () => {});
