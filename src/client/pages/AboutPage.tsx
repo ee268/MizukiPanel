@@ -16,7 +16,7 @@ import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
 const capabilities = [
   "管理文章内容、Frontmatter 与媒体资源",
   "编辑站点配置和全部特色页面",
-  "启动 Astro 真实预览并查看运行日志",
+  "启动 Mizuki预览并查看运行日志",
   "查看内容数据与 Git 活动，并完成发布操作",
 ];
 

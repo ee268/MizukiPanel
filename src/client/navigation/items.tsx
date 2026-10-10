@@ -19,6 +19,6 @@ export const navigationItems: NavigationItem[] = [
   { path: "/config", label: "站点配置", icon: <TuneOutlined /> },
   { path: "/features", label: "特色页面", icon: <AutoAwesomeOutlined /> },
   { path: "/media", label: "媒体管理", icon: <PermMediaOutlined /> },
-  { path: "/preview", label: "真实预览", icon: <PreviewOutlined /> },
+  { path: "/preview", label: "Mizuki预览", icon: <PreviewOutlined /> },
   { path: "/publish", label: "发布管理", icon: <RocketLaunchOutlined /> },
 ];

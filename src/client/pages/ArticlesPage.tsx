@@ -149,7 +149,7 @@ export default function ArticlesPage() {
                     onPreview={(path) => {
                       if (
                         articles.dirty &&
-                        !window.confirm("当前文章有未保存的修改，确定离开并查看真实预览吗？")
+                        !window.confirm("当前文章有未保存的修改，确定离开并查看Mizuki预览吗？")
                       ) {
                         return;
                       }

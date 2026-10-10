@@ -51,7 +51,7 @@ export default function PreviewPage() {
           sx={{ justifyContent: "space-between" }}
         >
           <Box>
-            <Typography variant="h4">真实预览</Typography>
+            <Typography variant="h4">Mizuki预览</Typography>
             <Typography color="text.secondary">
               启动 Mizuki 的 Astro 服务，并在新标签页中查看真实渲染结果。
             </Typography>

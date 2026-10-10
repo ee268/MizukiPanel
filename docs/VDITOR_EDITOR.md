@@ -5,7 +5,7 @@
 ## 使用与保存
 
 - Markdown 与内置教程默认使用即时渲染模式；Vditor 工具栏可切换所见即所得和分屏预览。
-- MDX 文章默认使用分屏源码模式，以保留 import、JSX 和表达式。组件不会在面板中执行；Mizuki 自定义指令和 MDX 的最终效果仍通过真实预览核对。扩展内容通过 Vditor 原生正文模式编辑。
+- MDX 文章默认使用分屏源码模式，以保留 import、JSX 和表达式。组件不会在面板中执行；Mizuki 自定义指令和 MDX 的最终效果仍通过Mizuki预览核对。扩展内容通过 Vditor 原生正文模式编辑。
 - Frontmatter 使用独立表单；解析失败时在 Frontmatter 页内编辑 YAML 并保存修复，正文保持原样。缺少完整头部时可添加新的 Frontmatter，原文作为正文保留。Vditor 仅编辑正文。`vditor-source.ts` 保留原始 Frontmatter 切片、BOM、注释和 LF/CRLF 换行约定。
 - 打开、查看和无修改切换不会将 Vditor 初始化时的格式规范化结果写回草稿；撤销回初始正文时恢复初始原文。实际编辑会使用 Vditor 的 CommonMark/GFM 序列化，因此正文空白、标记写法可能被规范化。
 - 保存按钮和 Ctrl+S 在调用现有保存流程之前同步读取当前编辑内容，避免输入回调的延迟造成漏存。切换 Frontmatter 前也会读取当前内容；切回正文沿用同一个 Vditor 实例，保留其撤销记录。

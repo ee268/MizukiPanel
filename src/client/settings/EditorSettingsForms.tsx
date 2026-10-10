@@ -129,7 +129,7 @@ export function EditorSettingsForms({
           </TextField>
           <Alert severity="info">
             MDX 组件和 Mizuki
-            扩展的最终效果需要通过真实预览查看；选择其他编辑模式不会增加组件渲染能力。
+            扩展的最终效果需要通过Mizuki预览查看；选择其他编辑模式不会增加组件渲染能力。
           </Alert>
           <Divider />
           <Typography component="h4" sx={{ fontWeight: 600 }}>

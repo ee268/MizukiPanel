@@ -391,7 +391,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
           <Alert severity="info">
             MDX
             文章默认使用分屏编辑以保留组件语法，教程默认即时渲染。其他模式不提供组件的最终渲染；Mizuki
-            扩展和组件请通过真实预览查看。
+            扩展和组件请通过Mizuki预览查看。
           </Alert>
         )}
         {/* Vditor owns its runtime classes; theme updates must keep the host className stable. */}

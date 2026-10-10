@@ -116,7 +116,7 @@ export default function FeaturesPage() {
                         navigate(`/preview?path=${encodeURIComponent(module?.pagePath ?? "/")}`)
                       }
                     >
-                      真实预览
+                      Mizuki预览
                     </Button>
                     {module?.switchKey && (
                       <Button onClick={() => navigate("/config")}>页面开关与导航</Button>

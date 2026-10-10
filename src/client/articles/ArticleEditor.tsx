@@ -135,7 +135,7 @@ export function ArticleEditor({
             <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
               {previewPath && (
                 <Button startIcon={<OpenInNewOutlined />} onClick={() => onPreview(previewPath)}>
-                  真实预览
+                  Mizuki预览
                 </Button>
               )}
               <Button startIcon={<DriveFileRenameOutline />} onClick={onRename}>
