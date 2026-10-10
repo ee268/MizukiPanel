@@ -110,9 +110,6 @@ export default function FeaturesPage() {
                       <Typography variant="h5">{module?.label}</Typography>
                       <Typography color="text.secondary">{module?.pagePath}</Typography>
                     </Box>
-                    {module?.sourceMode && (
-                      <Chip color="info" label={`数据源：${module.sourceMode}`} />
-                    )}
                     <Button
                       startIcon={<OpenInNewOutlined />}
                       onClick={() =>
