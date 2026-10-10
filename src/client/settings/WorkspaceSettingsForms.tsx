@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Alert,
   Box,
@@ -25,6 +25,7 @@ import type { useScopedSettings } from "./useScopedSettings";
 import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
 import { useWorkspaceActions } from "../workspace/useWorkspaceActions";
 import type { WorkspaceData } from "../workspace/types";
+import { RecentProjectList } from "../workspace/RecentProjectList";
 
 type ScopedController = ReturnType<typeof useScopedSettings>;
 export function ScopedCard({
@@ -108,6 +109,12 @@ export function WorkspaceSettingsForms({
   const session = useWorkspaceSession();
   const actions = useWorkspaceActions();
   const data = session.data;
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const selectedProject = data?.recentProjects.find((item) => item.id === selectedProjectId);
+  useEffect(() => {
+    if (selectedProjectId && !data?.recentProjects.some((item) => item.id === selectedProjectId))
+      setSelectedProjectId(null);
+  }, [data?.recentProjects, selectedProjectId]);
   const [remove, setRemove] = useState<RecentProject | null>(null);
   const [associate, setAssociate] = useState<RecentProject | null>(null);
   const [projectPath, setProjectPath] = useState("");
@@ -251,33 +258,14 @@ export function WorkspaceSettingsForms({
               {warning}
             </Alert>
           ))}
-          {!data?.recentProjects.length && (
-            <Typography color="text.secondary">暂无最近项目。</Typography>
-          )}
-          {data?.recentProjects.map((item) => (
-            <Stack
-              key={item.id}
-              spacing={1}
-              sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
-            >
-              <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}
-                >
-                  {item.path}
-                </Typography>
-                {data.defaultProject?.id === item.id && <Chip size="small" label="默认项目" />}
-              </Stack>
-              {item.error && <Alert severity="warning">{item.error}</Alert>}
+          <RecentProjectList
+            projects={data?.recentProjects ?? []}
+            selectedId={selectedProject?.id ?? null}
+            defaultProjectId={data?.defaultProject?.id}
+            disabled={busy || actions.busy}
+            onSelect={setSelectedProjectId}
+            actions={(item) => (
               <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-                <Button
-                  disabled={blocked || !item.available}
-                  onClick={() => void actions.connect(item.path)}
-                >
-                  连接项目
-                </Button>
                 <Button
                   disabled={blocked || machine.readOnly}
                   onClick={() => machine.change({ defaultProject: item.id })}
@@ -285,7 +273,7 @@ export function WorkspaceSettingsForms({
                   设为默认
                 </Button>
                 <Button
-                  disabled={blocked || data.historyReadOnly || data.report?.root === item.path}
+                  disabled={blocked || data?.historyReadOnly || data?.report?.root === item.path}
                   onClick={() => {
                     setAssociate(item);
                     setProjectPath(item.path);
@@ -296,7 +284,7 @@ export function WorkspaceSettingsForms({
                   重新关联
                 </Button>
                 <Button
-                  disabled={blocked || data.historyReadOnly}
+                  disabled={blocked || data?.historyReadOnly}
                   onClick={() => {
                     setRemove(item);
                     setError("");
@@ -305,9 +293,15 @@ export function WorkspaceSettingsForms({
                   移除记录
                 </Button>
               </Stack>
-            </Stack>
-          ))}
-          <Stack direction="row" spacing={1}>
+            )}
+          />
+          <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
+            <Button
+              disabled={blocked || !selectedProject?.available}
+              onClick={() => selectedProject && void actions.connect(selectedProject.path)}
+            >
+              连接项目
+            </Button>
             <Button
               disabled={blocked}
               onClick={() => {
