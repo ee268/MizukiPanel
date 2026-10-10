@@ -18,6 +18,7 @@ export class SessionLifecycle {
   private epoch = 0;
   private navigationAllowed = false;
   private revoke: (() => Promise<void>) | undefined;
+  private exitOpenedAt = 0;
   constructor(private navigate: () => void) {}
   getState = () => this.state;
   getEpoch = () => this.epoch;
@@ -50,6 +51,7 @@ export class SessionLifecycle {
   ) {
     if (epoch !== this.epoch || this.state.exit) return;
     this.revoke = revoke;
+    this.exitOpenedAt = Date.now();
     this.update({ ...this.state, exit: { reason, message, working: true, errors: [] } });
     await this.retry();
   }
@@ -64,8 +66,12 @@ export class SessionLifecycle {
     else await this.finish(sequence);
   }
   async finish(sequence = this.sequence) {
-    if (!this.state.exit) return;
+    if (sequence !== this.sequence || !this.state.exit) return;
     this.update({ ...this.state, exit: { ...this.state.exit, working: true } });
+    // Count saving time toward the minimum dialog duration, including retries.
+    const remaining = 2000 - (Date.now() - this.exitOpenedAt);
+    if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+    if (sequence !== this.sequence || !this.state.exit) return;
     try {
       await this.revoke?.();
     } catch (error) {

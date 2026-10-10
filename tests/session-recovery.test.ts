@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { RecoveryRegistry } from "../src/client/auth/session-recovery";
 import { SessionLifecycle } from "../src/client/auth/session-lifecycle";
 import type { PanelSessionStatus } from "../src/shared/session";
@@ -10,6 +10,7 @@ const status = (key = "one"): PanelSessionStatus => ({
   expiresAt: null,
   policy: { idleEnabled: false, idleMinutes: 30, maximumEnabled: false, maximumHours: 24 },
 });
+beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 it("flushes widgets before saving complete drafts and waits for persistence before navigation", async () => {
   const navigate = vi.fn();
@@ -33,7 +34,9 @@ it("flushes widgets before saving complete drafts and waits for persistence befo
     save: async () => {},
     snapshot: () => null,
   });
-  await lifecycle.end("idle", "expired");
+  const pending = lifecycle.end("idle", "expired");
+  await vi.advanceTimersByTimeAsync(2000);
+  await pending;
   expect(order).toEqual(["flush", "save latest"]);
   expect(navigate).toHaveBeenCalledOnce();
   expect(lifecycle.canNavigate()).toBe(true);
@@ -59,7 +62,9 @@ it("holds input and offers recovery snapshots after a failed save, then retries 
   expect(lifecycle.getState().exit?.errors[0]).toContain("quota");
   expect(lifecycle.recovery.capture()[0].data).toMatchObject({ source: "unsaved" });
   fail = false;
-  await lifecycle.retry();
+  const retry = lifecycle.retry();
+  await vi.advanceTimersByTimeAsync(2000);
+  await retry;
   expect(revoke).toHaveBeenCalledOnce();
   expect(navigate).toHaveBeenCalledOnce();
 });
@@ -88,7 +93,6 @@ it("ignores duplicate and stale expiry reports and cancels pending exits after a
   expect(lifecycle.getState().exit).toBeNull();
 });
 it("captures independent participants and handles persistence timeouts without navigating", async () => {
-  vi.useFakeTimers();
   const registry = new RecoveryRegistry();
   registry.register({
     label: "draft",
@@ -111,9 +115,11 @@ it("keeps the page when server logout fails and allows cancelling a voluntary ex
   const navigate = vi.fn();
   const lifecycle = new SessionLifecycle(navigate);
   lifecycle.adopt(status());
-  await lifecycle.end("logout", "logout", undefined, async () => {
+  const pending = lifecycle.end("logout", "logout", undefined, async () => {
     throw new Error("network");
   });
+  await vi.advanceTimersByTimeAsync(2000);
+  await pending;
   expect(navigate).not.toHaveBeenCalled();
   expect(lifecycle.getState().exit?.errors).toEqual(["network"]);
   lifecycle.cancel();
@@ -134,7 +140,63 @@ it("allows explicit abandonment or downloaded recovery after expiry while retain
   await lifecycle.end("maximum", "expired");
   lifecycle.cancel();
   expect(lifecycle.getState().exit).not.toBeNull();
-  await lifecycle.finish();
+  const finishing = lifecycle.finish();
+  await vi.advanceTimersByTimeAsync(2000);
+  await finishing;
   expect(navigate).toHaveBeenCalledOnce();
   expect(lifecycle.recovery.capture()[0].data).toEqual({ hue: 210 });
+});
+
+it("keeps the saving dialog open for at least two seconds before logging out", async () => {
+  const navigate = vi.fn();
+  const revoke = vi.fn(async () => {});
+  const lifecycle = new SessionLifecycle(navigate);
+  lifecycle.adopt(status());
+  const pending = lifecycle.end("logout", "logout", undefined, revoke);
+  await vi.advanceTimersByTimeAsync(1999);
+  expect(lifecycle.getState().exit?.working).toBe(true);
+  expect(lifecycle.canNavigate()).toBe(false);
+  expect(revoke).not.toHaveBeenCalled();
+  expect(navigate).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  await pending;
+  expect(revoke).toHaveBeenCalledOnce();
+  expect(navigate).toHaveBeenCalledOnce();
+});
+
+it("waits for a slower save without adding another two seconds", async () => {
+  const navigate = vi.fn();
+  const lifecycle = new SessionLifecycle(navigate);
+  lifecycle.adopt(status());
+  let release!: () => void;
+  lifecycle.recovery.register({
+    label: "draft",
+    save: () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+    snapshot: () => null,
+  });
+  const pending = lifecycle.end("logout", "logout");
+  await vi.advanceTimersByTimeAsync(3000);
+  expect(navigate).not.toHaveBeenCalled();
+  release();
+  await pending;
+  expect(navigate).toHaveBeenCalledOnce();
+});
+
+it.each(["cancel", "new login"])("ignores delayed logout after %s", async (action) => {
+  const navigate = vi.fn();
+  const revoke = vi.fn(async () => {});
+  const lifecycle = new SessionLifecycle(navigate);
+  lifecycle.adopt(status());
+  const pending = lifecycle.end("logout", "logout", undefined, revoke);
+  await vi.advanceTimersByTimeAsync(1000);
+  if (action === "cancel") lifecycle.cancel();
+  else lifecycle.adopt(status("new"));
+  await vi.advanceTimersByTimeAsync(1000);
+  await pending;
+  expect(revoke).not.toHaveBeenCalled();
+  expect(navigate).not.toHaveBeenCalled();
+  expect(lifecycle.getState().exit).toBeNull();
 });
