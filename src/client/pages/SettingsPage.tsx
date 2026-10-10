@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   Alert,
@@ -49,6 +49,14 @@ export default function SettingsPage() {
   const sectionId = settingsSections.some((item) => item.id === selected)
     ? selected!
     : "appearance";
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    // Browser history may restore the previous offset after the navigation event.
+    const frame = window.requestAnimationFrame(() =>
+      window.scrollTo({ top: 0, behavior: "instant" }),
+    );
+    return () => window.cancelAnimationFrame(frame);
+  }, [sectionId]);
   const preferences = usePersonalSettings();
   const controller = usePersonalDrafts();
   const [overview, setOverview] = useState<SettingsOverview | null>(null);
@@ -381,6 +389,16 @@ export default function SettingsPage() {
                 hidden={sectionId !== item.id}
                 tabIndex={0}
               >
+                {item.id !== "appearance" && item.id !== "editor" && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="h5" component="h2">
+                      {item.title}
+                    </Typography>
+                    <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                      {item.description}
+                    </Typography>
+                  </Box>
+                )}
                 {item.id === "appearance" ? (
                   <AppearanceSettingsForms controller={controller} />
                 ) : item.id === "editor" ? (
