@@ -9,6 +9,8 @@ import { PublishError } from "../lib/server/publish";
 import { StorageConflict } from "../lib/server/storage";
 import { WorkspacePickerError } from "../lib/server/workspace";
 import { WorkspaceError } from "../lib/server/workspace-session";
+import { MaintenanceError } from "../lib/server/maintenance";
+import { SettingsValidationError } from "../shared/panel-settings";
 
 export class ApiError extends Error {
   constructor(
@@ -40,7 +42,9 @@ export function mapError(error: unknown): never {
     error instanceof ProjectError ||
     error instanceof PublishError ||
     error instanceof WorkspacePickerError ||
-    error instanceof WorkspaceError
+    error instanceof WorkspaceError ||
+    error instanceof MaintenanceError ||
+    error instanceof SettingsValidationError
   ) {
     throw new ApiError(400, error.message);
   }

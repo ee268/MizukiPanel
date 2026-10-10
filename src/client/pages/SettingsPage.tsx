@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
 import {
   Alert,
   Box,
@@ -34,6 +33,8 @@ import { WorkspaceSettingsForms } from "../settings/WorkspaceSettingsForms";
 import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
 import { MediaSettingsForm } from "../settings/MediaSettingsForm";
 import { TaskSettingsForms } from "../settings/TaskSettingsForms";
+import { MaintenanceSettingsForms } from "../settings/MaintenanceSettingsForms";
+import { PreferenceTransferForm } from "../settings/PreferenceTransferForm";
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -132,7 +133,14 @@ export default function SettingsPage() {
     undefined,
     (settings) => setOverview((current) => (current ? { ...current, machine: settings } : current)),
   );
-  const scoped = [machine, access, media, previewSettings, publishSettings, retention];
+  const maintenance = useScopedSettings(
+    "machine",
+    "maintenance",
+    overview?.machine ?? null,
+    undefined,
+    (settings) => setOverview((current) => (current ? { ...current, machine: settings } : current)),
+  );
+  const scoped = [machine, access, media, previewSettings, publishSettings, retention, maintenance];
   const dirty = controller.dirty || template.dirty || scoped.some((item) => item.dirty);
   const saving = controller.saving || template.saving || scoped.some((item) => item.saving);
   const blocker = useBlocker(
@@ -345,18 +353,26 @@ export default function SettingsPage() {
                     active={sectionId === "preview"}
                   />
                 ) : (
-                  <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 } }}>
-                    <Typography variant="h6" component="h2">
-                      {item.title}
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                      {item.description}
-                    </Typography>
-                    <Stack spacing={1.5} sx={{ py: 7, alignItems: "center", textAlign: "center" }}>
-                      <SettingsOutlined sx={{ fontSize: 40, color: "text.disabled" }} />
-                      <Typography color="text.secondary">此分类暂未提供可调整的选项。</Typography>
-                    </Stack>
-                  </Paper>
+                  <Stack spacing={3}>
+                    <MaintenanceSettingsForms
+                      controller={maintenance}
+                      active={sectionId === "maintenance"}
+                      revision={`${workspace.data?.version}:${workspace.data?.report?.readOnly}:${reload}`}
+                      disabled={dirty || saving}
+                      onRestored={() => {
+                        setReload((value) => value + 1);
+                        refreshWorkspace();
+                      }}
+                    />
+                    <PreferenceTransferForm
+                      overview={overview}
+                      disabled={dirty || saving}
+                      onApplied={() => {
+                        setReload((value) => value + 1);
+                        refreshWorkspace();
+                      }}
+                    />
+                  </Stack>
                 )}
               </Box>
             ))}

@@ -52,19 +52,37 @@ export async function savePanelSettings(
   },
   stateDir = defaultStateDir(),
 ): Promise<SettingsSnapshot> {
+  return savePanelSettingsGroups({ ...input, groups: { [input.group]: input.fields } }, stateDir);
+}
+export async function savePanelSettingsGroups(
+  input: {
+    scope: "machine" | "project";
+    groups: Record<string, unknown>;
+    version: string | null;
+    projectKey?: string;
+  },
+  stateDir = defaultStateDir(),
+): Promise<SettingsSnapshot> {
   await mkdir(stateDir, { recursive: true });
   const current = await readPanelSettings(input.scope, input.projectKey, stateDir);
   if (current.version !== input.version)
     throw new StorageConflict("设置已被其他操作修改，请重新读取后保存。");
   if (current.readOnly) throw new SettingsValidationError(current.warnings[0]);
-  const next = patchSettings(
-    current.document,
-    input.scope as SettingsScope,
-    input.group,
-    input.fields,
-    randomUUID(),
-  );
-  if (input.scope === "project" && input.group === "articleTemplate") {
+  if (!Object.keys(input.groups).length) throw new SettingsValidationError("请选择设置分组。");
+  let next = current.document;
+  for (const [group, fields] of Object.entries(input.groups))
+    next = patchSettings(next, input.scope as SettingsScope, group, fields, randomUUID());
+  if (
+    input.scope === "machine" &&
+    Object.hasOwn(input.groups, "workspace") &&
+    next.values.workspace.defaultProject
+  ) {
+    const { readWorkspaceHistory } = await import("./workspace-session");
+    const history = await readWorkspaceHistory(stateDir);
+    if (!Object.hasOwn(history.document.projects, String(next.values.workspace.defaultProject)))
+      throw new SettingsValidationError("默认项目必须来自已连接过的项目记录。");
+  }
+  if (input.scope === "project" && Object.hasOwn(input.groups, "articleTemplate")) {
     try {
       const values = next.values.articleTemplate;
       const variables = {
@@ -91,6 +109,7 @@ export async function savePanelSettings(
     JSON.stringify(next, null, 2) + "\n",
     current.version,
     path.join(stateDir, "backups", "settings"),
+    { domain: "settings" },
   );
   return readPanelSettings(input.scope, input.projectKey, stateDir);
 }

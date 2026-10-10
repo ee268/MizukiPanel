@@ -150,6 +150,7 @@ export class WorkspaceSession {
       JSON.stringify({ ...document, revision: randomUUID() }, null, 2) + "\n",
       history.version,
       path.join(this.stateDir, "backups", "workspace"),
+      { domain: "workspace" },
     );
   }
   private async startup() {

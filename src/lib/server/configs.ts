@@ -372,6 +372,7 @@ export async function saveConfig(
     source,
     current?.version ?? null,
     backupDir(),
+    { domain: "config", projectRoot: report.root },
   );
   return { config: await readConfig(report, key), backupPath: saved.backupPath };
 }
@@ -391,6 +392,7 @@ export async function restoreConfig(
     backupPath,
     expectedVersion,
     backupDir(),
+    { domain: "config", projectRoot: report.root },
   );
   return readConfig(report, key);
 }

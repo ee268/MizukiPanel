@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { recordArchive, archiveSnapshot } from "./archive-metadata";
 import { constants } from "node:fs";
 import {
   copyFile,
@@ -365,9 +366,16 @@ export async function deleteMedia(
   await mkdir(path.dirname(trash), { recursive: true });
   await copyFile(source, trash, constants.COPYFILE_EXCL);
   try {
+    const metadata = await recordArchive(trash, "trash", base.root, relative, {
+      domain: "media",
+      projectRoot: report.root,
+    });
+    if ((await archiveSnapshot(source)).digest !== metadata.digest)
+      throw new MediaError("媒体在回收期间发生变化，请重试。");
     await unlink(source);
   } catch (error) {
     await rm(trash, { force: true });
+    await rm(trash + ".meta.json", { force: true });
     throw error;
   }
   return trash;

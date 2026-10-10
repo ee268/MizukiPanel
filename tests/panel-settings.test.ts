@@ -39,7 +39,14 @@ it("reads missing defaults without creating files and atomically saves with vers
     state,
   );
   expect(next.version).not.toBe(saved.version);
-  expect(await readdir(path.join(state, "backups/settings"))).toHaveLength(1);
+  expect(
+    (await readdir(path.join(state, "backups/settings"))).filter((name) => name.endsWith(".bak")),
+  ).toHaveLength(1);
+  expect(
+    (await readdir(path.join(state, "backups/settings"))).filter((name) =>
+      name.endsWith(".meta.json"),
+    ),
+  ).toHaveLength(1);
   expect((await readdir(state)).some((entry) => /\.(?:tmp|lock)$/.test(entry))).toBe(false);
 });
 it("isolates real project identities and does not write into either project", async () => {

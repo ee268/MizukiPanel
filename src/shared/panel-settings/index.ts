@@ -138,6 +138,7 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
   },
   machine: {
+    maintenance: { enabled: flag(false), days: number(30, 1, 3650), count: number(20, 1, 1000) },
     logs: { preview: number(300, 100, 5000), publish: number(500, 100, 5000) },
     workspace: {
       startup: choice("last", ["last", "none", "default"]),

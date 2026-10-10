@@ -17,6 +17,7 @@ async function fixture(mode: "local" | "external", id: string, source: string) {
   const base = await mkdtemp(path.join(tmpdir(), "mizuki-article-body-"));
   temporaryPaths.push(base);
   const root = path.join(base, "site");
+  await mkdir(root);
   const contentRoot = mode === "external" ? path.join(base, "content") : null;
   const posts = contentRoot
     ? path.join(contentRoot, "posts")

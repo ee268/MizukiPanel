@@ -3,6 +3,7 @@ import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
+import { workspaceStateDirectory } from "./workspace-state";
 
 const run = promisify(execFile);
 
@@ -11,7 +12,7 @@ function stateFile(stateDir: string): string {
 }
 
 export function defaultStateDir(): string {
-  return path.resolve(process.cwd(), ".local");
+  return workspaceStateDirectory() ?? path.resolve(process.cwd(), ".local");
 }
 
 export async function readWorkspacePath(stateDir = defaultStateDir()): Promise<string | null> {

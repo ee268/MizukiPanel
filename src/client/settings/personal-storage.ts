@@ -66,6 +66,7 @@ export function readPersonalSettings(storage: StorageLike): SettingsSnapshot {
 export function savePersonalSettings(
   storage: StorageLike,
   patches: Partial<Record<PersonalGroup, { fields: Record<string, unknown>; base?: unknown }>>,
+  backup = false,
 ): SettingsSnapshot {
   const current = readPersonalSettings(storage);
   if (current.unavailable) throw new Error("浏览器存储不可用，偏好未保存，当前输入已保留。");
@@ -81,6 +82,12 @@ export function savePersonalSettings(
     document = patchSettings(document, "browser", group, patch.fields, crypto.randomUUID());
   }
   const serialized = JSON.stringify(document);
+  if (backup) {
+    const raw = storage.getItem(personalSettingsKey) ?? JSON.stringify(current.document);
+    const key = `${personalSettingsKey}:recovery:${Date.now()}:${crypto.randomUUID()}`;
+    storage.setItem(key, raw);
+    if (storage.getItem(key) !== raw) throw new Error("未能保存原偏好副本，操作已停止。");
+  }
   if (current.document.schemaVersion === 0 && current.raw)
     storage.setItem(`${personalSettingsKey}:migration-backup`, current.raw);
   storage.setItem(personalSettingsKey, serialized);

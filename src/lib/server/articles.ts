@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { recordArchive } from "./archive-metadata";
 import { validatePostPath } from "../../shared/panel-settings/article-template";
 import { slug as githubSlug } from "github-slugger";
 import { constants } from "node:fs";
@@ -288,7 +289,10 @@ export async function createArticleFromSource(report: ProjectReport, id: string,
   creatingProjects.add(root);
   try {
     await validateArticleCreation(report, id, source);
-    return await writeManagedFile(root, relativePost(report, id), source, null, backupDir());
+    return await writeManagedFile(root, relativePost(report, id), source, null, backupDir(), {
+      domain: "article",
+      projectRoot: report.root,
+    });
   } finally {
     creatingProjects.delete(root);
   }
@@ -302,7 +306,10 @@ export async function saveArticleSource(
 ) {
   const { root } = writable(report);
   await assertUnique(report, validateArticleId(id), source, id);
-  return writeManagedFile(root, relativePost(report, id), source, version, backupDir());
+  return writeManagedFile(root, relativePost(report, id), source, version, backupDir(), {
+    domain: "article",
+    projectRoot: report.root,
+  });
 }
 
 export async function saveArticleBody(
@@ -321,7 +328,10 @@ export async function saveArticleBody(
   const format = id.toLowerCase().endsWith(".mdx") ? "mdx" : "md";
   const source = await validateArticleBody(current.content, body, format, sourceEdits);
   if (source === current.content) return { version, backupPath: null };
-  return writeManagedFile(root, relative, source, version, backupDir());
+  return writeManagedFile(root, relative, source, version, backupDir(), {
+    domain: "article",
+    projectRoot: report.root,
+  });
 }
 
 export async function saveArticleFields(
@@ -335,7 +345,10 @@ export async function saveArticleFields(
   if (current.version !== version) throw new StorageConflict("文章已在其他位置修改，请重新加载");
   const source = patchArticleSource(current.content, fields);
   await assertUnique(report, id, source, id);
-  return writeManagedFile(root, relativePost(report, id), source, version, backupDir());
+  return writeManagedFile(root, relativePost(report, id), source, version, backupDir(), {
+    domain: "article",
+    projectRoot: report.root,
+  });
 }
 
 export async function saveArticleFrontmatter(
@@ -349,10 +362,19 @@ export async function saveArticleFrontmatter(
   if (current.version !== version) throw new StorageConflict("文章已在其他位置修改，请重新加载");
   const source = patchArticleFrontmatter(current.content, entries);
   await assertUnique(report, id, source, id);
-  return writeManagedFile(root, relativePost(report, id), source, version, backupDir());
+  return writeManagedFile(root, relativePost(report, id), source, version, backupDir(), {
+    domain: "article",
+    projectRoot: report.root,
+  });
 }
 
-async function transfer(report: ProjectReport, id: string, version: string, target: string) {
+async function transfer(
+  report: ProjectReport,
+  id: string,
+  version: string,
+  target: string,
+  trash = false,
+) {
   const { root } = writable(report);
   const source = await assertManagedRealPath(root, relativePost(report, id));
   const current = await readManagedFile(root, relativePost(report, id));
@@ -374,9 +396,17 @@ async function transfer(report: ProjectReport, id: string, version: string, targ
     copied = true;
     const latest = await readManagedFile(root, relativePost(report, id));
     if (latest.version !== version) throw new StorageConflict("文章在操作期间发生修改");
+    if (trash)
+      await recordArchive(target, "trash", root, relativePost(report, id), {
+        domain: "article",
+        projectRoot: report.root,
+      });
+    if ((await readManagedFile(root, relativePost(report, id))).version !== version)
+      throw new StorageConflict("文章在操作期间发生修改");
     await unlink(source);
   } catch (error) {
     if (copied) await rm(target, { force: true });
+    if (trash) await rm(target + ".meta.json", { force: true });
     throw error;
   } finally {
     await lock.close();
@@ -410,6 +440,6 @@ export async function deleteArticle(
 ): Promise<string> {
   writable(report);
   const target = path.join(trashDir(), randomUUID() + "-" + path.basename(id));
-  await transfer(report, id, version, target);
+  await transfer(report, id, version, target, true);
   return target;
 }

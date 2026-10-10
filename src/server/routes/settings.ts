@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   readPanelSettings,
   savePanelSettings,
+  savePanelSettingsGroups,
   settingsProjectKey,
 } from "../../lib/server/panel-settings";
 import { record, SettingsValidationError } from "../../shared/panel-settings";
@@ -11,8 +12,31 @@ import { ApiError, errorMessage, mapError } from "../errors";
 import { articleProjectKey } from "../../lib/server/article-template";
 import { workspaceSession, readWorkspaceHistory } from "../../lib/server/workspace-session";
 import { updateLogRetention } from "../../lib/server/task-preferences";
+import { validatePreferenceGroups } from "../../shared/preferences-transfer";
 
 export function registerSettingsRoutes(app: Hono, stateDir?: string) {
+  app.post("/api/settings/import", async (context) => {
+    const body: unknown = await context.req.json().catch(() => null);
+    if (
+      !record(body) ||
+      (body.scope !== "machine" && body.scope !== "project") ||
+      !(body.version === null || typeof body.version === "string")
+    )
+      throw new ApiError(400, "偏好导入格式无效。");
+    const groups = validatePreferenceGroups(body.scope, body.groups);
+    const key =
+      body.scope === "project"
+        ? await settingsProjectKey((await currentProject(stateDir)).root)
+        : undefined;
+    if (body.scope === "project" && key !== body.projectKey)
+      throw new ApiError(409, "当前项目已切换，请重新预览。");
+    const saved = await savePanelSettingsGroups(
+      { scope: body.scope, groups, version: body.version as string | null, projectKey: key },
+      stateDir,
+    );
+    if (body.scope === "machine") updateLogRetention(saved, stateDir);
+    return context.json(saved);
+  });
   app.get("/api/settings", async (context) => {
     let machine;
     try {

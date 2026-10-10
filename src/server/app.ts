@@ -14,6 +14,7 @@ import { registerPreviewRoutes } from "./routes/preview";
 import { registerPublishRoutes } from "./routes/publish";
 import { registerWorkspaceRoutes } from "./routes/workspace";
 import { registerSettingsRoutes } from "./routes/settings";
+import { registerMaintenanceRoutes } from "./routes/maintenance";
 import { defaultStateDir } from "../lib/server/workspace";
 import { workspaceSession, serializeWorkspaceMutation } from "../lib/server/workspace-session";
 import { withWorkspaceState } from "./project";
@@ -63,6 +64,7 @@ export function createApp(options: AppOptions = {}) {
   registerAuthRoutes(app);
   registerWorkspaceRoutes(app, stateDir);
   registerSettingsRoutes(app, stateDir);
+  registerMaintenanceRoutes(app, stateDir);
   registerArticleRoutes(app, stateDir);
   registerConfigRoutes(app);
   registerFeatureRoutes(app);

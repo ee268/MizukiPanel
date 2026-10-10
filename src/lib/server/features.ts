@@ -1,6 +1,7 @@
 import { constants } from "node:fs";
 import { cp, lstat, mkdir, readdir, readFile, rm, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { recordArchive, archiveSnapshot } from "./archive-metadata";
 import path from "node:path";
 import type { ProjectReport } from "./project";
 import { assertManagedRealPath, resolveManagedPath } from "./path-guard";
@@ -382,7 +383,10 @@ export async function saveFeatureData(
     throw new StorageConflict("特色页数据已在其他位置修改，请重新加载");
   const initializer = JSON.stringify(value, null, "\t");
   const source = replaceConfigInitializer(current.content, item.variable, initializer, item.shape);
-  const result = await writeManagedFile(place.root, relative, source, version, backupDir());
+  const result = await writeManagedFile(place.root, relative, source, version, backupDir(), {
+    domain: "feature",
+    projectRoot: report.root,
+  });
   return { document: await readFeatureData(report, key), backupPath: result.backupPath };
 }
 
@@ -420,6 +424,7 @@ export async function saveFeatureText(
     content,
     current?.version ?? null,
     backupDir(),
+    { domain: "feature", projectRoot: report.root },
   );
   return { document: await readFeatureText(report, key), backupPath: result.backupPath };
 }
@@ -438,7 +443,10 @@ export async function restoreFeatureFile(
     const item = textDescriptor(key);
     relative = report.mode === "external" ? item.relative : `src/content/${item.relative}`;
   }
-  await restoreManagedFile(place.root, relative, backupPath, version, backupDir());
+  await restoreManagedFile(place.root, relative, backupPath, version, backupDir(), {
+    domain: "feature",
+    projectRoot: report.root,
+  });
   return kind === "data" ? readFeatureData(report, key) : readFeatureText(report, key);
 }
 
@@ -495,14 +503,22 @@ export async function saveAnimeSeason(
     content,
     current?.version ?? null,
     backupDir(),
+    { domain: "feature", projectRoot: report.root },
   );
   return { document: await readAnimeSeason(report, id), backupPath: result.backupPath };
 }
 
-async function copyToTrash(source: string, name: string) {
+async function copyToTrash(
+  source: string,
+  name: string,
+  report: ProjectReport,
+  root: string,
+  relative: string,
+) {
   const target = path.join(trashDir(), `${randomUUID()}-${name}`);
   await mkdir(path.dirname(target), { recursive: true });
   const stat = await lstat(source);
+  const before = await archiveSnapshot(source);
   if (stat.isDirectory())
     await cp(source, target, {
       recursive: true,
@@ -513,9 +529,19 @@ async function copyToTrash(source: string, name: string) {
   else
     await cp(source, target, { errorOnExist: true, force: false, mode: constants.COPYFILE_EXCL });
   try {
+    const metadata = await recordArchive(target, "trash", root, relative, {
+      domain: "feature",
+      projectRoot: report.root,
+    });
+    if (
+      metadata.digest !== before.digest ||
+      (await archiveSnapshot(source)).digest !== before.digest
+    )
+      throw new StorageConflict("回收期间内容发生变化，请重试。");
     stat.isDirectory() ? await rm(source, { recursive: true }) : await unlink(source);
   } catch (error) {
     await rm(target, { recursive: true, force: true });
+    await rm(target + ".meta.json", { force: true });
     throw error;
   }
   return target;
@@ -527,7 +553,13 @@ export async function deleteAnimeSeason(report: ProjectReport, id: string, versi
   const relative = `${place.animes}/${id}`;
   const current = await readManagedFile(place.root, relative);
   if (current.version !== version) throw new StorageConflict("季度内容已变化，请重新加载");
-  return copyToTrash(await assertManagedRealPath(place.root, relative), path.basename(id));
+  return copyToTrash(
+    await assertManagedRealPath(place.root, relative),
+    path.basename(id),
+    report,
+    place.root,
+    relative,
+  );
 }
 
 function albumId(id: string) {
@@ -623,6 +655,7 @@ export async function saveAlbum(
     JSON.stringify(info, null, "\t") + "\n",
     current?.version ?? null,
     backupDir(),
+    { domain: "feature", projectRoot: report.root },
   );
   return { albums: await listAlbums(report), backupPath: result.backupPath };
 }
@@ -633,5 +666,11 @@ export async function deleteAlbum(report: ProjectReport, id: string, version: st
   const relative = `${place.albums}/${id}`;
   const info = await readManagedFile(place.root, `${relative}/info.json`);
   if (info.version !== version) throw new StorageConflict("相册信息已变化，请重新加载");
-  return copyToTrash(await assertManagedRealPath(place.root, relative), id);
+  return copyToTrash(
+    await assertManagedRealPath(place.root, relative),
+    id,
+    report,
+    place.root,
+    relative,
+  );
 }

@@ -31,7 +31,7 @@ interface ContextValue {
   saved: PersonalSettings;
   effective: PersonalSettings;
   error: string;
-  save: (patches: Patches) => Promise<SettingsSnapshot>;
+  save: (patches: Patches, backup?: boolean) => Promise<SettingsSnapshot>;
   preview: (owner: string, values: Partial<PersonalSettings> | null) => void;
   quickAppearance: (fields: Partial<PersonalSettings["appearance"]>) => void;
   rememberSidebar: (collapsed: boolean) => void;
@@ -66,10 +66,10 @@ export function PersonalSettingsProvider({ children }: { children: ReactNode }) 
     return () => window.removeEventListener("storage", refresh);
   }, [apply]);
   const save = useCallback(
-    async (patches: Patches) => {
+    async (patches: Patches, backup = false) => {
       const persist = () => {
         try {
-          const next = savePersonalSettings(browserSettingsStorage, patches);
+          const next = savePersonalSettings(browserSettingsStorage, patches, backup);
           apply(next);
           setError("");
           return next;
