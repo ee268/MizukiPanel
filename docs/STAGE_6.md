@@ -12,7 +12,7 @@
 - 结构化数据：管理 `friends.ts`、`diary.ts`、`anime.ts`、`projects.ts`、`skills.ts`、`devices.ts`、`timeline.ts` 和 `ai-tools.ts`。
 - 数组数据以独立条目显示，支持新增、修改、删除和上下排序；设备分组以结构化 JSON 编辑。
 - 使用 TypeScript AST 只替换目标数据初始化器，保留接口、导入、辅助函数和未触及代码。
-- 季度追番：管理 `animes/<年>/<季度>月.md`，支持创建、编辑和移入回收目录。
+- 季度追番：仅在当前内容源存在 `animes/` 目录时显示，替代本地追番入口；本地模式检测 `src/content/animes/`，独立模式检测内容仓库的 `animes/`。空目录保留季度编辑器，支持新建及删除最后一条后的继续管理。管理 `animes/<年>/<季度>月.md`，支持创建、编辑和移入回收目录。
 - 相册：管理 `images/albums/<id>/info.json`，支持本地/外链模式、隐藏、布局、封面、照片、密码字段、图片上传和可恢复删除。
 - 页面状态：读取 `siteConfig.featurePages` 和 `navBarConfig`，提示页面关闭或缺少导航入口。
 - 外部数据源：Memos、Bangumi 和 Bilibili 模式只显示来源状态并引导到站点配置，不修改未生效的本地数据。

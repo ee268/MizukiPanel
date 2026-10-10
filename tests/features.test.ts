@@ -82,8 +82,36 @@ it("reports page switches, navigation gaps and remote data source modes", async 
   expect(index.modules.find((item) => item.key === "diary")).toMatchObject({ sourceMode: "memos" });
   expect(index.modules.find((item) => item.key === "anime")).toMatchObject({
     sourceMode: "bangumi",
+    resources: ["animeSeasons"],
   });
 });
+
+it.each(["local", "external"] as const)(
+  "selects the anime editor from the active %s content directory",
+  async (mode) => {
+    const { root, contentRoot, report } = await fixture(mode);
+    const animeDir =
+      mode === "local" ? path.join(root, "src/content/animes") : path.join(contentRoot, "animes");
+    const animeResources = async () =>
+      (await featureIndex(report)).modules.find((item) => item.key === "anime")!.resources;
+
+    // An installed custom feature remains editable with no season records yet.
+    expect(await animeResources()).toEqual(["animeSeasons"]);
+    const season = await saveAnimeSeason(report, "2027/1月.md", "---\ntitle: Season\n---\n", "");
+    expect(await animeResources()).toEqual(["animeSeasons"]);
+    await deleteAnimeSeason(report, season.document.id, season.document.version);
+    expect(await animeResources()).toEqual(["animeSeasons"]);
+
+    await rm(animeDir, { recursive: true });
+    if (mode === "external") {
+      // A stale local copy must not override the external content source.
+      await mkdir(path.join(root, "src/content/animes"), { recursive: true });
+    }
+    expect(await animeResources()).toEqual(["anime"]);
+    await writeFile(animeDir, "Not a directory");
+    expect(await animeResources()).toEqual(["anime"]);
+  },
+);
 
 it("edits and restores feature data without changing helper code in both content modes", async () => {
   for (const mode of ["local", "external"] as const) {

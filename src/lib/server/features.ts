@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { cp, lstat, mkdir, readdir, readFile, rm, unlink } from "node:fs/promises";
+import { cp, lstat, mkdir, readdir, readFile, rm, stat, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { recordArchive, archiveSnapshot } from "./archive-metadata";
 import path from "node:path";
@@ -118,7 +118,7 @@ const modules = [
     label: "追番",
     pagePath: "/anime/",
     switchKey: "anime",
-    resources: ["anime", "animeSeasons"],
+    resources: ["anime"],
   },
   {
     key: "albums",
@@ -293,6 +293,15 @@ async function optionalFile(root: string, relative: string) {
 export async function featureIndex(report: ProjectReport) {
   const site = await readConfig(report, "siteConfig");
   const nav = await readConfig(report, "navBarConfig");
+  const place = locations(report);
+  let hasAnimeSeasons = false;
+  try {
+    const directory = await assertManagedRealPath(place.root, place.animes);
+    // Keep the custom editor available even after its last season has been deleted.
+    hasAnimeSeasons = (await stat(directory)).isDirectory();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
   const siteObject =
     site.effectiveValue &&
     typeof site.effectiveValue === "object" &&
@@ -324,6 +333,7 @@ export async function featureIndex(report: ProjectReport) {
             : undefined;
       return {
         ...item,
+        resources: item.key === "anime" && hasAnimeSeasons ? ["animeSeasons"] : item.resources,
         enabled: item.switchKey ? switches[item.switchKey] !== false : true,
         navigationConfigured:
           navText.includes(item.pagePath) ||
