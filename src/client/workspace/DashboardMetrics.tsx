@@ -24,37 +24,17 @@ interface MetricCardProps {
 
 function MetricCard({ label, value, detail, icon }: MetricCardProps) {
   const card = useRef<HTMLDivElement>(null);
-  const frame = useRef<number | null>(null);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const hoverPointer = useMediaQuery("(hover: hover) and (pointer: fine)");
   const enabled = hoverPointer && !reducedMotion;
   function reset() {
-    if (frame.current !== null) cancelAnimationFrame(frame.current);
-    frame.current = null;
     const element = card.current;
     if (!element) return;
-    element.style.removeProperty("--metric-rotate-x");
-    element.style.removeProperty("--metric-rotate-y");
-    element.style.removeProperty("--metric-lift");
     delete element.dataset.tilting;
   }
   function tilt(event: PointerEvent<HTMLDivElement>) {
     if (!enabled || event.pointerType !== "mouse") return;
-    // Measure the stationary wrapper so the tilted card cannot distort pointer coordinates.
-    const bounds = event.currentTarget.getBoundingClientRect();
-    if (!bounds.width || !bounds.height) return;
-    const x = Math.max(-1, Math.min(1, ((event.clientX - bounds.left) / bounds.width) * 2 - 1));
-    const y = Math.max(-1, Math.min(1, ((event.clientY - bounds.top) / bounds.height) * 2 - 1));
-    if (frame.current !== null) cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => {
-      frame.current = null;
-      const element = card.current;
-      if (!element) return;
-      element.style.setProperty("--metric-rotate-x", `${-y * 10}deg`);
-      element.style.setProperty("--metric-rotate-y", `${x * 10}deg`);
-      element.style.setProperty("--metric-lift", "-3px");
-      element.dataset.tilting = "true";
-    });
+    if (card.current) card.current.dataset.tilting = "true";
   }
   useEffect(() => {
     if (!enabled) reset();
@@ -68,7 +48,6 @@ function MetricCard({ label, value, detail, icon }: MetricCardProps) {
     <Box
       data-page-motion="metric"
       onPointerEnter={tilt}
-      onPointerMove={tilt}
       onPointerLeave={reset}
       onPointerCancel={reset}
       sx={{ height: "100%", perspective: "900px" }}
@@ -78,10 +57,10 @@ function MetricCard({ label, value, detail, icon }: MetricCardProps) {
         variant="outlined"
         sx={{
           height: "100%",
-          transform:
-            "translateY(var(--metric-lift, 0px)) rotateX(var(--metric-rotate-x, 0deg)) rotateY(var(--metric-rotate-y, 0deg))",
+          transform: "none",
           transition: "transform 180ms ease-out, box-shadow 180ms ease-out",
           "&[data-tilting='true']": {
+            transform: "translateY(-3px) rotateX(10deg) rotateY(-10deg)",
             boxShadow: (theme) =>
               theme.palette.mode === "dark"
                 ? "0 12px 28px rgba(255, 255, 255, .16)"
