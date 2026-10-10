@@ -25,6 +25,8 @@ import type { ConfigValue, FeatureDataDocument } from "../types";
 import { LoadingPaper } from "./LoadingPaper";
 import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
+import { useFeaturePagination } from "./useFeaturePagination";
+import { FeaturePagination } from "./FeaturePagination";
 
 export function DataEditor({
   resource,
@@ -38,6 +40,7 @@ export function DataEditor({
   const [loadedDocument, setDocument] = useState<FeatureDataDocument | null>(null);
   const document = useLiveProjectDocument(loadedDocument, Boolean(loadedDocument?.warnings.length));
   const [items, setItems] = useState<string[]>([]);
+  const pagination = useFeaturePagination(items.length);
   const [objectText, setObjectText] = useState("");
   const [busy, setBusy] = useState(false);
   const [backupPath, setBackupPath] = useState<string | null>(null);
@@ -60,6 +63,7 @@ export function DataEditor({
       );
       setDocument(data);
       setBackupPath(null);
+      pagination.setPage(0);
       if (Array.isArray(data.value))
         setItems(data.value.map((item) => JSON.stringify(item, null, 2)));
       else setObjectText(JSON.stringify(data.value, null, 2));
@@ -80,6 +84,7 @@ export function DataEditor({
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
+    pagination.reveal(index + offset);
   }
   async function save() {
     if (!document) return;
@@ -91,6 +96,7 @@ export function DataEditor({
               try {
                 return JSON.parse(item) as ConfigValue;
               } catch {
+                pagination.reveal(index);
                 throw new Error(`第 ${index + 1} 项不是有效 JSON`);
               }
             })
@@ -136,13 +142,18 @@ export function DataEditor({
         </Alert>
       ))}
       <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 2 }}>
-          <Box sx={{ flex: 1 }}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1.5}
+          useFlexGap
+          sx={{ alignItems: { sm: "center" }, flexWrap: "wrap", mb: 2 }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h6">{document.descriptor.label}</Typography>
             <Typography
               variant="caption"
               color="text.secondary"
-              sx={{ fontFamily: "var(--mizuki-panel-font-mono)" }}
+              sx={{ fontFamily: "var(--mizuki-panel-font-mono)", overflowWrap: "anywhere" }}
             >
               {document.sourcePath}
             </Typography>
@@ -150,8 +161,11 @@ export function DataEditor({
           {document.descriptor.shape === "array" && (
             <Button
               startIcon={<AddOutlined />}
-              onClick={() => setItems((current) => [...current, "{}"])}
-              disabled={document.readOnly}
+              onClick={() => {
+                pagination.reveal(items.length);
+                setItems((current) => [...current, "{}"]);
+              }}
+              disabled={document.readOnly || busy}
             >
               添加条目
             </Button>
@@ -165,65 +179,88 @@ export function DataEditor({
             保存
           </Button>
           {backupPath && (
-            <Button color="warning" startIcon={<RestoreOutlined />} onClick={restore}>
+            <Button
+              color="warning"
+              startIcon={<RestoreOutlined />}
+              onClick={restore}
+              disabled={document.readOnly || busy}
+            >
               撤销保存
             </Button>
           )}
         </Stack>
         {document.descriptor.shape === "array" ? (
           <Stack spacing={1.5}>
-            {items.map((item, index) => (
-              <Card variant="outlined" key={index}>
-                <CardContent>
-                  <TextField
-                    label={`第 ${index + 1} 项（JSON）`}
-                    value={item}
-                    onChange={(event) =>
-                      setItems((current) =>
-                        current.map((value, itemIndex) =>
-                          itemIndex === index ? event.target.value : value,
-                        ),
-                      )
-                    }
-                    multiline
-                    minRows={5}
-                    fullWidth
-                    sx={{
-                      "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 },
-                    }}
-                  />
-                </CardContent>
-                <CardActions>
-                  <Tooltip title="上移">
-                    <span>
-                      <IconButton onClick={() => move(index, -1)} disabled={index === 0}>
-                        <ArrowUpwardOutlined />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="下移">
-                    <span>
-                      <IconButton
-                        onClick={() => move(index, 1)}
-                        disabled={index === items.length - 1}
-                      >
-                        <ArrowDownwardOutlined />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Box sx={{ flex: 1 }} />
-                  <Button
-                    color="error"
-                    startIcon={<DeleteOutline />}
-                    onClick={() =>
-                      setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                    }
-                  >
-                    删除
-                  </Button>
-                </CardActions>
-              </Card>
-            ))}
+            <FeaturePagination count={items.length} pagination={pagination} />
+            {items.slice(pagination.start, pagination.end).map((item, offset) => {
+              const index = pagination.start + offset;
+              return (
+                <Card variant="outlined" key={index}>
+                  <CardContent>
+                    <TextField
+                      label={`第 ${index + 1} 项（JSON）`}
+                      value={item}
+                      onChange={(event) =>
+                        setItems((current) =>
+                          current.map((value, itemIndex) =>
+                            itemIndex === index ? event.target.value : value,
+                          ),
+                        )
+                      }
+                      multiline
+                      minRows={5}
+                      maxRows={10}
+                      disabled={document.readOnly || busy}
+                      fullWidth
+                      sx={{
+                        "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 },
+                      }}
+                    />
+                  </CardContent>
+                  <CardActions>
+                    <Tooltip title="上移">
+                      <span>
+                        <IconButton
+                          aria-label={`上移第 ${index + 1} 项`}
+                          onClick={() => move(index, -1)}
+                          disabled={document.readOnly || busy || index === 0}
+                        >
+                          <ArrowUpwardOutlined />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Tooltip title="下移">
+                      <span>
+                        <IconButton
+                          onClick={() => move(index, 1)}
+                          aria-label={`下移第 ${index + 1} 项`}
+                          disabled={document.readOnly || busy || index === items.length - 1}
+                        >
+                          <ArrowDownwardOutlined />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
+                    <Box sx={{ flex: 1 }} />
+                    <Button
+                      color="error"
+                      disabled={document.readOnly || busy}
+                      startIcon={<DeleteOutline />}
+                      onClick={() =>
+                        setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                      }
+                    >
+                      删除
+                    </Button>
+                  </CardActions>
+                </Card>
+              );
+            })}
+            {!items.length && (
+              <Typography color="text.secondary">暂无条目，可点击“添加条目”创建。</Typography>
+            )}
+            {items.length > pagination.pageSize && (
+              <FeaturePagination count={items.length} pagination={pagination} />
+            )}
           </Stack>
         ) : (
           <TextField
@@ -232,6 +269,8 @@ export function DataEditor({
             onChange={(event) => setObjectText(event.target.value)}
             multiline
             minRows={24}
+            maxRows={24}
+            disabled={document.readOnly || busy}
             fullWidth
             sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />

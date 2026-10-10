@@ -21,6 +21,8 @@ import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import type { AlbumRecord, ProjectReport } from "../types";
+import { useFeaturePagination } from "./useFeaturePagination";
+import { FeaturePagination } from "./FeaturePagination";
 
 export function Albums({
   report,
@@ -37,6 +39,8 @@ export function Albums({
   const [newId, setNewId] = useState("");
   const [upload, setUpload] = useState<File | null>(null);
   const album = useMemo(() => albums.find((item) => item.id === selected), [albums, selected]);
+  const albumPages = useFeaturePagination(albums.length);
+  const photoPages = useFeaturePagination(album?.photos.length ?? 0, 10);
   useUnsavedSessionRecovery(
     "相册信息",
     Boolean(
@@ -55,7 +59,9 @@ export function Albums({
   useEffect(() => {
     void load();
   }, [load]);
-  function choose(item: AlbumRecord) {
+  function choose(item: AlbumRecord, entries = albums) {
+    albumPages.reveal(entries.findIndex((entry) => entry.id === item.id));
+    photoPages.setPage(0);
     setSelected(item.id);
     setNewId("");
     setInfoText(JSON.stringify(item.info, null, 2));
@@ -91,7 +97,7 @@ export function Albums({
       );
       setAlbums(result.albums.albums);
       const next = result.albums.albums.find((item) => item.id === id);
-      if (next) choose(next);
+      if (next) choose(next, result.albums.albums);
       notify("相册信息已保存。");
     } catch (cause) {
       fail(errorMessage(cause, "相册保存失败"));
@@ -145,13 +151,13 @@ export function Albums({
             <Typography variant="h6" sx={{ flex: 1 }}>
               相册
             </Typography>
-            <Button startIcon={<AddOutlined />} onClick={create}>
+            <Button startIcon={<AddOutlined />} onClick={create} disabled={report.readOnly}>
               新建
             </Button>
           </Stack>
           <Divider />
           <List>
-            {albums.map((item) => (
+            {albums.slice(albumPages.start, albumPages.end).map((item) => (
               <ListItemButton
                 key={item.id}
                 selected={selected === item.id}
@@ -169,6 +175,7 @@ export function Albums({
               </ListItemButton>
             ))}
           </List>
+          <FeaturePagination count={albums.length} pagination={albumPages} />
         </Paper>
       </Grid>
       <Grid size={{ xs: 12, lg: 8 }}>
@@ -179,6 +186,7 @@ export function Albums({
               value={newId}
               onChange={(event) => setNewId(event.target.value)}
               fullWidth
+              disabled={report.readOnly}
               sx={{ mb: 2 }}
             />
           )}
@@ -188,7 +196,9 @@ export function Albums({
             onChange={(event) => setInfoText(event.target.value)}
             multiline
             minRows={20}
+            maxRows={20}
             fullWidth
+            disabled={report.readOnly}
             sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />
           <Stack direction="row" spacing={1.5} useFlexGap sx={{ mt: 2, flexWrap: "wrap" }}>
@@ -201,7 +211,12 @@ export function Albums({
               保存
             </Button>
             {album && (
-              <Button color="error" startIcon={<DeleteOutline />} onClick={remove}>
+              <Button
+                color="error"
+                startIcon={<DeleteOutline />}
+                onClick={remove}
+                disabled={report.readOnly}
+              >
                 删除相册
               </Button>
             )}
@@ -214,7 +229,7 @@ export function Albums({
                 cover.jpg；其他支持格式将作为照片。删除操作会先移入面板回收目录。
               </Typography>
               <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mb: 2 }}>
-                {album.photos.map((photo) => (
+                {album.photos.slice(photoPages.start, photoPages.end).map((photo) => (
                   <Chip
                     key={photo}
                     label={photo}
@@ -222,17 +237,24 @@ export function Albums({
                   />
                 ))}
               </Stack>
+              <FeaturePagination count={album.photos.length} pagination={photoPages} />
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-                <Button component="label" variant="outlined" startIcon={<UploadOutlined />}>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  startIcon={<UploadOutlined />}
+                  disabled={report.readOnly}
+                >
                   {upload?.name ?? "选择图片"}
                   <input
                     hidden
                     type="file"
+                    disabled={report.readOnly}
                     accept="image/png,image/jpeg,image/gif,image/webp,image/avif"
                     onChange={(event) => setUpload(event.target.files?.[0] ?? null)}
                   />
                 </Button>
-                <Button onClick={uploadPhoto} disabled={!upload}>
+                <Button onClick={uploadPhoto} disabled={report.readOnly || !upload}>
                   上传
                 </Button>
               </Stack>

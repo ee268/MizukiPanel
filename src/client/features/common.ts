@@ -7,7 +7,6 @@ export function resourceLabel(key: string) {
   return (
     {
       aboutText: "关于正文",
-      friendsText: "友链说明",
       friends: "友链列表",
       diary: "日记条目",
       anime: "本地追番",

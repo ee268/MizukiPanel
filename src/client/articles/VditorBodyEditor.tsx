@@ -34,7 +34,9 @@ export interface VditorBodyEditorHandle {
 }
 interface VditorBodyEditorProps {
   onLoadEnd?: () => void;
-  article: ArticleRecord;
+  article: Pick<ArticleRecord, "id" | "version" | "format">;
+  imageScope?: "article" | "public";
+  ariaLabel?: string;
   source: string;
   busy: boolean;
   readOnly: boolean;
@@ -51,6 +53,8 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
   function VditorBodyEditor(
     {
       article,
+      imageScope = "article",
+      ariaLabel = "文章 Markdown 正文",
       source,
       busy,
       readOnly,
@@ -130,7 +134,12 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
       const mapImages = () => {
         container.querySelectorAll<HTMLImageElement>("img").forEach((image) => {
           const original = image.getAttribute("src") ?? "";
-          const preview = vditorImagePreviewUrl(article.id, original);
+          const preview =
+            imageScope === "public" &&
+            !/^https?:\/\//i.test(original) &&
+            !original.startsWith("/images/")
+              ? null
+              : vditorImagePreviewUrl(article.id, original);
           // CSS replaces the displayed resource while the original src remains available
           // to Vditor's Markdown serializer and native undo history.
           if (preview && preview !== original) {
@@ -267,7 +276,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
                 instance!.vditor.sv?.element,
               ]) {
                 if (!input) continue;
-                input.setAttribute("aria-label", "文章 Markdown 正文");
+                input.setAttribute("aria-label", ariaLabel);
                 input.setAttribute("aria-multiline", "true");
               }
               baseline.current = instance!.getValue();
@@ -306,7 +315,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
         editor.current = null;
         if (initialized) instance?.destroy();
       };
-    }, [article.id, article.version, article.format, initialMode, autoMode]);
+    }, [article.id, article.version, article.format, initialMode, autoMode, imageScope, ariaLabel]);
 
     useEffect(() => {
       if (!toolbar || !host.current) return;
@@ -504,6 +513,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
         <ImagePickerDialog
           open={imageOpen}
           articleId={article.id}
+          publicOnly={imageScope === "public"}
           onClose={() => setImageOpen(false)}
           onInsert={(alt, src, format) => {
             const instance = editor.current;

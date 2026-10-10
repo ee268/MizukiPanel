@@ -17,22 +17,28 @@ import {
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
-import type { AnimeSeason, AnimeSeasonDocument } from "../types";
+import type { AnimeSeason, AnimeSeasonDocument, ProjectReport } from "../types";
 import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
+import { useFeaturePagination } from "./useFeaturePagination";
+import { FeaturePagination } from "./FeaturePagination";
 
 export function AnimeSeasons({
+  report,
   notify,
   fail,
 }: {
+  report: ProjectReport;
   notify: (value: string) => void;
   fail: (value: string) => void;
 }) {
   const [seasons, setSeasons] = useState<AnimeSeason[]>([]);
+  const pagination = useFeaturePagination(seasons.length);
   const [selected, setSelected] = useState("");
   const [loadedDocument, setDocument] = useState<AnimeSeasonDocument | null>(null);
   const document = useLiveProjectDocument(loadedDocument);
   const [content, setContent] = useState("");
   const [newId, setNewId] = useState("");
+  const readOnly = report.readOnly || Boolean(document?.readOnly);
   useUnsavedSessionRecovery(
     "追番季度",
     Boolean((document ? content !== document.content : Boolean(content)) || newId),
@@ -107,13 +113,13 @@ export function AnimeSeasons({
             <Typography variant="h6" sx={{ flex: 1 }}>
               季度文件
             </Typography>
-            <Button startIcon={<AddOutlined />} onClick={create}>
+            <Button startIcon={<AddOutlined />} onClick={create} disabled={readOnly}>
               新建
             </Button>
           </Stack>
           <Divider />
           <List>
-            {seasons.map((item) => (
+            {seasons.slice(pagination.start, pagination.end).map((item) => (
               <ListItemButton
                 key={item.id}
                 selected={selected === item.id}
@@ -123,6 +129,7 @@ export function AnimeSeasons({
               </ListItemButton>
             ))}
           </List>
+          <FeaturePagination count={seasons.length} pagination={pagination} />
         </Paper>
       </Grid>
       <Grid size={{ xs: 12, lg: 8 }}>
@@ -134,6 +141,7 @@ export function AnimeSeasons({
               value={newId}
               onChange={(event) => setNewId(event.target.value)}
               fullWidth
+              disabled={readOnly}
               sx={{ mb: 2 }}
             />
           )}
@@ -143,15 +151,27 @@ export function AnimeSeasons({
             onChange={(event) => setContent(event.target.value)}
             multiline
             minRows={24}
+            maxRows={24}
             fullWidth
+            disabled={readOnly}
             sx={{ "& textarea": { fontFamily: "var(--mizuki-panel-font-mono)", fontSize: 13 } }}
           />
           <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-            <Button variant="contained" startIcon={<SaveOutlined />} onClick={save}>
+            <Button
+              variant="contained"
+              startIcon={<SaveOutlined />}
+              onClick={save}
+              disabled={readOnly}
+            >
               保存
             </Button>
             {document && (
-              <Button color="error" startIcon={<DeleteOutline />} onClick={remove}>
+              <Button
+                color="error"
+                startIcon={<DeleteOutline />}
+                onClick={remove}
+                disabled={readOnly}
+              >
                 删除
               </Button>
             )}

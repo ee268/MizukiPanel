@@ -110,7 +110,7 @@ const modules = [
     label: "友链",
     pagePath: "/friends/",
     switchKey: "friends",
-    resources: ["friendsText", "friends"],
+    resources: ["friends"],
   },
   { key: "diary", label: "日记", pagePath: "/diary/", switchKey: "diary", resources: ["diary"] },
   {

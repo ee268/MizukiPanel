@@ -77,6 +77,7 @@ it("reports page switches, navigation gaps and remote data source modes", async 
   expect(index.modules.find((item) => item.key === "friends")).toMatchObject({
     enabled: true,
     navigationConfigured: true,
+    resources: ["friends"],
   });
   expect(index.modules.find((item) => item.key === "diary")).toMatchObject({ sourceMode: "memos" });
   expect(index.modules.find((item) => item.key === "anime")).toMatchObject({

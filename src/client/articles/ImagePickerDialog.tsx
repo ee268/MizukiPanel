@@ -27,6 +27,7 @@ import { mediaAlt, type MediaSettings } from "../../shared/media-settings";
 interface ImagePickerDialogProps {
   open: boolean;
   articleId: string;
+  publicOnly?: boolean;
   onClose: () => void;
   onInsert: (alt: string, src: string, format: "markdown" | "html") => void;
 }
@@ -34,7 +35,13 @@ interface ImagePickerDialogProps {
 type ImageSource = "library" | "url";
 type MediaScope = "public" | "article";
 
-export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImagePickerDialogProps) {
+export function ImagePickerDialog({
+  open,
+  articleId,
+  publicOnly = false,
+  onClose,
+  onInsert,
+}: ImagePickerDialogProps) {
   const [source, setSource] = useState<ImageSource>("library");
   const [scope, setScope] = useState<MediaScope>("public");
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -67,7 +74,7 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
       .then((data) => {
         if (active) {
           setItems(data.media);
-          setScope(data.preferences.values.scope);
+          setScope(publicOnly ? "public" : data.preferences.values.scope);
           setFormat(data.preferences.values.referenceFormat === "html" ? "html" : "markdown");
           setAltPolicy(data.preferences.values.alt);
         }
@@ -86,7 +93,7 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
     return () => {
       active = false;
     };
-  }, [open]);
+  }, [open, publicOnly]);
 
   const visibleItems = useMemo(
     () =>
@@ -102,7 +109,10 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
         ? articleMediaReference(articleId, selected)
         : ""
       : url.trim();
-  const valid = validImageReference(reference) && Boolean(mediaPreviewUrl(articleId, reference));
+  const valid =
+    validImageReference(reference) &&
+    Boolean(mediaPreviewUrl(articleId, reference)) &&
+    (!publicOnly || /^https?:\/\//i.test(reference) || reference.startsWith("/images/"));
 
   function select(item: MediaItem) {
     setSelected(item);
@@ -133,7 +143,7 @@ export function ImagePickerDialog({ open, articleId, onClose, onInsert }: ImageP
                   sx={{ minWidth: 170 }}
                 >
                   <MenuItem value="public">公共图片</MenuItem>
-                  <MenuItem value="article">文章资源</MenuItem>
+                  {!publicOnly && <MenuItem value="article">文章资源</MenuItem>}
                 </TextField>
                 <TextField
                   label="筛选文件路径"
