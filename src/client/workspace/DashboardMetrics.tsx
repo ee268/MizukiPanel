@@ -60,10 +60,10 @@ function MetricCard({ label, value, detail, icon }: MetricCardProps) {
           transform: "none",
           transition: "transform 180ms ease-out, box-shadow 180ms ease-out",
           "&[data-tilting='true']": {
-            transform: "translateY(-3px) rotateX(10deg) rotateY(-10deg)",
+            transform: "translateY(-3px) rotateX(-6deg) rotateY(6deg)",
             boxShadow: (theme) =>
               theme.palette.mode === "dark"
-                ? "0 12px 28px rgba(255, 255, 255, .16)"
+                ? "0 8px 24px rgba(190, 200, 220, .07)"
                 : "0 12px 28px rgba(30, 40, 60, .12)",
           },
           "@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse)": {
