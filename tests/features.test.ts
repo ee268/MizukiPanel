@@ -154,6 +154,32 @@ it("creates feature markdown and manages anime seasons with recoverable deletion
   expect(await readFile(trash, "utf8")).toContain("{% 123 %}");
 });
 
+it.each(["local", "external"] as const)(
+  "infers the author from the latest %s season and prevents duplicate quarters",
+  async (mode) => {
+    const { report } = await fixture(mode);
+    expect((await listAnimeSeasons(report)).defaultAuthor).toBe("");
+    await saveAnimeSeason(report, "2026/7月.md", "---\ntitle: Summer\nauthor: older\n---\n", "");
+    const latest = await saveAnimeSeason(
+      report,
+      "2026/10月.md",
+      "---\ntitle: Autumn\nauthor: ee268\ncomments: true\ncopyright: true\n---\n\n{% 496276 %}\n",
+      "",
+    );
+    expect(latest.document.content).not.toMatch(/^(comments|copyright):/m);
+    expect(latest.document.content).toContain("{% 496276 %}");
+    const list = await listAnimeSeasons(report);
+    expect(list.defaultAuthor).toBe("ee268");
+    expect(list.seasons.map((item) => item.id)).toEqual(["2026/10月.md", "2026/7月.md"]);
+    await expect(
+      saveAnimeSeason(report, "2026/10月.md", "---\ntitle: Duplicate\n---\n", ""),
+    ).rejects.toThrow("重新加载");
+    await expect(
+      saveAnimeSeason(report, "2026/12月.md", "---\ntitle: Invalid\n---\n", ""),
+    ).rejects.toThrow("季度路径");
+  },
+);
+
 it("creates, lists, updates and safely deletes album metadata directories", async () => {
   const { report, contentRoot } = await fixture("external");
   const created = await saveAlbum(

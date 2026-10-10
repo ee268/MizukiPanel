@@ -19,6 +19,8 @@ import {
   type ConfigValue,
 } from "./config-format";
 import { readConfig } from "./configs";
+import { animeSeasonAuthor, removeAnimeSeasonFlags } from "./anime-season-format";
+import { groupAnimeSeasons } from "../../shared/anime-seasons";
 
 export class FeatureError extends Error {
   constructor(message: string) {
@@ -471,6 +473,7 @@ export async function listAnimeSeasons(report: ProjectReport) {
   const place = locations(report);
   const root = resolveManagedPath(place.root, place.animes);
   const seasons: Array<{ id: string; version: string; size: number }> = [];
+  const authors = new Map<string, string>();
   try {
     for (const year of await readdir(root, { withFileTypes: true })) {
       if (!year.isDirectory() || !/^\d{4}$/.test(year.name)) continue;
@@ -479,12 +482,15 @@ export async function listAnimeSeasons(report: ProjectReport) {
         const id = `${year.name}/${file.name}`;
         const data = await readManagedFile(place.root, `${place.animes}/${id}`);
         seasons.push({ id, version: data.version, size: Buffer.byteLength(data.content) });
+        authors.set(id, animeSeasonAuthor(data.content));
       }
     }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  return { report, seasons: seasons.sort((a, b) => b.id.localeCompare(a.id, "zh-CN")) };
+  const sorted = groupAnimeSeasons(seasons).flatMap((group) => [...group.items].reverse());
+  const defaultAuthor = sorted.map((season) => authors.get(season.id) ?? "").find(Boolean) ?? "";
+  return { report, seasons: sorted, defaultAuthor };
 }
 
 export async function readAnimeSeason(report: ProjectReport, id: string) {
@@ -506,7 +512,11 @@ export async function saveAnimeSeason(
   const current = await optionalFile(place.root, relative);
   if ((current?.version ?? "") !== version)
     throw new StorageConflict("季度内容已在其他位置修改，请重新加载");
-  if (!/^---[ \t]*\r?\n/.test(content)) throw new FeatureError("季度内容必须包含 YAML Frontmatter");
+  try {
+    content = removeAnimeSeasonFlags(content);
+  } catch (error) {
+    throw new FeatureError((error as Error).message);
+  }
   const result = await writeManagedFile(
     place.root,
     relative,
