@@ -3,6 +3,7 @@ import { RecoveryRegistry } from "./session-recovery";
 interface Exit {
   reason: SessionEndReason;
   message: string;
+  showDialog: boolean;
   working: boolean;
   errors: string[];
 }
@@ -50,9 +51,21 @@ export class SessionLifecycle {
     revoke?: () => Promise<void>,
   ) {
     if (epoch !== this.epoch || this.state.exit) return;
+    let showDialog = true;
+    if (reason === "logout") {
+      try {
+        // Flush pending editor input before checking for unsaved changes.
+        showDialog = this.recovery.capture().length > 0;
+      } catch {
+        // Keep recovery available if a widget or snapshot cannot be read.
+      }
+    }
     this.revoke = revoke;
     this.exitOpenedAt = Date.now();
-    this.update({ ...this.state, exit: { reason, message, working: true, errors: [] } });
+    this.update({
+      ...this.state,
+      exit: { reason, message, showDialog, working: true, errors: [] },
+    });
     await this.retry();
   }
   async retry() {
@@ -61,25 +74,28 @@ export class SessionLifecycle {
     this.update({ ...this.state, exit: { ...this.state.exit, working: true, errors: [] } });
     const errors = await this.recovery.save();
     if (sequence !== this.sequence || !this.state.exit) return;
-    if (errors.length)
-      this.update({ ...this.state, exit: { ...this.state.exit, working: false, errors } });
+    if (errors.length) this.fail(errors);
     else await this.finish(sequence);
+  }
+  private fail(errors: string[]) {
+    if (!this.state.exit) return;
+    if (!this.state.exit.showDialog) this.exitOpenedAt = Date.now();
+    this.update({
+      ...this.state,
+      exit: { ...this.state.exit, showDialog: true, working: false, errors },
+    });
   }
   async finish(sequence = this.sequence) {
     if (sequence !== this.sequence || !this.state.exit) return;
     this.update({ ...this.state, exit: { ...this.state.exit, working: true } });
     // Count saving time toward the minimum dialog duration, including retries.
-    const remaining = 2000 - (Date.now() - this.exitOpenedAt);
+    const remaining = this.state.exit.showDialog ? 1000 - (Date.now() - this.exitOpenedAt) : 0;
     if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining));
     if (sequence !== this.sequence || !this.state.exit) return;
     try {
       await this.revoke?.();
     } catch (error) {
-      if (sequence === this.sequence && this.state.exit)
-        this.update({
-          ...this.state,
-          exit: { ...this.state.exit, working: false, errors: [(error as Error).message] },
-        });
+      if (sequence === this.sequence) this.fail([(error as Error).message]);
       return;
     }
     if (sequence !== this.sequence || !this.state.exit) return;

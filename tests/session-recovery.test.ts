@@ -35,7 +35,7 @@ it("flushes widgets before saving complete drafts and waits for persistence befo
     snapshot: () => null,
   });
   const pending = lifecycle.end("idle", "expired");
-  await vi.advanceTimersByTimeAsync(2000);
+  await vi.advanceTimersByTimeAsync(1000);
   await pending;
   expect(order).toEqual(["flush", "save latest"]);
   expect(navigate).toHaveBeenCalledOnce();
@@ -63,7 +63,7 @@ it("holds input and offers recovery snapshots after a failed save, then retries 
   expect(lifecycle.recovery.capture()[0].data).toMatchObject({ source: "unsaved" });
   fail = false;
   const retry = lifecycle.retry();
-  await vi.advanceTimersByTimeAsync(2000);
+  await vi.advanceTimersByTimeAsync(1000);
   await retry;
   expect(revoke).toHaveBeenCalledOnce();
   expect(navigate).toHaveBeenCalledOnce();
@@ -118,7 +118,7 @@ it("keeps the page when server logout fails and allows cancelling a voluntary ex
   const pending = lifecycle.end("logout", "logout", undefined, async () => {
     throw new Error("network");
   });
-  await vi.advanceTimersByTimeAsync(2000);
+  await vi.advanceTimersByTimeAsync(1000);
   await pending;
   expect(navigate).not.toHaveBeenCalled();
   expect(lifecycle.getState().exit?.errors).toEqual(["network"]);
@@ -141,20 +141,26 @@ it("allows explicit abandonment or downloaded recovery after expiry while retain
   lifecycle.cancel();
   expect(lifecycle.getState().exit).not.toBeNull();
   const finishing = lifecycle.finish();
-  await vi.advanceTimersByTimeAsync(2000);
+  await vi.advanceTimersByTimeAsync(1000);
   await finishing;
   expect(navigate).toHaveBeenCalledOnce();
   expect(lifecycle.recovery.capture()[0].data).toEqual({ hue: 210 });
 });
 
-it("keeps the saving dialog open for at least two seconds before logging out", async () => {
+it("keeps the saving dialog open for at least one second before logging out", async () => {
   const navigate = vi.fn();
   const revoke = vi.fn(async () => {});
   const lifecycle = new SessionLifecycle(navigate);
   lifecycle.adopt(status());
+  lifecycle.recovery.register({
+    label: "draft",
+    save: async () => {},
+    snapshot: () => ({ source: "changed" }),
+  });
   const pending = lifecycle.end("logout", "logout", undefined, revoke);
-  await vi.advanceTimersByTimeAsync(1999);
+  await vi.advanceTimersByTimeAsync(999);
   expect(lifecycle.getState().exit?.working).toBe(true);
+  expect(lifecycle.getState().exit?.showDialog).toBe(true);
   expect(lifecycle.canNavigate()).toBe(false);
   expect(revoke).not.toHaveBeenCalled();
   expect(navigate).not.toHaveBeenCalled();
@@ -164,7 +170,7 @@ it("keeps the saving dialog open for at least two seconds before logging out", a
   expect(navigate).toHaveBeenCalledOnce();
 });
 
-it("waits for a slower save without adding another two seconds", async () => {
+it("waits for a slower save without adding another second", async () => {
   const navigate = vi.fn();
   const lifecycle = new SessionLifecycle(navigate);
   lifecycle.adopt(status());
@@ -175,7 +181,7 @@ it("waits for a slower save without adding another two seconds", async () => {
       new Promise<void>((resolve) => {
         release = resolve;
       }),
-    snapshot: () => null,
+    snapshot: () => ({ source: "changed" }),
   });
   const pending = lifecycle.end("logout", "logout");
   await vi.advanceTimersByTimeAsync(3000);
@@ -190,13 +196,83 @@ it.each(["cancel", "new login"])("ignores delayed logout after %s", async (actio
   const revoke = vi.fn(async () => {});
   const lifecycle = new SessionLifecycle(navigate);
   lifecycle.adopt(status());
+  lifecycle.recovery.register({
+    label: "draft",
+    save: async () => {},
+    snapshot: () => ({ source: "changed" }),
+  });
   const pending = lifecycle.end("logout", "logout", undefined, revoke);
-  await vi.advanceTimersByTimeAsync(1000);
+  await vi.advanceTimersByTimeAsync(500);
   if (action === "cancel") lifecycle.cancel();
   else lifecycle.adopt(status("new"));
-  await vi.advanceTimersByTimeAsync(1000);
+  await vi.advanceTimersByTimeAsync(500);
   await pending;
   expect(revoke).not.toHaveBeenCalled();
   expect(navigate).not.toHaveBeenCalled();
   expect(lifecycle.getState().exit).toBeNull();
+});
+
+it.each([false, true])(
+  "logs out without showing a dialog when there are no changes (registered: %s)",
+  async (registered) => {
+    const navigate = vi.fn();
+    const revoke = vi.fn(async () => {});
+    const lifecycle = new SessionLifecycle(navigate);
+    lifecycle.adopt(status());
+    if (registered)
+      lifecycle.recovery.register({
+        label: "clean form",
+        save: async () => {},
+        snapshot: () => null,
+      });
+    const shown: boolean[] = [];
+    lifecycle.subscribe(() => shown.push(Boolean(lifecycle.getState().exit?.showDialog)));
+    await lifecycle.end("logout", "logout", undefined, revoke);
+    expect(shown).not.toContain(true);
+    expect(revoke).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledOnce();
+    expect(lifecycle.canNavigate()).toBe(true);
+  },
+);
+
+it("detects pending widget changes before deciding whether to show the dialog", async () => {
+  const navigate = vi.fn();
+  const lifecycle = new SessionLifecycle(navigate);
+  lifecycle.adopt(status());
+  let dirty = false;
+  lifecycle.recovery.register({
+    label: "draft",
+    save: async () => {},
+    snapshot: () => (dirty ? { source: "pending" } : null),
+  });
+  lifecycle.recovery.register({
+    label: "editor",
+    prepare: () => {
+      dirty = true;
+    },
+    save: async () => {},
+    snapshot: () => null,
+  });
+  const pending = lifecycle.end("logout", "logout");
+  expect(lifecycle.getState().exit?.showDialog).toBe(true);
+  await vi.advanceTimersByTimeAsync(999);
+  expect(navigate).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  await pending;
+  expect(navigate).toHaveBeenCalledOnce();
+});
+
+it("shows an error dialog if logout fails even when there are no changes", async () => {
+  const navigate = vi.fn();
+  const lifecycle = new SessionLifecycle(navigate);
+  lifecycle.adopt(status());
+  await lifecycle.end("logout", "logout", undefined, async () => {
+    throw new Error("network");
+  });
+  expect(navigate).not.toHaveBeenCalled();
+  expect(lifecycle.getState().exit).toMatchObject({
+    showDialog: true,
+    working: false,
+    errors: ["network"],
+  });
 });

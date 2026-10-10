@@ -125,7 +125,12 @@ export function SessionGuard() {
     }
   }
   return (
-    <Dialog open={Boolean(exit)} aria-labelledby="session-exit-title" fullWidth maxWidth="sm">
+    <Dialog
+      open={Boolean(exit?.showDialog)}
+      aria-labelledby="session-exit-title"
+      fullWidth
+      maxWidth="sm"
+    >
       <DialogTitle id="session-exit-title">
         {exit?.reason === "logout" ? "退出登录前保留修改" : "会话已结束"}
       </DialogTitle>
