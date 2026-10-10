@@ -260,13 +260,16 @@ export function WorkspaceSettingsForms({
               spacing={1}
               sx={{ py: 1, borderBottom: 1, borderColor: "divider" }}
             >
-              <Typography>
-                {item.name}
-                {data.defaultProject?.id === item.id ? "（默认项目）" : ""}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
-                {item.path}
-              </Typography>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}
+                >
+                  {item.path}
+                </Typography>
+                {data.defaultProject?.id === item.id && <Chip size="small" label="默认项目" />}
+              </Stack>
               {item.error && <Alert severity="warning">{item.error}</Alert>}
               <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
                 <Button

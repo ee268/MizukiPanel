@@ -17,6 +17,7 @@ import {
 import { Link as RouterLink } from "react-router-dom";
 import { contributionCalendar, contributionLevel } from "../dashboard-contributions";
 import type { DashboardOverview } from "../types";
+import type { ReactNode } from "react";
 
 function contributionDateLabel(date: string, count: number): string {
   const [year, month, day] = date.split("-").map(Number);
@@ -246,13 +247,15 @@ function RecentArticles({ articles }: { articles: DashboardOverview["articles"] 
 function PopularTags({ articles }: { articles: DashboardOverview["articles"] }) {
   const tags = articles.tags.slice(0, 10);
   return (
-    <Paper variant="outlined" sx={{ height: "100%", p: 3 }}>
-      <Typography variant="h6">热门标签</Typography>
+    <Paper component="section" aria-label="热门标签" variant="outlined" sx={{ p: 3 }}>
+      <Typography variant="h6" component="h2">
+        热门标签
+      </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
         按文章使用数量排序
       </Typography>
       {tags.length ? (
-        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mt: 3 }}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", mt: 2 }}>
           {tags.map((tag, index) => (
             <Chip
               key={tag.name}
@@ -263,13 +266,19 @@ function PopularTags({ articles }: { articles: DashboardOverview["articles"] }) 
           ))}
         </Stack>
       ) : (
-        <Box sx={{ color: "text.secondary", py: 5, textAlign: "center" }}>文章尚未设置标签</Box>
+        <Box sx={{ color: "text.secondary", pt: 2 }}>文章尚未设置标签</Box>
       )}
     </Paper>
   );
 }
 
-export function DashboardActivityPanels({ dashboard }: { dashboard: DashboardOverview }) {
+export function DashboardActivityPanels({
+  dashboard,
+  recentProjects,
+}: {
+  dashboard: DashboardOverview;
+  recentProjects?: ReactNode;
+}) {
   return (
     <Stack spacing={2}>
       <ContributionGraph git={dashboard.git} />
@@ -278,7 +287,10 @@ export function DashboardActivityPanels({ dashboard }: { dashboard: DashboardOve
           <RecentArticles articles={dashboard.articles} />
         </Grid>
         <Grid size={{ xs: 12, lg: 5 }}>
-          <PopularTags articles={dashboard.articles} />
+          <Stack spacing={2}>
+            <PopularTags articles={dashboard.articles} />
+            {recentProjects}
+          </Stack>
         </Grid>
       </Grid>
     </Stack>

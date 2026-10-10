@@ -5,10 +5,19 @@ import { DashboardCharts } from "../components/DashboardCharts";
 import { DashboardMetrics } from "../workspace/DashboardMetrics";
 import { useWorkspace } from "../workspace/useWorkspace";
 import { WorkspaceConnection } from "../workspace/WorkspaceConnection";
+import { RecentProjects } from "../workspace/RecentProjects";
 
 export default function WorkspacePage() {
   const workspace = useWorkspace();
   const { data, dashboard, dashboardError, error, busy, loading } = workspace;
+  const recentProjectsPanel = (
+    <RecentProjects
+      projects={data?.recentProjects ?? []}
+      defaultProjectId={data?.defaultProject?.id}
+      busy={busy}
+      onConnect={(path) => void workspace.connectPath(path)}
+    />
+  );
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -68,7 +77,9 @@ export default function WorkspacePage() {
             {dashboardError && <Alert severity="error">{dashboardError}</Alert>}
             {!dashboardError && <DashboardMetrics dashboard={dashboard} loading={loading} />}
             {dashboard && <DashboardCharts articles={dashboard.articles} />}
-            {dashboard && <DashboardActivityPanels dashboard={dashboard} />}
+            {dashboard && (
+              <DashboardActivityPanels dashboard={dashboard} recentProjects={recentProjectsPanel} />
+            )}
             {dashboard?.articles.total === 0 && (
               <Alert severity="info">当前内容目录中还没有 Markdown 或 MDX 文章。</Alert>
             )}
@@ -89,31 +100,7 @@ export default function WorkspacePage() {
             {warning}
           </Alert>
         ))}
-        {Boolean(data?.recentProjects.length) && (
-          <Stack spacing={1}>
-            <Typography variant="h6">最近项目</Typography>
-            {data?.recentProjects.map((project) => (
-              <Stack key={project.id} direction={{ xs: "column", sm: "row" }} spacing={1}>
-                <Box sx={{ flex: 1, overflowWrap: "anywhere" }}>
-                  <Typography>
-                    {project.name}
-                    {data.defaultProject?.id === project.id ? "（默认项目）" : ""}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {project.path}
-                    {project.error ? ` · ${project.error}` : ""}
-                  </Typography>
-                </Box>
-                <Button
-                  disabled={busy || !project.available}
-                  onClick={() => void workspace.connectPath(project.path)}
-                >
-                  连接项目
-                </Button>
-              </Stack>
-            ))}
-          </Stack>
-        )}
+        {!dashboard && Boolean(data?.recentProjects.length) && recentProjectsPanel}
       </Stack>
       {workspace.taskDialog}
     </Container>
