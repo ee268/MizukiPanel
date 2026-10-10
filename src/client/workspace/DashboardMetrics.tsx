@@ -50,8 +50,8 @@ function MetricCard({ label, value, detail, icon }: MetricCardProps) {
       frame.current = null;
       const element = card.current;
       if (!element) return;
-      element.style.setProperty("--metric-rotate-x", `${-y * 6}deg`);
-      element.style.setProperty("--metric-rotate-y", `${x * 6}deg`);
+      element.style.setProperty("--metric-rotate-x", `${-y * 10}deg`);
+      element.style.setProperty("--metric-rotate-y", `${x * 10}deg`);
       element.style.setProperty("--metric-lift", "-3px");
       element.dataset.tilting = "true";
     });
@@ -84,7 +84,7 @@ function MetricCard({ label, value, detail, icon }: MetricCardProps) {
           "&[data-tilting='true']": {
             boxShadow: (theme) =>
               theme.palette.mode === "dark"
-                ? "0 12px 28px rgba(0, 0, 0, .3)"
+                ? "0 12px 28px rgba(255, 255, 255, .16)"
                 : "0 12px 28px rgba(30, 40, 60, .12)",
           },
           "@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse)": {
