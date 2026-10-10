@@ -3,11 +3,11 @@ import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { ProjectReport } from "./project";
+import { logLimit, readLogRetention } from "./task-preferences";
 
 const execute = promisify(execFile);
 const MAX_BUFFER = 8 * 1024 * 1024;
 const MAX_DIFF_BYTES = 256 * 1024;
-const MAX_LOG_LINES = 500;
 
 export class PublishError extends Error {
   constructor(message: string) {
@@ -58,10 +58,12 @@ export interface PublishOperationStatus {
   finishedAt: string | null;
   logs: string[];
   error: string | null;
+  logLimit?: number;
 }
 
 interface OperationRuntime extends PublishOperationStatus {
   child: ReturnType<typeof spawn> | null;
+  stateDir?: string;
 }
 
 interface PanelCommit {
@@ -435,8 +437,8 @@ function appendLog(line: string): void {
   for (const item of clean.split(/\r?\n/).filter(Boolean)) {
     runtime.logs.push(`[${new Date().toLocaleTimeString("zh-CN", { hour12: false })}] ${item}`);
   }
-  if (runtime.logs.length > MAX_LOG_LINES)
-    runtime.logs.splice(0, runtime.logs.length - MAX_LOG_LINES);
+  const limit = logLimit("publish", runtime.stateDir);
+  if (runtime.logs.length > limit) runtime.logs.splice(0, runtime.logs.length - limit);
 }
 
 function pnpmProcess(cwd: string, args: string[]): Promise<void> {
@@ -504,6 +506,7 @@ async function runOperation(
 export async function startPublishOperation(
   report: ProjectReport,
   kind: NonNullable<PublishOperationStatus["kind"]>,
+  stateDir?: string,
 ): Promise<PublishOperationStatus> {
   requireWritable(report);
   if (runtime.state === "running") throw new PublishError("已有发布操作正在运行");
@@ -521,6 +524,8 @@ export async function startPublishOperation(
         : "请先提交受管理内容并解决 Git 状态问题",
     );
   }
+  await readLogRetention(stateDir);
+  runtime.stateDir = stateDir;
   runtime.kind = kind;
   runtime.state = "running";
   runtime.projectRoot = report.root;
@@ -559,5 +564,6 @@ export function publishOperationStatus(report: ProjectReport): PublishOperationS
     finishedAt: runtime.finishedAt,
     logs: [...runtime.logs],
     error: runtime.error,
+    logLimit: logLimit("publish", runtime.stateDir),
   };
 }

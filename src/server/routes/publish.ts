@@ -10,11 +10,24 @@ import {
 } from "../../lib/server/publish";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
+import {
+  readLogRetention,
+  taskPreferences,
+  rememberPublishDefaults,
+  logLimit,
+} from "../../lib/server/task-preferences";
 
-export function registerPublishRoutes(app: Hono) {
+export function registerPublishRoutes(app: Hono, stateDir?: string) {
   app.get("/api/publish", async (context) => {
     try {
-      return context.json(await publishOverview(await currentProject()));
+      const report = await currentProject();
+      const preferences = await taskPreferences(report, stateDir);
+      const machine = await readLogRetention(stateDir);
+      return context.json({
+        ...(await publishOverview(report)),
+        preferences: preferences.publish,
+        warnings: [...preferences.snapshot.warnings, ...machine.warnings],
+      });
     } catch (error) {
       mapError(error);
     }
@@ -33,7 +46,16 @@ export function registerPublishRoutes(app: Hono) {
     if (!Array.isArray(body.paths) || typeof body.message !== "string")
       throw new ApiError(400, "提交参数不完整");
     try {
-      return context.json(await commitSelected(await currentProject(), body.paths, body.message));
+      const report = await currentProject();
+      const preferences = await taskPreferences(report, stateDir);
+      const result = await commitSelected(report, body.paths, body.message);
+      const defaultsWarning = await rememberPublishDefaults(
+        report,
+        preferences,
+        body.message,
+        stateDir,
+      );
+      return context.json({ ...result, defaultsWarning });
     } catch (error) {
       mapError(error);
     }
@@ -52,15 +74,19 @@ export function registerPublishRoutes(app: Hono) {
       mapError(error);
     }
   });
-  app.get("/api/publish/operation", async (context) =>
-    context.json(publishOperationStatus(await currentProject())),
-  );
+  app.get("/api/publish/operation", async (context) => {
+    await readLogRetention(stateDir);
+    return context.json({
+      ...publishOperationStatus(await currentProject()),
+      logLimit: logLimit("publish", stateDir),
+    });
+  });
   app.post("/api/publish/operation", async (context) => {
     const body = await context.req.json<{ kind?: "validate" | "sync" | "build" }>();
     if (!body.kind || !["validate", "sync", "build"].includes(body.kind))
       throw new ApiError(400, "发布操作无效");
     try {
-      return context.json(await startPublishOperation(await currentProject(), body.kind));
+      return context.json(await startPublishOperation(await currentProject(), body.kind, stateDir));
     } catch (error) {
       mapError(error);
     }

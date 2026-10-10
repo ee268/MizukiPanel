@@ -70,6 +70,11 @@ export default function PublishPage() {
             {publish.notice}
           </Alert>
         )}
+        {overview?.warnings?.map((warning) => (
+          <Alert severity="warning" key={warning}>
+            {warning}
+          </Alert>
+        ))}
 
         {overview && (
           <>
@@ -101,10 +106,15 @@ export default function PublishPage() {
                   selected={publish.selected}
                   allSelected={publish.allSelected}
                   commitMessage={publish.commitMessage}
+                  commitType={publish.commitType}
+                  commitScope={publish.commitScope}
+                  commitDescription={publish.commitDescription}
                   disabled={disabled}
                   onToggle={publish.toggle}
                   onToggleAll={publish.toggleAll}
-                  onCommitMessageChange={publish.setCommitMessage}
+                  onCommitTypeChange={publish.setCommitType}
+                  onCommitScopeChange={publish.setCommitScope}
+                  onCommitDescriptionChange={publish.setCommitDescription}
                   onShowDiff={publish.showDiff}
                   onCommit={publish.commit}
                   onOpenDialog={publish.setDialog}

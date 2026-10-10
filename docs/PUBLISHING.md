@@ -38,7 +38,7 @@
 
 文件列表来自 `git status --porcelain -z`，支持新增、修改、删除和重命名。提交前可以查看每个受管理文件的文本差异；二进制或过大的新文件只显示摘要。
 
-面板使用字面量 Git 路径参数，只暂存当前勾选项，并在提交前再次核对实际暂存文件。仓库已有暂存内容会阻止操作。提交说明必须符合 Conventional Commits，例如：
+面板使用字面量 Git 路径参数，只暂存当前勾选项，并在提交前再次核对实际暂存文件。仓库已有暂存内容会阻止操作。表单将类型、作用域和本次说明组合为 Conventional Commit，并展示完整提交预览，例如：
 
 ```text
 feat(content): publish blog updates
@@ -59,7 +59,7 @@ fix(config): correct navigation link
 
 ## 构建日志
 
-校验、同步和构建一次只运行一个任务。页面轮询任务状态并保留最近 500 行去除 ANSI 控制符后的日志：
+校验、同步和构建一次只运行一个任务。页面轮询任务状态并默认保留最近 500 行去除 ANSI 控制符后的日志；保留条数、字号和自动滚动可在设置中调整。发布表单默认不记忆，开启后只在提交成功时记住类型/作用域，提交说明和勾选文件不保存。详见 [设置阶段 6](PANEL_SETTINGS_STAGE_6.md)。日志示例：
 
 - 发布校验：`pnpm check`、`pnpm type-check`；独立模式会先运行 `pnpm sync-content`。
 - 独立同步：`pnpm sync-content`。

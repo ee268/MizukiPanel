@@ -14,6 +14,7 @@ import {
   ListItem,
   ListItemButton,
   ListItemText,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -23,16 +24,22 @@ import {
 import type { PublishOverview } from "../types";
 import { statusLabel } from "./constants";
 import type { PublishDialog } from "./usePublish";
+import { commitTypes, validCommitScope } from "../../shared/task-settings";
 
 interface PublishChangesProps {
   overview: PublishOverview;
   selected: string[];
   allSelected: boolean;
   commitMessage: string;
+  commitType: string;
+  commitScope: string;
+  commitDescription: string;
   disabled: boolean;
   onToggle: (path: string) => void;
   onToggleAll: () => void;
-  onCommitMessageChange: (message: string) => void;
+  onCommitTypeChange: (value: string) => void;
+  onCommitScopeChange: (value: string) => void;
+  onCommitDescriptionChange: (value: string) => void;
   onShowDiff: (path: string) => void;
   onCommit: () => void;
   onOpenDialog: (dialog: PublishDialog) => void;
@@ -43,10 +50,15 @@ export function PublishChanges({
   selected,
   allSelected,
   commitMessage,
+  commitType,
+  commitScope,
+  commitDescription,
   disabled,
   onToggle,
   onToggleAll,
-  onCommitMessageChange,
+  onCommitTypeChange,
+  onCommitScopeChange,
+  onCommitDescriptionChange,
   onShowDiff,
   onCommit,
   onOpenDialog,
@@ -141,19 +153,64 @@ export function PublishChanges({
 
       <Divider />
       <Stack spacing={1.5} sx={{ p: 2 }}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+          <TextField
+            fullWidth
+            select
+            label="提交类型"
+            value={commitType}
+            onChange={(event) => onCommitTypeChange(event.target.value)}
+          >
+            {commitTypes.map((type) => (
+              <MenuItem value={type} key={type}>
+                {type}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            fullWidth
+            label="提交作用域"
+            value={commitScope}
+            onChange={(event) => onCommitScopeChange(event.target.value)}
+            error={!validCommitScope(commitScope)}
+            helperText="可留空；使用小写字母、数字及 . _ / -"
+          />
+        </Stack>
         <TextField
           label="提交说明"
-          value={commitMessage}
-          onChange={(event) => onCommitMessageChange(event.target.value)}
-          helperText="使用 Conventional Commits，例如 feat(content): publish blog updates"
+          value={commitDescription}
+          onChange={(event) => onCommitDescriptionChange(event.target.value)}
+          helperText="填写本次变更说明；类型和作用域会自动组成 Conventional Commit。正文不记忆。"
+          multiline
+          minRows={2}
           fullWidth
         />
+        <Typography
+          sx={{
+            fontFamily: "var(--mizuki-panel-font-mono)",
+            overflowWrap: "anywhere",
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          提交预览：{commitMessage}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {overview.preferences?.remember
+            ? "提交成功后记住类型与作用域；文件勾选和正文不保存为默认值。"
+            : "发布默认值记忆未开启；本次填写不会作为下次默认值。"}
+        </Typography>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
           <Button
             variant="contained"
             startIcon={<SaveOutlined />}
             onClick={onCommit}
-            disabled={disabled || !overview.canCommit || !selected.length}
+            disabled={
+              disabled ||
+              !overview.canCommit ||
+              !selected.length ||
+              !commitDescription.trim() ||
+              !validCommitScope(commitScope)
+            }
           >
             提交所选文件
           </Button>

@@ -33,6 +33,7 @@ import { useScopedSettings } from "../settings/useScopedSettings";
 import { WorkspaceSettingsForms } from "../settings/WorkspaceSettingsForms";
 import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
 import { MediaSettingsForm } from "../settings/MediaSettingsForm";
+import { TaskSettingsForms } from "../settings/TaskSettingsForms";
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -104,9 +105,36 @@ export default function SettingsPage() {
       refreshWorkspace();
     },
   );
-  const dirty = controller.dirty || template.dirty || machine.dirty || access.dirty || media.dirty;
-  const saving =
-    controller.saving || template.saving || machine.saving || access.saving || media.saving;
+  const saveProjectSnapshot = (settings: NonNullable<SettingsOverview["project"]>["settings"]) => {
+    setOverview((current) =>
+      current?.project ? { ...current, project: { ...current.project, settings } } : current,
+    );
+    refreshWorkspace();
+  };
+  const previewSettings = useScopedSettings(
+    "project",
+    "preview",
+    overview?.project?.settings ?? null,
+    overview?.project?.key,
+    saveProjectSnapshot,
+  );
+  const publishSettings = useScopedSettings(
+    "project",
+    "publish",
+    overview?.project?.settings ?? null,
+    overview?.project?.key,
+    saveProjectSnapshot,
+  );
+  const retention = useScopedSettings(
+    "machine",
+    "logs",
+    overview?.machine ?? null,
+    undefined,
+    (settings) => setOverview((current) => (current ? { ...current, machine: settings } : current)),
+  );
+  const scoped = [machine, access, media, previewSettings, publishSettings, retention];
+  const dirty = controller.dirty || template.dirty || scoped.some((item) => item.dirty);
+  const saving = controller.saving || template.saving || scoped.some((item) => item.saving);
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       dirty &&
@@ -172,12 +200,14 @@ export default function SettingsPage() {
     if (
       (controller.dirty && !(await controller.save())) ||
       (template.dirty && !(await template.save())) ||
-      (machine.dirty && !(await machine.save())) ||
-      (access.dirty && !(await access.save())) ||
-      (media.dirty && !(await media.save()))
+      !(await saveScoped())
     )
       setLeaveError("部分设置尚未保存。已保存范围保留，失败范围的输入仍保留，请继续编辑处理提示。");
     else leave();
+  }
+  async function saveScoped() {
+    for (const item of scoped) if (item.dirty && !(await item.save())) return false;
+    return true;
   }
   const cancelLeave = () => {
     setLeaveError("");
@@ -305,6 +335,15 @@ export default function SettingsPage() {
                     controller={media}
                     projectRoot={overview?.project?.root ?? ""}
                   />
+                ) : item.id === "preview" ? (
+                  <TaskSettingsForms
+                    preview={previewSettings}
+                    publish={publishSettings}
+                    retention={retention}
+                    controller={controller}
+                    projectRoot={overview?.project?.root ?? ""}
+                    active={sectionId === "preview"}
+                  />
                 ) : (
                   <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 } }}>
                     <Typography variant="h6" component="h2">
@@ -353,9 +392,7 @@ export default function SettingsPage() {
             onClick={() => {
               controller.cancelAll();
               template.reset();
-              machine.reset();
-              access.reset();
-              media.reset();
+              scoped.forEach((item) => item.reset());
               leave();
             }}
             disabled={saving}
@@ -369,9 +406,7 @@ export default function SettingsPage() {
               saving ||
               (controller.dirty && preferences.snapshot.readOnly) ||
               (template.dirty && template.base?.settings.readOnly) ||
-              (machine.dirty && machine.readOnly) ||
-              (access.dirty && access.readOnly) ||
-              (media.dirty && media.readOnly)
+              scoped.some((item) => item.dirty && item.readOnly)
             }
           >
             保存并离开

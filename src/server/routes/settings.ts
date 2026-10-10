@@ -10,6 +10,7 @@ import { currentProject } from "../project";
 import { ApiError, errorMessage, mapError } from "../errors";
 import { articleProjectKey } from "../../lib/server/article-template";
 import { workspaceSession, readWorkspaceHistory } from "../../lib/server/workspace-session";
+import { updateLogRetention } from "../../lib/server/task-preferences";
 
 export function registerSettingsRoutes(app: Hono, stateDir?: string) {
   app.get("/api/settings", async (context) => {
@@ -75,18 +76,18 @@ export function registerSettingsRoutes(app: Hono, stateDir?: string) {
         )
           throw new ApiError(400, "默认项目必须来自已连接过的项目记录。");
       }
-      return context.json(
-        await savePanelSettings(
-          {
-            scope: body.scope as "machine" | "project",
-            group: body.group,
-            fields: body.fields,
-            version: body.version as string | null,
-            projectKey,
-          },
-          stateDir,
-        ),
+      const saved = await savePanelSettings(
+        {
+          scope: body.scope as "machine" | "project",
+          group: body.group,
+          fields: body.fields,
+          version: body.version as string | null,
+          projectKey,
+        },
+        stateDir,
       );
+      if (body.scope === "machine" && body.group === "logs") updateLogRetention(saved, stateDir);
+      return context.json(saved);
     } catch (error) {
       if (error instanceof SettingsValidationError) throw new ApiError(400, error.message);
       if (["EACCES", "EPERM", "EROFS"].includes((error as NodeJS.ErrnoException).code ?? ""))

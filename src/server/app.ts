@@ -68,8 +68,8 @@ export function createApp(options: AppOptions = {}) {
   registerFeatureRoutes(app);
   registerMediaRoutes(app, stateDir);
   registerMarkdownPreviewRoutes(app);
-  registerPreviewRoutes(app);
-  registerPublishRoutes(app);
+  registerPreviewRoutes(app, stateDir);
+  registerPublishRoutes(app, stateDir);
 
   app.onError((error, context) => {
     try {

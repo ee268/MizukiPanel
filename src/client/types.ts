@@ -102,6 +102,12 @@ export interface PreviewStatus {
   startedAt: string | null;
   logs: string[];
   error: string | null;
+  port?: number;
+  configuredPort?: number;
+  defaultPath?: string;
+  pendingPort?: boolean;
+  logLimit?: number;
+  warnings?: string[];
 }
 
 export type ConfigValue =
@@ -208,6 +214,8 @@ export interface PublishCheck {
 }
 
 export interface PublishOverview {
+  preferences?: import("../shared/task-settings").PublishSettings;
+  warnings?: string[];
   mode: ProjectReport["mode"];
   repositoryLabel: string;
   repositoryRoot: string;
@@ -226,6 +234,7 @@ export interface PublishOverview {
 }
 
 export interface PublishOperationStatus {
+  logLimit?: number;
   kind: "validate" | "sync" | "build" | null;
   state: "idle" | "running" | "succeeded" | "failed";
   projectRoot: string | null;

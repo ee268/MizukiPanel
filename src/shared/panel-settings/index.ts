@@ -1,5 +1,6 @@
 import { defaultArticleFrontmatter, validTemplateField } from "./article-template";
 import { validMediaFolder } from "../media-settings";
+import { commitTypes, validCommitScope, validPreviewPath } from "../task-settings";
 export const settingsSchemaVersion = 1;
 export type SettingsScope = "browser" | "machine" | "project";
 export interface AppearanceSettings {
@@ -20,6 +21,7 @@ export interface PersonalSettings {
   notifications: { duration: number };
   editor: EditorSettings;
   drafts: { enabled: boolean; delay: number };
+  logs: { autoScroll: boolean; fontSize: number };
   workspace: {
     afterConnect: "/" | "/articles" | "/config" | "/features" | "/media" | "/preview" | "/publish";
   };
@@ -103,6 +105,7 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
     notifications: { duration: number(3500, 2000, 10000) },
     drafts: { enabled: flag(true), delay: number(2000, 1000, 10000) },
+    logs: { autoScroll: flag(true), fontSize: number(12, 10, 24) },
     workspace: {
       afterConnect: choice("/", [
         "/",
@@ -135,6 +138,7 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
   },
   machine: {
+    logs: { preview: number(300, 100, 5000), publish: number(500, 100, 5000) },
     workspace: {
       startup: choice("last", ["last", "none", "default"]),
       defaultProject: {
@@ -145,6 +149,12 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
   },
   project: {
+    preview: { port: number(4321, 1024, 65535), path: { default: "/", valid: validPreviewPath } },
+    publish: {
+      remember: flag(false),
+      type: choice("feat", commitTypes),
+      scope: { default: "content", valid: validCommitScope },
+    },
     access: { readOnly: flag(false) },
     articleTemplate: {
       body: { default: "# 开始写作", valid: (value) => validTemplateField("body", value) },

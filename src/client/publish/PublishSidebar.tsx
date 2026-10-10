@@ -1,9 +1,10 @@
 import BuildOutlined from "@mui/icons-material/BuildOutlined";
 import SyncOutlined from "@mui/icons-material/SyncOutlined";
-import { Box, Button, Card, CardContent, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Button, Card, CardContent, Chip, Paper, Stack, Typography } from "@mui/material";
 import type { PublishOperationStatus, PublishOverview } from "../types";
 import { operationLabels } from "./constants";
 import type { PublishOperationKind } from "./usePublish";
+import { TaskLogs } from "../components/TaskLogs";
 
 interface PublishSidebarProps {
   overview: PublishOverview;
@@ -91,22 +92,12 @@ export function PublishSidebar({
         </Stack>
       </Paper>
 
-      <Paper
-        sx={{
-          p: 2,
-          bgcolor: "#111827",
-          color: "#e5e7eb",
-          minHeight: 280,
-          maxHeight: 520,
-          overflow: "auto",
-        }}
-      >
-        <Stack
-          direction="row"
-          sx={{ alignItems: "center", justifyContent: "space-between", mb: 1 }}
-        >
-          <Typography sx={{ fontWeight: 650 }}>运行日志</Typography>
-          {operation && (
+      <TaskLogs
+        logs={operation?.logs ?? []}
+        compact
+        limit={operation?.logLimit}
+        badge={
+          operation && (
             <Chip
               size="small"
               color={operationColor(operation)}
@@ -114,21 +105,9 @@ export function PublishSidebar({
                 operation.kind ? `${operationLabels[operation.kind]} · ${operation.state}` : "空闲"
               }
             />
-          )}
-        </Stack>
-        <Box
-          component="pre"
-          sx={{
-            m: 0,
-            whiteSpace: "pre-wrap",
-            overflowWrap: "anywhere",
-            fontSize: 12,
-            lineHeight: 1.65,
-          }}
-        >
-          {operation?.logs.join("\n") || "尚未运行校验、同步或构建。"}
-        </Box>
-      </Paper>
+          )
+        }
+      />
     </Stack>
   );
 }

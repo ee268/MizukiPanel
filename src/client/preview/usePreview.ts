@@ -6,6 +6,7 @@ import { errorMessage } from "../shared/errors";
 import type { PreviewStatus } from "../types";
 import { useOptionalPersonalSettings } from "../settings/PersonalSettingsProvider";
 import { panelFontFamilies } from "../font-families";
+import { validPreviewPath } from "../../shared/task-settings";
 
 export function usePreview() {
   const appearance = useOptionalPersonalSettings()?.effective.appearance;
@@ -15,6 +16,19 @@ export function usePreview() {
     params.get("path")?.startsWith("/") ? params.get("path")! : "/",
   );
   const [error, setError] = useState("");
+  const pathInitialized = useRef(params.has("path"));
+  const pathDirty = useRef(false);
+  const latestPathParam = useRef(params.get("path"));
+  useEffect(() => {
+    const path = params.get("path");
+    if (path !== latestPathParam.current) {
+      latestPathParam.current = path;
+      pathDirty.current = false;
+      pathInitialized.current = path !== null;
+      if (path !== null) setPagePath(validPreviewPath(path) ? path : "/");
+      else setPagePath(preview?.defaultPath ?? "/");
+    }
+  }, [params, preview?.defaultPath]);
   const pendingTab = useRef<Window | null>(null);
   useEffect(() => {
     const tab = pendingTab.current;
@@ -24,7 +38,12 @@ export function usePreview() {
 
   const load = useCallback(async () => {
     try {
-      setPreview(await api<PreviewStatus>("/api/preview/status"));
+      const next = await api<PreviewStatus>("/api/preview/status");
+      setPreview(next);
+      if (!pathInitialized.current && !pathDirty.current) {
+        pathInitialized.current = true;
+        setPagePath(next.defaultPath ?? "/");
+      }
     } catch (cause) {
       setError(errorMessage(cause, "预览状态读取失败"));
     }
@@ -47,7 +66,7 @@ export function usePreview() {
 
   const active = preview?.state === "running" || preview?.state === "external";
   const targetUrl = useMemo(
-    () => previewTargetUrl(preview?.url ?? "", pagePath),
+    () => (validPreviewPath(pagePath) ? previewTargetUrl(preview?.url ?? "", pagePath) : ""),
     [pagePath, preview?.url],
   );
 
@@ -130,7 +149,10 @@ export function usePreview() {
     error,
     active,
     targetUrl,
-    setPagePath,
+    setPagePath: (value: string) => {
+      pathDirty.current = true;
+      setPagePath(value);
+    },
     start,
     stop,
   };

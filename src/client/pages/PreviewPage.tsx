@@ -63,6 +63,22 @@ export default function PreviewPage() {
         {(controller.error || preview?.error) && (
           <Alert severity="warning">{controller.error || preview?.error}</Alert>
         )}
+        {preview?.warnings?.map((warning) => (
+          <Alert severity="warning" key={warning}>
+            {warning}
+          </Alert>
+        ))}
+        {preview && (
+          <Typography variant="body2" color="text.secondary">
+            当前端口：{preview.port ?? 4321} · 日志最多保留 {preview.logLimit ?? 300} 条
+          </Typography>
+        )}
+        {preview?.pendingPort && (
+          <Alert severity="info">
+            当前预览继续使用 {preview.port} 端口；已保存的 {preview.configuredPort}{" "}
+            端口将在停止后再次启动时应用。
+          </Alert>
+        )}
 
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Stack
@@ -96,6 +112,12 @@ export default function PreviewPage() {
             <TextField
               label="预览路径"
               value={controller.pagePath}
+              error={Boolean(controller.pagePath && !controller.targetUrl)}
+              helperText={
+                !controller.targetUrl
+                  ? "请输入以 / 开头的项目路径"
+                  : "本次查看的临时路径；文章入口优先使用文章路径"
+              }
               onChange={(event) => controller.setPagePath(event.target.value)}
               fullWidth
               sx={{ minWidth: { lg: 240 } }}
@@ -106,7 +128,7 @@ export default function PreviewPage() {
               target="_blank"
               rel="noreferrer"
               startIcon={<OpenInNewOutlined />}
-              disabled={!controller.active}
+              disabled={!controller.active || !controller.targetUrl}
               sx={{ ...buttonSx, minWidth: 116 }}
             >
               新窗口
@@ -114,7 +136,7 @@ export default function PreviewPage() {
           </Stack>
         </Paper>
 
-        <PreviewLogs logs={preview?.logs ?? []} />
+        <PreviewLogs logs={preview?.logs ?? []} limit={preview?.logLimit} />
       </Stack>
     </Container>
   );

@@ -1,11 +1,12 @@
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
+import { createConnection } from "node:net";
 import type { ProjectReport } from "./project";
+import { logLimit, readLogRetention, taskPreferences } from "./task-preferences";
 
 const run = promisify(execFile);
 const ANSI = /\x1b\[[0-?]*[ -\/]*[@-~]/g;
-const MAX_LOGS = 300;
 
 interface PreviewRuntime {
   child: ChildProcess | null;
@@ -15,6 +16,7 @@ interface PreviewRuntime {
   logs: string[];
   error: string | null;
   stoppingChild: ChildProcess | null;
+  stateDir?: string;
 }
 
 const runtimeKey = Symbol.for("mizuki-panel.preview-runtime");
@@ -36,7 +38,22 @@ function append(chunk: Buffer | string) {
       (line) => `[${new Date().toLocaleTimeString("zh-CN", { hour12: false })}] ${line}`,
     ),
   );
-  if (runtime.logs.length > MAX_LOGS) runtime.logs.splice(0, runtime.logs.length - MAX_LOGS);
+  const limit = logLimit("preview", runtime.stateDir);
+  if (runtime.logs.length > limit) runtime.logs.splice(0, runtime.logs.length - limit);
+}
+
+async function occupied(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host: "127.0.0.1", port });
+    const done = (value: boolean) => {
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setTimeout(1200);
+    socket.once("connect", () => done(true));
+    socket.once("error", () => done(false));
+    socket.once("timeout", () => done(true));
+  });
 }
 
 async function responds(port: number): Promise<boolean> {
@@ -62,6 +79,12 @@ export interface PreviewStatus {
   startedAt: string | null;
   logs: string[];
   error: string | null;
+  port: number;
+  configuredPort: number;
+  defaultPath: string;
+  pendingPort: boolean;
+  logLimit: number;
+  warnings: string[];
 }
 
 export function workspacePreviewTask() {
@@ -70,34 +93,67 @@ export function workspacePreviewTask() {
     : null;
 }
 
-export async function previewStatus(report: ProjectReport): Promise<PreviewStatus> {
+export async function previewStatus(
+  report: ProjectReport,
+  stateDir?: string,
+): Promise<PreviewStatus> {
+  const [preferences, machine] = await Promise.all([
+    taskPreferences(report, stateDir),
+    readLogRetention(stateDir),
+  ]);
   const running = runtime.child && runtime.child.exitCode === null && !runtime.child.killed;
-  const reachable = await responds(runtime.port);
+  const port = running ? runtime.port : preferences.preview.port;
+  const reachable = await responds(port);
+  const sameProject =
+    runtime.projectRoot && path.resolve(runtime.projectRoot) === path.resolve(report.root);
+  const error = sameProject && port === runtime.port ? runtime.error : null;
   let state: PreviewStatus["state"] = "stopped";
   if (running && reachable) state = "running";
   else if (running) state = "starting";
   else if (reachable) state = "external";
-  else if (runtime.error) state = "failed";
+  else if (error) state = "failed";
+  else if (!running && (await occupied(port))) state = "failed";
+  const showOwned = sameProject && port === runtime.port && state !== "external";
   return {
     state,
-    url: `http://127.0.0.1:${runtime.port}/`,
-    projectRoot: runtime.projectRoot,
-    startedAt: runtime.startedAt,
-    logs: runtime.logs,
+    url: `http://127.0.0.1:${port}/`,
+    projectRoot: running || showOwned ? runtime.projectRoot : null,
+    startedAt: showOwned ? runtime.startedAt : null,
+    logs: showOwned ? [...runtime.logs] : [],
     error:
-      runtime.error ??
-      (state === "external" ? "端口上已有服务，面板已连接但不能停止该进程。" : null),
+      state === "external"
+        ? "端口上已有外部 HTTP 服务，无法确认属于当前项目；面板不能停止该进程。"
+        : (error ??
+          (state === "failed"
+            ? `端口 ${port} 已被占用，未启动或停止任何外部进程。请调整端口。`
+            : null)),
+    port,
+    configuredPort: preferences.preview.port,
+    defaultPath: preferences.preview.path,
+    pendingPort: Boolean(running && port !== preferences.preview.port),
+    logLimit: logLimit("preview", stateDir),
+    warnings: [...preferences.snapshot.warnings, ...machine.warnings],
   };
 }
 
-export async function startPreview(report: ProjectReport): Promise<PreviewStatus> {
+export async function startPreview(
+  report: ProjectReport,
+  stateDir?: string,
+): Promise<PreviewStatus> {
   if (report.mode === "blocked") throw new Error("项目内容模式尚未就绪");
   if (runtime.child && runtime.child.exitCode === null && !runtime.child.killed) {
     if (path.resolve(runtime.projectRoot ?? "") !== path.resolve(report.root))
       throw new Error("另一个 Mizuki 工作区的预览正在运行，请先停止");
-    return previewStatus(report);
+    return previewStatus(report, stateDir);
   }
-  if (await responds(runtime.port)) return previewStatus(report);
+  const preferences = await taskPreferences(report, stateDir);
+  await readLogRetention(stateDir);
+  const port = preferences.preview.port;
+  if (await responds(port)) return previewStatus(report, stateDir);
+  if (await occupied(port))
+    throw new Error(`端口 ${port} 已被占用，请调整预览端口；未停止外部进程。`);
+  runtime.stateDir = stateDir;
+  runtime.port = port;
   runtime.logs = [];
   runtime.error = null;
   runtime.projectRoot = report.root;
@@ -136,12 +192,15 @@ export async function startPreview(report: ProjectReport): Promise<PreviewStatus
     if (runtime.child === child) runtime.child = null;
     if (expectedStop) runtime.stoppingChild = null;
   });
-  return previewStatus(report);
+  return previewStatus(report, stateDir);
 }
 
-export async function stopPreview(report: ProjectReport): Promise<PreviewStatus> {
+export async function stopPreview(
+  report: ProjectReport,
+  stateDir: string | undefined = runtime.stateDir,
+): Promise<PreviewStatus> {
   const child = runtime.child;
-  if (!child || child.exitCode !== null || child.killed) return previewStatus(report);
+  if (!child || child.exitCode !== null || child.killed) return previewStatus(report, stateDir);
   if (path.resolve(runtime.projectRoot ?? "") !== path.resolve(report.root))
     throw new Error("当前预览不属于所选 Mizuki 工作区");
   runtime.stoppingChild = child;
@@ -156,5 +215,5 @@ export async function stopPreview(report: ProjectReport): Promise<PreviewStatus>
   }
   if (runtime.child === child) runtime.child = null;
   append("已停止由面板启动的预览进程。");
-  return previewStatus(report);
+  return previewStatus(report, stateDir);
 }

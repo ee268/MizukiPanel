@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { PublishOperationStatus, PublishOverview } from "../types";
 import { operationLabels } from "./constants";
+import { commitPrefix } from "../../shared/task-settings";
 
 export type PublishDialog = "push" | "revert" | null;
 export type PublishOperationKind = "validate" | "sync" | "build";
@@ -11,7 +12,12 @@ export function usePublish() {
   const [overview, setOverview] = useState<PublishOverview | null>(null);
   const [operation, setOperation] = useState<PublishOperationStatus | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
-  const [commitMessage, setCommitMessage] = useState("feat(content): publish blog updates");
+  const [commitType, setCommitType] = useState("feat");
+  const [commitScope, setCommitScope] = useState("content");
+  const [commitDescription, setCommitDescription] = useState("");
+  const initialized = useRef(false);
+  const formTouched = useRef(false);
+  const commitMessage = commitPrefix(commitType, commitScope) + commitDescription;
   const [diffPath, setDiffPath] = useState("");
   const [diff, setDiff] = useState("");
   const [dialog, setDialog] = useState<PublishDialog>(null);
@@ -26,6 +32,13 @@ export function usePublish() {
         api<PublishOperationStatus>("/api/publish/operation"),
       ]);
       setOverview(nextOverview);
+      if (!initialized.current && !formTouched.current) {
+        initialized.current = true;
+        if (nextOverview.preferences?.remember) {
+          setCommitType(nextOverview.preferences.type);
+          setCommitScope(nextOverview.preferences.scope);
+        }
+      }
       setOperation(nextOperation);
       const available = new Set(
         nextOverview.changes
@@ -91,10 +104,17 @@ export function usePublish() {
     setError("");
     setNotice("");
     try {
-      await task();
+      const result = await task();
       setNotice(success);
       setDialog(null);
       await load();
+      if (
+        result &&
+        typeof result === "object" &&
+        "defaultsWarning" in result &&
+        result.defaultsWarning
+      )
+        setError(String(result.defaultsWarning));
     } catch (cause) {
       setError(errorMessage(cause, "发布操作失败"));
     } finally {
@@ -103,10 +123,15 @@ export function usePublish() {
   }
 
   async function commit() {
-    await mutate(
-      () => api("/api/publish/commit", json("POST", { paths: selected, message: commitMessage })),
-      "所选内容已创建 Git 提交。",
-    );
+    await mutate(async () => {
+      const result = await api<{ defaultsWarning?: string | null }>(
+        "/api/publish/commit",
+        json("POST", { paths: selected, message: commitMessage }),
+      );
+      setSelected([]);
+      setCommitDescription("");
+      return result;
+    }, "所选内容已创建 Git 提交。");
   }
 
   async function startOperation(kind: PublishOperationKind) {
@@ -129,6 +154,9 @@ export function usePublish() {
     operation,
     selected,
     commitMessage,
+    commitType,
+    commitScope,
+    commitDescription,
     diffPath,
     diff,
     dialog,
@@ -138,7 +166,18 @@ export function usePublish() {
     allSelected,
     running,
     load,
-    setCommitMessage,
+    setCommitType: (value: string) => {
+      formTouched.current = true;
+      setCommitType(value);
+    },
+    setCommitScope: (value: string) => {
+      formTouched.current = true;
+      setCommitScope(value);
+    },
+    setCommitDescription: (value: string) => {
+      formTouched.current = true;
+      setCommitDescription(value);
+    },
     setDiffPath,
     setDialog,
     setError,

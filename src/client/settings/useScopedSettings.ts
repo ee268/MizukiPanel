@@ -3,6 +3,7 @@ import {
   defaultValues,
   groupFingerprint,
   type SettingsSnapshot,
+  type SettingsOverview,
 } from "../../shared/panel-settings";
 import { api, json } from "../api";
 
@@ -51,12 +52,24 @@ export function useScopedSettings(
     setError("");
     setNotice("");
     try {
+      // Another card may have just saved a different group in this same document.
+      // Refresh the document version, but never rebase over changes to our group.
+      const overview = await api<SettingsOverview>("/api/settings");
+      const latest = scope === "machine" ? overview.machine : overview.project?.settings;
+      if (
+        !latest ||
+        latest.readOnly ||
+        (scope === "project" && overview.project?.key !== key) ||
+        groupFingerprint(latest.document.values[group]) !==
+          groupFingerprint(base?.document.values[group] ?? defaults)
+      )
+        throw new Error("本组设置已变化或不可写，输入已保留，请重新载入后保存。");
       const fields = Object.fromEntries(
         Object.keys(defaults).map((field) => [field, value[field]]),
       );
       const next = await api<SettingsSnapshot>(
         "/api/settings",
-        json("PATCH", { scope, group, fields, version: snapshot.version, projectKey }),
+        json("PATCH", { scope, group, fields, version: latest.version, projectKey }),
       );
       setBase(next);
       setValue(next.document.values[group]);
