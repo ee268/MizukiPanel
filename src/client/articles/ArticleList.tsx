@@ -50,7 +50,7 @@ export function ArticleList({
 }: ArticleListProps) {
   return (
     <Stack spacing={2.5}>
-      <Paper variant="outlined" sx={{ p: 2 }}>
+      <Paper data-page-motion="controls" variant="outlined" sx={{ p: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
           <TextField
             placeholder="搜索标题、简介或路径"
@@ -95,7 +95,7 @@ export function ArticleList({
             const imageUrl = articleImageUrl(item.image, item.id);
 
             return (
-              <Card key={item.id} variant="outlined" sx={{ minWidth: 0 }}>
+              <Card data-page-motion="item" key={item.id} variant="outlined" sx={{ minWidth: 0 }}>
                 <CardActionArea
                   onClick={() => onSelect(item.id)}
                   sx={{ height: "100%", display: "flex", alignItems: "stretch" }}

@@ -15,7 +15,7 @@ interface MetricCardProps {
 
 function MetricCard({ label, value, detail, icon }: MetricCardProps) {
   return (
-    <Card variant="outlined" sx={{ height: "100%" }}>
+    <Card data-page-motion="metric" variant="outlined" sx={{ height: "100%" }}>
       <CardContent>
         <Stack direction="row" spacing={2} sx={{ justifyContent: "space-between" }}>
           <Box>

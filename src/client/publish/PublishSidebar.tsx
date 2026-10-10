@@ -33,7 +33,7 @@ export function PublishSidebar({
   onOperation,
 }: PublishSidebarProps) {
   return (
-    <Stack spacing={2}>
+    <Stack data-page-motion="aside" spacing={2}>
       <Card variant="outlined">
         <CardContent>
           <Typography variant="h6" gutterBottom>

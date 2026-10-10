@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Alert, Box, Button, useMediaQuery, useTheme } from "@mui/material";
+import { Suspense, useState } from "react";
+import { Alert, Box, Button, CircularProgress, useMediaQuery, useTheme } from "@mui/material";
 import { Outlet } from "react-router-dom";
 import { api } from "../api";
 import { sessionLifecycle } from "../auth/session-lifecycle";
 import { useSiteIdentity } from "../hooks/useSiteIdentity";
 import AppHeader from "./AppHeader";
 import Sidebar from "./Sidebar";
+import { PageEntrance } from "./PageEntrance";
 import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
 import {
   WorkspaceSessionProvider,
@@ -54,6 +55,9 @@ function Shell() {
         display: "flex",
         minHeight: "100vh",
         "--mizuki-panel-header-height": { xs: "57px", sm: "65px" },
+        "@media (prefers-reduced-motion: reduce)": {
+          "& .MuiAppBar-root": { transition: "none" },
+        },
         [`@media (max-width: ${theme.breakpoints.values.sm - 0.05}px) and (orientation: landscape)`]:
           {
             "--mizuki-panel-header-height": "49px",
@@ -98,7 +102,17 @@ function Shell() {
             工作区已切换，当前页面仅保留原输入；保存操作已暂停。
           </Alert>
         )}
-        <Outlet key={workspace.outletVersion} />
+        <PageEntrance>
+          <Suspense
+            fallback={
+              <Box sx={{ minHeight: "60vh", display: "grid", placeItems: "center" }}>
+                <CircularProgress aria-label="加载页面" />
+              </Box>
+            }
+          >
+            <Outlet key={workspace.outletVersion} />
+          </Suspense>
+        </PageEntrance>
       </Box>
     </Box>
   );

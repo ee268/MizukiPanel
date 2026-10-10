@@ -50,7 +50,7 @@ export function DashboardCharts({ articles }: { articles: DashboardOverview["art
   ];
 
   return (
-    <Grid container spacing={2}>
+    <Grid data-page-motion="chart" container spacing={2}>
       <Grid size={{ xs: 12, lg: 8 }}>
         <Paper variant="outlined" sx={{ height: "100%", minWidth: 0, p: { xs: 2, sm: 3 } }}>
           <Stack

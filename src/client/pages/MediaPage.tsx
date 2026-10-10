@@ -17,7 +17,7 @@ export default function MediaPage() {
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Stack spacing={3}>
-        <Box>
+        <Box data-page-motion="heading">
           <Typography variant="h4">媒体管理</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             管理公共图片和与文章同目录的相对资源。

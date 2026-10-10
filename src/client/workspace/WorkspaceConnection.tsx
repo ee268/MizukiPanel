@@ -23,7 +23,7 @@ export function WorkspaceConnection({
   onDisconnect,
 }: WorkspaceConnectionProps) {
   return (
-    <Paper variant="outlined" sx={{ p: 3 }}>
+    <Paper data-page-motion="controls" variant="outlined" sx={{ p: 3 }}>
       <Stack
         component="form"
         direction={{ xs: "column", sm: "row" }}

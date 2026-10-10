@@ -52,7 +52,7 @@ export default function FeaturesPage() {
   return (
     <Container maxWidth={false} sx={{ py: 4 }}>
       <Stack spacing={3}>
-        <Box>
+        <Box data-page-motion="heading">
           <Typography variant="h4">特色页面</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             管理 Markdown 正文、结构化数据、季度追番和相册资源。
@@ -69,7 +69,7 @@ export default function FeaturesPage() {
           </Paper>
         ) : (
           <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 3, lg: 2.5 }}>
+            <Grid data-page-motion="navigation" size={{ xs: 12, md: 3, lg: 2.5 }}>
               <Paper variant="outlined" sx={{ position: { md: "sticky" }, top: { md: 88 } }}>
                 <List disablePadding>
                   {index.modules.map((item) => (
@@ -98,7 +98,7 @@ export default function FeaturesPage() {
                 </List>
               </Paper>
             </Grid>
-            <Grid size={{ xs: 12, md: 9, lg: 9.5 }}>
+            <Grid data-page-motion="content" size={{ xs: 12, md: 9, lg: 9.5 }}>
               <Stack spacing={2}>
                 <Paper variant="outlined" sx={{ p: 2.5 }}>
                   <Stack

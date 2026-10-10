@@ -11,7 +11,7 @@ export default function ConfigPage() {
   return (
     <Container maxWidth={false} sx={{ py: 4 }}>
       <Stack spacing={3}>
-        <Box>
+        <Box data-page-motion="heading">
           <Typography variant="h4">站点配置</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             管理 Mizuki 的 18 个可覆盖配置，查看默认值、覆盖值和最终值。
@@ -28,14 +28,14 @@ export default function ConfigPage() {
         )}
 
         <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 3, lg: 2.5 }}>
+          <Grid data-page-motion="navigation" size={{ xs: 12, md: 3, lg: 2.5 }}>
             <ConfigList
               groups={configs.groups}
               selected={configs.selected}
               onSelect={configs.select}
             />
           </Grid>
-          <Grid size={{ xs: 12, md: 9, lg: 9.5 }}>
+          <Grid data-page-motion="content" size={{ xs: 12, md: 9, lg: 9.5 }}>
             <ConfigEditor
               document={configs.document}
               initializer={configs.initializer}

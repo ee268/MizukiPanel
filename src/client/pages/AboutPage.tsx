@@ -24,14 +24,14 @@ export default function AboutPage() {
   return (
     <Container maxWidth="md" sx={{ py: { xs: 3, md: 5 } }}>
       <Stack spacing={3}>
-        <Box>
+        <Box data-page-motion="heading">
           <Typography variant="h4">关于 MizukiPanel</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             面向 Mizuki Astro 博客的一站式本地管理面板。
           </Typography>
         </Box>
 
-        <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+        <Paper data-page-motion="summary" variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 } }}>
           <Stack spacing={2.5}>
             <Box>
               <Typography variant="h6" gutterBottom>

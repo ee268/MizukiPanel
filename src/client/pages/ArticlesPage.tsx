@@ -83,7 +83,7 @@ export default function ArticlesPage() {
         )}
 
         {editing ? (
-          <Box sx={{ position: "relative" }} aria-busy={loading}>
+          <Box data-page-motion="content" sx={{ position: "relative" }} aria-busy={loading}>
             {loading && (
               <ArticleLoading
                 title={

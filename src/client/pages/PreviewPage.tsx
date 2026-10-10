@@ -45,6 +45,7 @@ export default function PreviewPage() {
     <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, lg: 3 } }}>
       <Stack spacing={2}>
         <Stack
+          data-page-motion="heading"
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
           sx={{ justifyContent: "space-between" }}
@@ -80,7 +81,7 @@ export default function PreviewPage() {
           </Alert>
         )}
 
-        <Paper variant="outlined" sx={{ p: 2 }}>
+        <Paper data-page-motion="controls" variant="outlined" sx={{ p: 2 }}>
           <Stack
             direction={{ xs: "column", lg: "row" }}
             spacing={1.5}
@@ -136,7 +137,9 @@ export default function PreviewPage() {
           </Stack>
         </Paper>
 
-        <PreviewLogs logs={preview?.logs ?? []} limit={preview?.logLimit} />
+        <Box data-page-motion="logs">
+          <PreviewLogs logs={preview?.logs ?? []} limit={preview?.logLimit} />
+        </Box>
       </Stack>
     </Container>
   );

@@ -69,7 +69,7 @@ export function MediaGallery({
       <Grid container spacing={2}>
         {items.map((item) => (
           <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={`${item.scope}-${item.path}`}>
-            <Card variant="outlined">
+            <Card data-page-motion="tile" variant="outlined">
               <CardMedia
                 component="img"
                 image={`/api/media/file?scope=${item.scope}&path=${encodeURIComponent(item.path)}`}

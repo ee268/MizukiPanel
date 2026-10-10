@@ -13,7 +13,7 @@ export default function WorkspacePage() {
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Stack spacing={3}>
-        <Box>
+        <Box data-page-motion="heading">
           <Typography variant="h4">项目工作区</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             连接本机 Mizuki 项目，查看文章与提交活动概览。

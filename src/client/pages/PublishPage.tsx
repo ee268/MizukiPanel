@@ -40,6 +40,7 @@ export default function PublishPage() {
     <Container maxWidth={false} sx={{ py: 3, px: { xs: 2, lg: 3 } }}>
       <Stack spacing={2.5}>
         <Stack
+          data-page-motion="heading"
           direction={{ xs: "column", sm: "row" }}
           spacing={2}
           sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}
@@ -81,7 +82,7 @@ export default function PublishPage() {
             <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, overflowX: "auto" }}>
               <Stepper alternativeLabel sx={{ minWidth: overview.mode === "external" ? 680 : 540 }}>
                 {steps.map((label) => (
-                  <Step key={label}>
+                  <Step data-page-motion="step" key={label}>
                     <StepLabel>{label}</StepLabel>
                   </Step>
                 ))}
@@ -95,7 +96,7 @@ export default function PublishPage() {
                 gap: 2,
               }}
             >
-              <Stack spacing={2}>
+              <Stack data-page-motion="content" spacing={2}>
                 <PublishChecks
                   overview={overview}
                   disabled={disabled}

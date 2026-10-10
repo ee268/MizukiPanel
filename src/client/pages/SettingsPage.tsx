@@ -305,7 +305,7 @@ export default function SettingsPage() {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Stack spacing={3}>
-        <Box>
+        <Box data-page-motion="heading">
           <Typography variant="h4" component="h1">
             设置
           </Typography>
@@ -344,6 +344,7 @@ export default function SettingsPage() {
           }}
         >
           <Paper
+            data-page-motion="navigation"
             variant="outlined"
             sx={{
               minWidth: 0,
@@ -379,7 +380,7 @@ export default function SettingsPage() {
               ))}
             </Tabs>
           </Paper>
-          <Box sx={{ minWidth: 0 }}>
+          <Box data-page-motion="content" sx={{ minWidth: 0 }}>
             {settingsSections.map((item) => (
               <Box
                 key={item.id}

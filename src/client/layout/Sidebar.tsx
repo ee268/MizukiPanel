@@ -12,6 +12,7 @@ import {
   ListItemText,
   Toolbar,
   Tooltip,
+  useMediaQuery,
   useTheme,
 } from "@mui/material";
 import { NavLink } from "react-router-dom";
@@ -35,16 +36,33 @@ export default function Sidebar({
   onToggleCollapsed,
 }: SidebarProps) {
   const theme = useTheme();
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const labelSx = {
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    flexShrink: 0,
+    flexGrow: compact ? 0 : 1,
+    flexBasis: compact ? 0 : "auto",
+    width: compact ? 0 : "auto",
+    opacity: compact ? 0 : 1,
+    transition: reducedMotion
+      ? "none"
+      : theme.transitions.create("opacity", {
+          duration: 120,
+          delay: compact ? 0 : theme.transitions.duration.standard,
+        }),
+  };
 
   return (
     <Drawer
       variant={desktop ? "permanent" : "temporary"}
       open={desktop || open}
       onClose={onClose}
+      transitionDuration={reducedMotion ? 0 : undefined}
       sx={{
         width,
         flexShrink: 0,
-        transition: theme.transitions.create("width"),
+        transition: reducedMotion ? "none" : theme.transitions.create("width"),
         "& .MuiDrawer-paper": {
           width,
           boxSizing: "border-box",
@@ -52,7 +70,7 @@ export default function Sidebar({
           flexDirection: "column",
           overflowX: "hidden",
           borderRight: "none",
-          transition: theme.transitions.create("width"),
+          transition: reducedMotion ? "none" : theme.transitions.create("width"),
         },
       }}
     >
@@ -83,7 +101,7 @@ export default function Sidebar({
               <ListItemIcon sx={{ minWidth: compact ? 0 : 40, justifyContent: "center" }}>
                 {item.icon}
               </ListItemIcon>
-              {!compact && <ListItemText primary={item.label} />}
+              <ListItemText primary={item.label} sx={labelSx} />
             </ListItemButton>
           </Tooltip>
         ))}
@@ -111,7 +129,7 @@ export default function Sidebar({
               <ListItemIcon sx={{ minWidth: compact ? 0 : 40, justifyContent: "center" }}>
                 <SettingsOutlined />
               </ListItemIcon>
-              {!compact && <ListItemText primary="设置" />}
+              <ListItemText primary="设置" sx={labelSx} />
             </ListItemButton>
           </Tooltip>
         </List>
@@ -136,7 +154,7 @@ export default function Sidebar({
             <ListItemIcon sx={{ minWidth: compact ? 0 : 40, justifyContent: "center" }}>
               <InfoOutlined />
             </ListItemIcon>
-            {!compact && <ListItemText primary="关于" />}
+            <ListItemText primary="关于" sx={labelSx} />
           </ListItemButton>
         </Tooltip>
         {desktop && (
@@ -153,7 +171,7 @@ export default function Sidebar({
               <ListItemIcon sx={{ minWidth: compact ? 0 : 40, justifyContent: "center" }}>
                 {compact ? <ChevronRightOutlined /> : <ChevronLeftOutlined />}
               </ListItemIcon>
-              {!compact && <ListItemText primary="收起导航栏" />}
+              <ListItemText primary="收起导航栏" sx={labelSx} />
             </ListItemButton>
           </Tooltip>
         )}

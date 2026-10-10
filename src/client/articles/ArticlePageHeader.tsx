@@ -28,6 +28,7 @@ export function ArticlePageHeader({
 }: ArticlePageHeaderProps) {
   return (
     <Box
+      data-page-motion="heading"
       sx={{ position: "relative", containerType: "inline-size", minHeight: { xs: 148, sm: 88 } }}
     >
       <Box

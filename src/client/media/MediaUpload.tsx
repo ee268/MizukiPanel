@@ -34,7 +34,7 @@ export function MediaUpload({
     media.variant === "processed" ? prepared?.processedReference : prepared?.originalReference;
   const path = media.variant === "processed" ? prepared?.processedPath : prepared?.originalPath;
   return (
-    <Paper variant="outlined" sx={{ p: 3 }}>
+    <Paper data-page-motion="controls" variant="outlined" sx={{ p: 3 }}>
       <Stack spacing={2}>
         <Typography variant="h6">上传图片</Typography>
         <Typography variant="body2" color="text.secondary">
