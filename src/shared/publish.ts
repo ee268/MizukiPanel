@@ -27,6 +27,9 @@ export interface PublishOverview {
   remotes: PublishRemote[];
   canCommit: boolean;
   commitDisabledReason: string | null;
+  canPush: boolean;
+  pushDisabledReason: string | null;
+  pushRemote: string | null;
   canBuild: boolean;
   buildDisabledReason: string | null;
 }
@@ -47,6 +50,7 @@ export interface PublishHistory {
   page: number;
   pageSize: number;
   head: string | null;
+  query: string;
 }
 
 export interface PublishCommitDetail {
@@ -57,7 +61,7 @@ export interface PublishCommitDetail {
 }
 
 export interface PublishOperationStatus {
-  kind: "commit" | "build" | null;
+  kind: "commit" | "push" | "build" | null;
   state: "idle" | "running" | "succeeded" | "failed";
   projectRoot: string | null;
   startedAt: string | null;

@@ -135,6 +135,11 @@ export default function PublishPage() {
                       page={publish.historyPage}
                       onPage={publish.setHistoryPage}
                       onCommit={publish.showCommit}
+                      search={publish.historySearch}
+                      query={publish.historyQuery}
+                      onSearchChange={publish.setHistorySearch}
+                      onSearch={publish.searchHistory}
+                      onClearSearch={publish.clearHistorySearch}
                     />
                   ) : (
                     <>
@@ -159,6 +164,7 @@ export default function PublishPage() {
                         onCommitDescriptionChange={publish.setCommitDescription}
                         onShowDiff={publish.showDiff}
                         onCommit={publish.commit}
+                        onPush={publish.openPush}
                       />
                     </>
                   )}
@@ -217,6 +223,12 @@ export default function PublishPage() {
           loading={publish.detailLoading}
           error={publish.detailError}
           onClose={publish.closeDetail}
+          pushOpen={publish.pushOpen}
+          pushBusy={publish.busy || publish.running}
+          overview={overview}
+          onPush={publish.push}
+          onClosePush={publish.closePush}
+          pushError={publish.error}
         />
       </Stack>
     </Container>

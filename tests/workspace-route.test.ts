@@ -122,6 +122,11 @@ it("enforces project read-only for every write domain while allowing scoped pane
       { paths: ["src/content/posts/one.md"], message: "feat(content): test" },
     ],
     ["POST", "/api/publish/operation", { kind: "build" }],
+    [
+      "POST",
+      "/api/publish/push",
+      { head: "confirmed-head", branch: "main", upstream: "origin/main", pushUrls: [] },
+    ],
   ];
   for (const [method, route, body] of cases) {
     const response = await mutate(route, body, workspace.version, method);

@@ -18,6 +18,10 @@ export function usePublish() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyRevision, setHistoryRevision] = useState(0);
+  const [pushOpen, setPushOpen] = useState(false);
   const [commitType, setCommitType] = useState("feat");
   const [commitScope, setCommitScope] = useState("content");
   const [commitDescription, setCommitDescription] = useState("");
@@ -85,6 +89,7 @@ export function usePublish() {
     setHistoryLoading(true);
     setHistoryError("");
     const params = new URLSearchParams({ page: String(historyPage) });
+    if (historyQuery) params.set("query", historyQuery);
     if (overview.head) params.set("head", overview.head);
     void api<PublishHistory>(`/api/publish/history?${params}`, { signal: abort.signal })
       .then((next) => {
@@ -101,7 +106,7 @@ export function usePublish() {
         }
       });
     return () => abort.abort();
-  }, [overview, historyPage, tab, refreshLogs]);
+  }, [overview, historyPage, historyQuery, historyRevision, tab, refreshLogs]);
   const running = operation?.state === "running";
   useEffect(() => {
     if (!running && !busy) return;
@@ -164,6 +169,7 @@ export function usePublish() {
     try {
       const result = await task();
       if (!alive.current) return;
+      setPushOpen(false);
       setNotice(success);
       await load();
       if (
@@ -207,6 +213,20 @@ export function usePublish() {
     historyLoading,
     historyError,
     historyPage,
+    historySearch,
+    historyQuery,
+    setHistorySearch,
+    searchHistory: () => {
+      setHistoryRevision((value) => value + 1);
+      setHistoryQuery(historySearch.trim());
+      setHistoryPage(1);
+    },
+    clearHistorySearch: () => {
+      setHistoryRevision((value) => value + 1);
+      setHistorySearch("");
+      setHistoryQuery("");
+      setHistoryPage(1);
+    },
     setHistoryPage,
     commitMessage,
     commitType,
@@ -228,6 +248,30 @@ export function usePublish() {
     toggle,
     toggleAll,
     commit,
+    pushOpen,
+    openPush: () => {
+      setError("");
+      setPushOpen(true);
+    },
+    closePush: () => {
+      if (!busyRef.current) setPushOpen(false);
+    },
+    push: () =>
+      mutate(
+        () =>
+          api(
+            "/api/publish/push",
+            json("POST", {
+              head: overview?.head,
+              branch: overview?.branch,
+              upstream: overview?.upstream,
+              pushUrls:
+                overview?.remotes.find((remote) => remote.name === overview.pushRemote)?.pushUrls ??
+                [],
+            }),
+          ),
+        "当前分支已推送到上游仓库。",
+      ),
     setCommitType: (value: string) => {
       formTouched.current = true;
       setCommitType(value);

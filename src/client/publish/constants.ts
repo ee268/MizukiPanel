@@ -2,6 +2,7 @@ import type { PublishChange } from "../types";
 
 export const operationLabels = {
   commit: "Git 提交",
+  push: "Git 推送",
   build: "站点构建",
 };
 

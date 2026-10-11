@@ -8,6 +8,7 @@ import {
   publishOperationStatus,
   publishOverview,
   startPublishOperation,
+  pushCurrentBranch,
 } from "../../lib/server/publish";
 import { ApiError } from "../errors";
 import { currentProject } from "../project";
@@ -34,6 +35,7 @@ export function registerPublishRoutes(app: Hono, stateDir?: string) {
         await project(),
         Number(context.req.query("page") ?? 1),
         context.req.query("head"),
+        context.req.query("query") ?? "",
       ),
     ),
   );
@@ -69,6 +71,30 @@ export function registerPublishRoutes(app: Hono, stateDir?: string) {
   app.get("/api/publish/operation", async (context) =>
     context.json(publishOperationStatus(await project())),
   );
+  app.post("/api/publish/push", async (context) => {
+    const body = await context.req.json<{
+      head?: string;
+      branch?: string;
+      upstream?: string;
+      pushUrls?: string[];
+    }>();
+    if (
+      typeof body.head !== "string" ||
+      typeof body.branch !== "string" ||
+      typeof body.upstream !== "string" ||
+      !Array.isArray(body.pushUrls) ||
+      body.pushUrls.some((url) => typeof url !== "string")
+    )
+      throw new ApiError(400, "请先确认当前分支及上游目标");
+    return context.json(
+      await pushCurrentBranch(await project(), stateDir, {
+        head: body.head,
+        branch: body.branch,
+        upstream: body.upstream,
+        pushUrls: body.pushUrls,
+      }),
+    );
+  });
   app.post("/api/publish/operation", async (context) => {
     const body = await context.req.json<{ kind?: string }>();
     if (body.kind !== "build") throw new ApiError(400, "仅支持 Mizuki 构建操作");

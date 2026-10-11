@@ -1,5 +1,6 @@
 import DifferenceOutlined from "@mui/icons-material/DifferenceOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
+import CloudUploadOutlined from "@mui/icons-material/CloudUploadOutlined";
 import {
   Box,
   Button,
@@ -39,6 +40,7 @@ interface PublishChangesProps {
   onCommitDescriptionChange: (value: string) => void;
   onShowDiff: (path: string) => void;
   onCommit: () => void;
+  onPush: () => void;
 }
 
 export function PublishChanges({
@@ -57,6 +59,7 @@ export function PublishChanges({
   onCommitDescriptionChange,
   onShowDiff,
   onCommit,
+  onPush,
 }: PublishChangesProps) {
   return (
     <Paper variant="outlined">
@@ -219,7 +222,19 @@ export function PublishChanges({
           >
             提交所选文件
           </Button>
+          <Button
+            variant="outlined"
+            startIcon={<CloudUploadOutlined />}
+            onClick={onPush}
+            disabled={disabled || !overview.canPush}
+          >
+            推送当前分支
+          </Button>
         </Stack>
+        <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+          {overview.pushDisabledReason ??
+            `推送目标：${overview.branch} → ${overview.upstream}；包含已有提交，未提交文件不包含在内。`}
+        </Typography>
       </Stack>
     </Paper>
   );

@@ -1,32 +1,104 @@
 import CommitOutlined from "@mui/icons-material/CommitOutlined";
+import SearchOutlined from "@mui/icons-material/SearchOutlined";
+import ClearOutlined from "@mui/icons-material/ClearOutlined";
+import { useRef } from "react";
 import {
   Alert,
   Box,
+  Button,
   Chip,
+  IconButton,
+  InputAdornment,
   List,
   ListItemButton,
   Pagination,
   Stack,
   Typography,
+  TextField,
 } from "@mui/material";
 import { ContentLoading } from "../components/ContentLoading";
 import type { PublishHistory as History } from "../types";
 
-export function PublishHistory({
-  history,
-  loading,
-  error,
-  page,
-  onPage,
-  onCommit,
-}: {
+interface HistoryProps {
   history: History | null;
   loading: boolean;
   error: string;
   page: number;
   onPage: (page: number) => void;
   onCommit: (sha: string) => void;
+}
+export function PublishHistory({
+  search,
+  query,
+  onSearchChange,
+  onSearch,
+  onClearSearch,
+  ...results
+}: HistoryProps & {
+  search: string;
+  query: string;
+  onSearchChange: (value: string) => void;
+  onSearch: () => void;
+  onClearSearch: () => void;
 }) {
+  const composing = useRef(false);
+  return (
+    <Box>
+      <Stack
+        component="form"
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1}
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!composing.current) onSearch();
+        }}
+        sx={{ p: 2 }}
+      >
+        <TextField
+          fullWidth
+          size="small"
+          label="查询提交历史"
+          placeholder="提交说明、作者、邮箱或提交 ID"
+          value={search}
+          onChange={(event) => onSearchChange(event.target.value)}
+          onCompositionStart={() => {
+            composing.current = true;
+          }}
+          onCompositionEnd={() => {
+            composing.current = false;
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (composing.current || event.nativeEvent.isComposing))
+              event.preventDefault();
+          }}
+          slotProps={{
+            htmlInput: { maxLength: 200 },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchOutlined />
+                </InputAdornment>
+              ),
+              endAdornment:
+                search || query ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" aria-label="清除历史查询" onClick={onClearSearch}>
+                      <ClearOutlined />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+            },
+          }}
+        />
+        <Button type="submit" variant="outlined" sx={{ flexShrink: 0 }}>
+          查询
+        </Button>
+      </Stack>
+      <HistoryResults {...results} />
+    </Box>
+  );
+}
+function HistoryResults({ history, loading, error, page, onPage, onCommit }: HistoryProps) {
   if (error)
     return (
       <Alert severity="error" sx={{ m: 2 }}>
@@ -46,7 +118,7 @@ export function PublishHistory({
   if (!history.commits.length)
     return (
       <Typography sx={{ p: 3 }} color="text.secondary">
-        当前分支还没有提交记录。
+        {history.query ? "没有匹配的提交记录，请调整或清除查询条件。" : "当前分支还没有提交记录。"}
       </Typography>
     );
   return (
@@ -56,7 +128,11 @@ export function PublishHistory({
         sx={{ p: 2, justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}
       >
         <Typography variant="h6">提交历史</Typography>
-        <Typography color="text.secondary">当前分支 · 共 {history.total} 条</Typography>
+        <Typography color="text.secondary">
+          {history.query
+            ? `查询结果 · 共 ${history.total} 条`
+            : `当前分支 · 共 ${history.total} 条`}
+        </Typography>
       </Stack>
       <List disablePadding sx={{ maxHeight: { xs: 440, lg: 560 }, overflow: "auto" }}>
         {history.commits.map((commit) => (

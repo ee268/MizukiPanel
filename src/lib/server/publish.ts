@@ -81,7 +81,7 @@ function normalizeGitPath(value: string) {
 function requireWritable(report: ProjectReport) {
   if (report.readOnly) {
     appendLog(projectRuntime(report), "操作被拒绝：当前工作区为只读，不能提交或构建。");
-    throw new PublishError("当前工作区为只读，不能提交或构建");
+    throw new PublishError("当前工作区为只读，不能执行 Git 写操作或构建");
   }
 }
 function streamLogs(runtime: Runtime, stream: Readable | null) {
@@ -121,6 +121,7 @@ async function git(
       env: {
         ...process.env,
         GIT_TERMINAL_PROMPT: "0",
+        GCM_INTERACTIVE: "never",
         GIT_LITERAL_PATHSPECS: "1",
         GIT_OPTIONAL_LOCKS: "0",
       },
@@ -248,6 +249,23 @@ export async function publishOverview(report: ProjectReport): Promise<PublishOve
             : !changes.length
               ? "没有待提交的修改"
               : null;
+    const pushRemote =
+      branch && upstream ? await ref(report, ["config", "--get", `branch.${branch}.remote`]) : null;
+    const pushDisabledReason = report.readOnly
+      ? "当前工作区为只读"
+      : !branch
+        ? "当前处于游离 HEAD"
+        : !head
+          ? "当前分支尚无提交"
+          : !upstream
+            ? "当前分支未配置上游，请先在终端设置推送目标"
+            : !pushRemote ||
+                pushRemote === "." ||
+                !remotes.some((remote) => remote.name === pushRemote)
+              ? "上游未指向可用的远程仓库"
+              : changes.some((c) => c.conflict)
+                ? "请先解决 Git 合并冲突"
+                : null;
     appendLog(
       runtime,
       `读取完成：分支 ${branch ?? "游离 HEAD"}，${changes.length} 项修改，${remotes.length} 个远程仓库。`,
@@ -265,6 +283,9 @@ export async function publishOverview(report: ProjectReport): Promise<PublishOve
       remotes,
       canCommit: !commitDisabledReason,
       commitDisabledReason,
+      canPush: !pushDisabledReason,
+      pushDisabledReason,
+      pushRemote,
     };
   } catch (cause) {
     const message = (cause as Error).message;
@@ -282,6 +303,9 @@ export async function publishOverview(report: ProjectReport): Promise<PublishOve
       remotes: [],
       canCommit: false,
       commitDisabledReason: message,
+      canPush: false,
+      pushDisabledReason: message,
+      pushRemote: null,
     };
   }
 }
@@ -293,11 +317,16 @@ export async function publishHistory(
   report: ProjectReport,
   page = 1,
   head?: string,
+  query = "",
 ): Promise<PublishHistory> {
   if (!Number.isInteger(page) || page < 1 || page > 100000) throw new PublishError("历史页码无效");
+  query = query.trim();
+  if (query.length > 200 || /[\x00-\x1f\x7f]/.test(query))
+    throw new PublishError("查询内容不能超过 200 个字符或包含控制字符");
   await assertRepository(report);
   const anchor = head ? validateSha(head) : await ref(report, ["rev-parse", "--verify", "HEAD"]);
-  if (!anchor) return { commits: [], total: 0, page: 1, pageSize: 20, head: null };
+  if (!anchor) return { commits: [], total: 0, page: 1, pageSize: 20, head: null, query };
+  if (query) return searchHistory(report, anchor, page, query);
   const total = Number((await git(report, ["rev-list", "--count", anchor])).trim());
   const raw = await git(report, [
     "log",
@@ -326,7 +355,95 @@ export async function publishHistory(
     projectRuntime(report),
     `已读取提交历史第 ${page} 页：${commits.length} / ${total} 条。`,
   );
-  return { commits, total, page, pageSize: 20, head: anchor };
+  return { commits, total, page, pageSize: 20, head: anchor, query };
+}
+async function searchHistory(
+  report: ProjectReport,
+  anchor: string,
+  page: number,
+  query: string,
+): Promise<PublishHistory> {
+  const runtime = projectRuntime(report);
+  appendLog(runtime, `查询当前分支全部提交历史：${query}`);
+  const needle = query.toLocaleLowerCase(),
+    commits: PublishHistory["commits"] = [];
+  let total = 0;
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(
+      "git",
+      [
+        "-C",
+        report.root,
+        "log",
+        anchor,
+        "--date-order",
+        "-z",
+        "--format=%H%x00%an%x00%ae%x00%aI%x00%s%x00%P%x00%D%x00%B",
+      ],
+      {
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" },
+      },
+    );
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new PublishError("历史查询超时，请缩小查询范围或稍后重试"));
+    }, 30000);
+    let pending = "",
+      fields: string[] = [],
+      stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      const parts = (pending + chunk).split("\0");
+      pending = parts.pop() ?? "";
+      for (const part of parts) {
+        fields.push(part);
+        if (fields.length !== 8) continue;
+        const [sha, author, email, date, subject, parents, refs, message] = fields;
+        if (
+          [sha, author, email, message].some((value) => value.toLocaleLowerCase().includes(needle))
+        ) {
+          if (total >= (page - 1) * 20 && commits.length < 20)
+            commits.push({
+              sha,
+              author,
+              email,
+              date,
+              subject,
+              parents: parents.split(" ").filter(Boolean),
+              refs,
+            });
+          total++;
+        }
+        fields = [];
+      }
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr = (stderr + chunk).slice(-8192);
+    });
+    child.once("error", (cause) => {
+      clearTimeout(timer);
+      reject(new PublishError(cause.message));
+    });
+    child.once("close", (code) => {
+      clearTimeout(timer);
+      code === 0
+        ? resolve()
+        : reject(
+            new PublishError(redact(stderr.trim() || `历史查询失败（退出码 ${code ?? "-"}）`)),
+          );
+    });
+  }).catch((cause) => {
+    appendLog(runtime, `查询失败：${(cause as Error).message}`);
+    throw cause;
+  });
+  appendLog(
+    runtime,
+    `查询完成：找到 ${total} 条匹配记录，第 ${page} 页显示 ${commits.length} 条。`,
+  );
+  return { commits, total, page, pageSize: 20, head: anchor, query };
 }
 export async function publishCommitDetail(
   report: ProjectReport,
@@ -411,8 +528,8 @@ export async function publishDiff(report: ProjectReport, selectedPath: string) {
   appendLog(projectRuntime(report), `已读取工作区差异：${change.path}`);
   return diff;
 }
-function begin(report: ProjectReport, kind: "commit" | "build", stateDir?: string) {
-  if (store.active) throw new PublishError("已有提交或构建任务正在运行，请等待完成");
+function begin(report: ProjectReport, kind: "commit" | "push" | "build", stateDir?: string) {
+  if (store.active) throw new PublishError("已有 Git 或构建任务正在运行，请等待完成");
   requireWritable(report);
   const runtime = projectRuntime(report);
   runtime.stateDir = stateDir;
@@ -422,8 +539,58 @@ function begin(report: ProjectReport, kind: "commit" | "build", stateDir?: strin
   runtime.finishedAt = null;
   runtime.error = null;
   store.active = runtime;
-  appendLog(runtime, kind === "build" ? "开始构建 Mizuki…" : "开始提交所选文件…");
+  appendLog(
+    runtime,
+    kind === "build"
+      ? "开始构建 Mizuki…"
+      : kind === "push"
+        ? "开始推送当前分支…"
+        : "开始提交所选文件…",
+  );
   return runtime;
+}
+export async function pushCurrentBranch(
+  report: ProjectReport,
+  stateDir?: string,
+  expected?: { head: string; branch: string; upstream: string; pushUrls?: string[] },
+) {
+  await readLogRetention(stateDir);
+  const runtime = begin(report, "push", stateDir);
+  try {
+    const overview = await publishOverview(report);
+    if (!overview.canPush)
+      throw new PublishError(overview.pushDisabledReason ?? "当前分支不能推送");
+    if (
+      expected &&
+      (expected.head !== overview.head ||
+        expected.branch !== overview.branch ||
+        expected.upstream !== overview.upstream)
+    )
+      throw new PublishError("分支、提交或上游已变化，请刷新仓库后重新确认推送");
+    if (
+      expected?.pushUrls &&
+      JSON.stringify(expected.pushUrls) !==
+        JSON.stringify(
+          overview.remotes.find((remote) => remote.name === overview.pushRemote)?.pushUrls ?? [],
+        )
+    )
+      throw new PublishError("远程推送地址已变化，请刷新仓库后重新确认推送");
+    const remote = await ref(report, ["config", "--get", `branch.${overview.branch}.remote`]);
+    const merge = await ref(report, ["config", "--get", `branch.${overview.branch}.merge`]);
+    if (!remote || remote === "." || remote.startsWith("-") || !merge?.startsWith("refs/heads/"))
+      throw new PublishError("当前分支没有有效的远程上游目标");
+    await git(report, ["check-ref-format", merge]);
+    appendLog(runtime, `推送目标：${overview.branch} → ${overview.upstream}`);
+    await git(report, ["push", "--porcelain", remote, `${overview.head}:${merge}`], {
+      timeout: 120000,
+      output: true,
+    });
+    finish(runtime);
+    return { head: overview.head, upstream: overview.upstream };
+  } catch (cause) {
+    finish(runtime, cause);
+    throw cause;
+  }
 }
 function finish(runtime: Runtime, cause?: unknown) {
   runtime.state = cause ? "failed" : "succeeded";

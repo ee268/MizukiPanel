@@ -11,6 +11,7 @@ import {
   publishHistory,
   publishOperationStatus,
   publishOverview,
+  pushCurrentBranch,
   startPublishOperation,
   validateCommitMessage,
   workspacePublishTask,
@@ -212,6 +213,103 @@ it("builds dirty Mizuki projects without content sync, streams logs and isolates
   expect(publishOperationStatus(other.report).logs).toEqual([]);
   expect(workspacePublishTask()).toBeNull();
   expect(git(root, "status", "--porcelain")).toContain("README.md");
+}, 15000);
+
+it("queries complete history by literal message, body, author, email and commit ID with pagination", async () => {
+  const { root, report } = await fixture();
+  for (let i = 0; i < 23; i++) git(root, "commit", "--allow-empty", "-m", `docs: 全文匹配 ${i}`);
+  git(root, "commit", "--allow-empty", "-m", "docs: body search", "-m", "特殊查询.[x] 中文正文");
+  const anchor = git(root, "rev-parse", "HEAD");
+  expect((await publishHistory(report, 1, anchor, "initialize")).total).toBe(1);
+  expect((await publishHistory(report, 1, anchor, "特殊查询.[x]")).commits[0].subject).toBe(
+    "docs: body search",
+  );
+  expect((await publishHistory(report, 1, anchor, "mIzUkIpAnEl")).total).toBe(25);
+  expect((await publishHistory(report, 1, anchor, "panel@example.invalid")).total).toBe(25);
+  expect((await publishHistory(report, 1, anchor, anchor.slice(0, 9))).total).toBe(1);
+  expect((await publishHistory(report, 1, anchor, "全文匹配")).commits).toHaveLength(20);
+  expect((await publishHistory(report, 2, anchor, "全文匹配")).commits).toHaveLength(3);
+  expect((await publishHistory(report, 1, anchor, "no matching query")).total).toBe(0);
+  await expect(publishHistory(report, 1, anchor, "x".repeat(201))).rejects.toThrow("200");
+  expect(publishOperationStatus(report).logs.join("\n")).toContain("查询完成：找到 23 条");
+}, 20000);
+
+async function upstreamFixture() {
+  const current = await fixture();
+  const remote = await mkdtemp(path.join(tmpdir(), "mizuki-push-remote-"));
+  directories.push(remote);
+  execFileSync("git", ["init", "--bare", remote], { stdio: "ignore" });
+  git(current.root, "remote", "add", "origin", remote);
+  git(current.root, "push", "-u", "origin", "main");
+  return { ...current, remote };
+}
+it("pushes only existing commits to the configured upstream while preserving uncommitted changes", async () => {
+  const { root, report, remote } = await upstreamFixture();
+  git(root, "commit", "--allow-empty", "-m", "docs: push this commit");
+  await writeFile(path.join(root, "README.md"), "# Uncommitted\n");
+  const before = git(root, "status", "--porcelain");
+  const overview = await publishOverview(report);
+  expect(overview.canPush).toBe(true);
+  await pushCurrentBranch(report, undefined, {
+    head: overview.head!,
+    branch: overview.branch!,
+    upstream: overview.upstream!,
+    pushUrls: overview.remotes[0].pushUrls,
+  });
+  expect(git(remote, "rev-parse", "refs/heads/main")).toBe(overview.head);
+  expect(git(root, "status", "--porcelain")).toBe(before);
+  expect((await publishOverview(report)).ahead).toBe(0);
+  const status = publishOperationStatus(report);
+  expect(status).toMatchObject({ kind: "push", state: "succeeded" });
+  expect(status.logs.join("\n")).toContain("推送目标：main → origin/main");
+}, 15000);
+
+it("refuses stale push confirmation and changed remote URLs without sending commits", async () => {
+  const { root, report, remote } = await upstreamFixture();
+  const overview = await publishOverview(report);
+  git(root, "commit", "--allow-empty", "-m", "docs: new local commit");
+  await expect(
+    pushCurrentBranch(report, undefined, {
+      head: overview.head!,
+      branch: "main",
+      upstream: "origin/main",
+    }),
+  ).rejects.toThrow("已变化");
+  expect(git(remote, "rev-parse", "refs/heads/main")).toBe(overview.head);
+  await expect(
+    pushCurrentBranch(report, undefined, {
+      head: git(root, "rev-parse", "HEAD"),
+      branch: "main",
+      upstream: "origin/main",
+      pushUrls: ["https://old.example.invalid/repo.git"],
+    }),
+  ).rejects.toThrow("地址已变化");
+  expect(workspacePublishTask()).toBeNull();
+}, 15000);
+
+it("shows push errors for missing upstream and read-only projects", async () => {
+  const { report } = await fixture();
+  expect((await publishOverview(report)).pushDisabledReason).toContain("未配置上游");
+  await expect(pushCurrentBranch(report)).rejects.toThrow("未配置上游");
+  await expect(pushCurrentBranch({ ...report, readOnly: true })).rejects.toThrow("只读");
+  expect(workspacePublishTask()).toBeNull();
+});
+
+it("rejects non-fast-forward pushes and preserves local and remote commits", async () => {
+  const { root, report, remote } = await upstreamFixture();
+  git(root, "branch", "side");
+  git(root, "commit", "--allow-empty", "-m", "docs: remote changed");
+  git(root, "push");
+  const remoteHead = git(remote, "rev-parse", "refs/heads/main");
+  git(root, "checkout", "side");
+  git(root, "branch", "--set-upstream-to=origin/main");
+  git(root, "commit", "--allow-empty", "-m", "docs: local diverged");
+  const localHead = git(root, "rev-parse", "HEAD");
+  await expect(pushCurrentBranch(report)).rejects.toThrow();
+  expect(git(remote, "rev-parse", "refs/heads/main")).toBe(remoteHead);
+  expect(git(root, "rev-parse", "HEAD")).toBe(localHead);
+  expect(publishOperationStatus(report).state).toBe("failed");
+  expect(workspacePublishTask()).toBeNull();
 }, 15000);
 
 it("keeps build available without Git and reports failed build output", async () => {
