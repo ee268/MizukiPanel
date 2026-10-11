@@ -16,14 +16,16 @@ export function TaskLogs({
 }) {
   const settings = useOptionalPersonalSettings()?.effective.logs ?? defaultPersonalSettings.logs;
   const theme = useTheme();
+  const dark = theme.palette.mode === "dark";
+  const background = dark ? "#0b1020" : theme.palette.background.paper;
   const container = useRef<HTMLDivElement>(null);
   const tones: Record<PreviewLogTone, string> = {
-    default: "#e5e7eb",
-    muted: "#94a3b8",
-    accent: theme.palette.primary.main,
-    success: theme.palette.success.light,
-    warning: theme.palette.warning.light,
-    error: theme.palette.error.light,
+    default: theme.palette.text.primary,
+    muted: theme.palette.text.secondary,
+    accent: dark ? theme.palette.primary.main : theme.palette.primary.dark,
+    success: dark ? theme.palette.success.light : theme.palette.success.dark,
+    warning: dark ? theme.palette.warning.light : theme.palette.warning.dark,
+    error: dark ? theme.palette.error.light : theme.palette.error.dark,
   };
   const last = logs.at(-1);
   useEffect(() => {
@@ -38,8 +40,8 @@ export function TaskLogs({
       data-auto-scroll={settings.autoScroll}
       variant="outlined"
       sx={{
-        bgcolor: "#0b1020",
-        color: "#e5e7eb",
+        bgcolor: background,
+        color: tones.default,
         height: compact ? 360 : { xs: "60vh", md: "calc(100vh - 320px)" },
         minHeight: compact ? 280 : 420,
         overflow: "auto",
@@ -49,8 +51,9 @@ export function TaskLogs({
       <Stack
         direction="row"
         sx={{
-          bgcolor: "#0b1020",
-          borderBottom: "1px solid rgba(148, 163, 184, 0.22)",
+          bgcolor: background,
+          borderBottom: 1,
+          borderColor: "divider",
           p: 2,
           position: "sticky",
           top: 0,

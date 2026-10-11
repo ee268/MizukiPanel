@@ -183,11 +183,6 @@ export default function PublishPage() {
               <Stack direction="row" sx={{ gap: 1, alignItems: "center", flexWrap: "wrap" }}>
                 <Chip
                   size="small"
-                  sx={
-                    !operation?.kind
-                      ? { color: "#e5e7eb", bgcolor: "rgba(148, 163, 184, .16)" }
-                      : undefined
-                  }
                   color={
                     operation?.state === "failed"
                       ? "error"
