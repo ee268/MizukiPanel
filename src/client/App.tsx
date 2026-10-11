@@ -33,7 +33,7 @@ export default function App() {
             <Route path="/" element={<WorkspacePage />} />
             <Route path="/articles" element={<ArticlesPage />} />
             <Route path="/config" element={<ConfigPage />} />
-            <Route path="/features" element={<FeaturesPage />} />
+            <Route path="/features/:featureKey?" element={<FeaturesPage />} />
             <Route path="/media" element={<MediaPage />} />
             <Route path="/preview" element={<PreviewPage />} />
             <Route path="/publish" element={<PublishPage />} />

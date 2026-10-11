@@ -19,6 +19,7 @@ import {
   Typography,
 } from "@mui/material";
 import type { FeatureModule } from "../types";
+import { Link, useLocation } from "react-router-dom";
 
 const icons = {
   about: InfoOutlined,
@@ -48,6 +49,7 @@ export default function FeatureCard({
   onSelect: (key: string) => void;
   onToggle: (module: FeatureModule, enabled: boolean) => void;
 }) {
+  const location = useLocation();
   const Icon = icons[module.key as keyof typeof icons] ?? InfoOutlined;
   const switchTitle = !module.switchKey
     ? "关于页没有页面开关，始终开启"
@@ -83,8 +85,21 @@ export default function FeatureCard({
       })}
     >
       <CardActionArea
+        component={Link}
+        to={`/features/${encodeURIComponent(module.key)}${location.search}`}
         aria-label={`编辑${module.label}页面`}
-        onClick={() => onSelect(module.key)}
+        onClick={(event) => {
+          if (
+            event.button === 0 &&
+            !event.ctrlKey &&
+            !event.metaKey &&
+            !event.shiftKey &&
+            !event.altKey
+          ) {
+            event.preventDefault();
+            onSelect(module.key);
+          }
+        }}
         sx={{ height: "100%", p: 1.75 }}
       >
         <Stack spacing={1.25}>

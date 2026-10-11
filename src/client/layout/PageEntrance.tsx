@@ -58,7 +58,9 @@ export function PageEntrance({ children }: { children: ReactNode }) {
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   useLayoutEffect(() => {
     const container = root.current;
-    const motions = entrances[pathname];
+    const motions: Record<string, Motion> | undefined = pathname.startsWith("/features/")
+      ? { heading: { from: "translateX(8px)", duration: 240 } }
+      : entrances[pathname];
     if (!container || !motions || reducedMotion || !Element.prototype.animate) return;
     const seen = new WeakSet<HTMLElement>();
     const counts = new Map<string, number>();

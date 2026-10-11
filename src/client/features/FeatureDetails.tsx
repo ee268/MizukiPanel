@@ -24,7 +24,7 @@ export function FeatureDetails({
     (module.key === "anime" && resource === "anime" && module.sourceMode !== "local");
   return (
     <Stack spacing={2}>
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
+      <Paper data-page-motion="heading" variant="outlined" sx={{ p: 2.5 }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
           spacing={1.5}
