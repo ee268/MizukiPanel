@@ -15,7 +15,7 @@ export default function ConfigCard({
       variant="outlined"
       sx={(theme) => ({
         height: "100%",
-        borderRadius: "20px",
+        borderRadius: "16px",
         transition: theme.transitions.create(["transform", "box-shadow", "border-color"], {
           duration: 220,
         }),
@@ -38,19 +38,20 @@ export default function ConfigCard({
         data-config-card-action
         aria-label={`编辑${item.label} ${item.key}`}
         onClick={() => onSelect(item.key)}
-        sx={{ height: "100%", p: 2.5 }}
+        sx={{ height: "100%", p: 1.75 }}
       >
-        <Stack spacing={2}>
+        <Stack spacing={1.25}>
           <Avatar
             className="config-card-icon"
             variant="rounded"
             sx={(theme) => ({
-              width: 48,
-              height: 48,
-              borderRadius: "14px",
+              width: 40,
+              height: 40,
+              borderRadius: "12px",
               bgcolor: "color-mix(in srgb, var(--mui-palette-primary-main) 10%, transparent)",
               color: "primary.main",
               transition: theme.transitions.create("transform", { duration: 220 }),
+              "& .MuiSvgIcon-root": { fontSize: 24 },
             })}
           >
             <ConfigIcon configKey={item.key} />
@@ -59,11 +60,11 @@ export default function ConfigCard({
             <Typography
               variant="h6"
               component="h3"
-              sx={{ fontSize: (theme) => theme.typography.pxToRem(18) }}
+              sx={{ fontSize: (theme) => theme.typography.pxToRem(16) }}
             >
               {item.label}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+            <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
               {item.key}
             </Typography>
           </Stack>

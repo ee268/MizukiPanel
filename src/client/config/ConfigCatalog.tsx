@@ -1,12 +1,11 @@
 import { lazy, Suspense, useEffect, useRef, useState, type CompositionEvent } from "react";
 import { keyframes } from "@emotion/react";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
-import CloseOutlined from "@mui/icons-material/CloseOutlined";
 import {
+  Autocomplete,
   Box,
   Button,
   Divider,
-  IconButton,
   InputAdornment,
   Stack,
   TextField,
@@ -64,7 +63,7 @@ function CardSlot({ item, onSelect }: { item: ConfigDescriptor; onSelect: (key: 
         }
       }}
       sx={{
-        height: 190,
+        height: 144,
         minWidth: 0,
         borderRadius: 3,
         "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 3 },
@@ -99,6 +98,7 @@ export function ConfigCatalog({
   onSelect: (key: string) => void;
 }) {
   const [inputValue, setInputValue] = useState(query);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const composing = useRef(false);
   useEffect(() => {
     if (!composing.current) setInputValue(query);
@@ -106,10 +106,14 @@ export function ConfigCatalog({
   function changeInput(value: string) {
     // Keep the native input in sync immediately; router updates are asynchronous.
     setInputValue(value);
-    if (!composing.current) onQueryChange(value);
+    if (!composing.current) {
+      onQueryChange(value);
+      setSuggestionsOpen(Boolean(value.trim()));
+    }
   }
   function clearSearch() {
     composing.current = false;
+    setSuggestionsOpen(false);
     setInputValue("");
     onQueryChange("");
   }
@@ -127,39 +131,89 @@ export function ConfigCatalog({
           borderRadius: 2,
         }}
       >
-        <TextField
+        <Autocomplete<ConfigDescriptor, false, false, true>
+          freeSolo
           fullWidth
-          placeholder="搜索配置名称、英文名称或分类…"
-          value={inputValue}
-          onChange={(event) => changeInput(event.target.value)}
-          aria-label="搜索站点配置"
+          value={null}
+          inputValue={inputValue}
+          open={suggestionsOpen && Boolean(inputValue.trim())}
+          openOnFocus
+          clearOnBlur={false}
+          autoHighlight
+          options={Object.values(groups).flat()}
+          getOptionLabel={(item) => (typeof item === "string" ? item : item.label)}
+          getOptionKey={(item) => (typeof item === "string" ? item : item.key)}
+          filterOptions={(_, state) =>
+            filterConfigGroups(groups, state.inputValue)
+              .flatMap(({ items }) => items)
+              .slice(0, 6)
+          }
+          onOpen={() => {
+            if (!composing.current && inputValue.trim()) setSuggestionsOpen(true);
+          }}
+          onClose={() => setSuggestionsOpen(false)}
+          onInputChange={(_, value, reason) => {
+            if (reason === "input") changeInput(value);
+            else if (reason === "clear") clearSearch();
+          }}
+          onChange={(_, item) => {
+            if (item !== null) changeInput(typeof item === "string" ? item : item.label);
+            setSuggestionsOpen(false);
+          }}
+          clearText="清除配置搜索"
           slotProps={{
-            htmlInput: {
-              "aria-label": "搜索站点配置",
-              onCompositionStart: () => {
-                composing.current = true;
-              },
-              onCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => {
-                composing.current = false;
-                changeInput(event.currentTarget.value);
-              },
-            },
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchOutlined />
-                </InputAdornment>
-              ),
-              endAdornment: inputValue ? (
-                <InputAdornment position="end">
-                  <IconButton aria-label="清除配置搜索" onClick={clearSearch} edge="end">
-                    <CloseOutlined />
-                  </IconButton>
-                </InputAdornment>
-              ) : undefined,
+            listbox: { "aria-label": "配置搜索建议", sx: { maxHeight: 320 } },
+            paper: {
+              variant: "outlined",
+              sx: { mt: 0.75, borderRadius: 2 },
             },
           }}
-          sx={{ "& .MuiOutlinedInput-root": { bgcolor: "background.paper", borderRadius: 3 } }}
+          renderOption={({ key, ...props }, item) => (
+            <Box component="li" key={key} {...props}>
+              <Stack spacing={0.25} sx={{ minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {item.label}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ overflowWrap: "anywhere" }}
+                >
+                  {item.key} · {item.group}
+                </Typography>
+              </Stack>
+            </Box>
+          )}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder="搜索配置名称、英文名称或分类…"
+              slotProps={{
+                ...params.slotProps,
+                htmlInput: {
+                  ...params.slotProps.htmlInput,
+                  "aria-label": "搜索站点配置",
+                  onCompositionStart: () => {
+                    composing.current = true;
+                    setSuggestionsOpen(false);
+                  },
+                  onCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => {
+                    composing.current = false;
+                    changeInput(event.currentTarget.value);
+                  },
+                },
+                input: {
+                  ...params.slotProps.input,
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchOutlined />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ "& .MuiOutlinedInput-root": { bgcolor: "background.paper", borderRadius: 3 } }}
+            />
+          )}
         />
         <Typography
           variant="body2"
@@ -172,7 +226,7 @@ export function ConfigCatalog({
       </Box>
       {matches.map(({ group, items }) => (
         <Box component="section" key={group} aria-label={group}>
-          <Divider textAlign="left" sx={{ mb: 2.5 }}>
+          <Divider textAlign="left" sx={{ mb: 2 }}>
             <Typography variant="h6" component="h2">
               {group}
             </Typography>
@@ -182,11 +236,9 @@ export function ConfigCatalog({
               display: "grid",
               gridTemplateColumns: {
                 xs: "minmax(0, 1fr)",
-                sm: "repeat(2, minmax(0, 1fr))",
-                lg: "repeat(3, minmax(0, 1fr))",
-                xl: "repeat(4, minmax(0, 1fr))",
+                sm: "repeat(auto-fill, minmax(220px, 1fr))",
               },
-              gap: 2.5,
+              gap: 2,
             }}
           >
             {items.map((item) => (
