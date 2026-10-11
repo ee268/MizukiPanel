@@ -7,6 +7,7 @@ import { imageReference, mediaAlt, type MediaPreparation } from "../../shared/me
 
 export function useMedia() {
   const [data, setData] = useState<MediaData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [folder, setFolder] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -26,9 +27,16 @@ export function useMedia() {
   const [busy, setBusy] = useState(false);
   const initialized = useRef(false);
   const generation = useRef(0);
+  const readRequest = useRef<AbortController | null>(null);
   const load = useCallback(async () => {
+    readRequest.current?.abort();
+    const request = new AbortController();
+    readRequest.current = request;
+    setLoading(true);
+    setError("");
     try {
-      const next = await api<MediaData>("/api/media?view=project");
+      const next = await api<MediaData>("/api/media?view=project", { signal: request.signal });
+      if (request.signal.aborted || readRequest.current !== request) return null;
       setData(next);
       if (!initialized.current) {
         initialized.current = true;
@@ -36,14 +44,18 @@ export function useMedia() {
       }
       return next;
     } catch (cause) {
-      setError(errorMessage(cause, "媒体读取失败"));
+      if (!request.signal.aborted && readRequest.current === request)
+        setError(errorMessage(cause, "媒体读取失败"));
       return null;
+    } finally {
+      if (!request.signal.aborted && readRequest.current === request) setLoading(false);
     }
   }, []);
   useEffect(() => {
     void load();
     return () => {
       generation.current += 1;
+      readRequest.current?.abort();
     };
   }, [load]);
   const invalidate = () => {
@@ -154,6 +166,7 @@ export function useMedia() {
   }
   return {
     data,
+    loading,
     query,
     folder,
     file,

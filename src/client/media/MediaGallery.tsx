@@ -1,16 +1,15 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { keyframes } from "@emotion/react";
+import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
 import ContentCopyOutlined from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
-import ExpandMore from "@mui/icons-material/ExpandMore";
 import FolderOutlined from "@mui/icons-material/FolderOutlined";
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
   Card,
+  CardActionArea,
   CardActions,
   CardContent,
   Chip,
@@ -22,6 +21,11 @@ import {
   Typography,
 } from "@mui/material";
 import type { ProjectImage, ImageFolder } from "../../shared/project-media";
+import { CatalogCardSlot } from "../components/CatalogCardSlot";
+
+const enterFolder = keyframes`from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; }`;
+const folderName = (folder: ImageFolder) =>
+  folder.relativePath === "." || !folder.relativePath ? "项目根目录" : folder.relativePath;
 
 type Actions = {
   readOnly: boolean;
@@ -40,11 +44,40 @@ export function MediaGallery({
   query: string;
   onQueryChange: (query: string) => void;
 }) {
-  const groups = folders
-    .map((folder) => ({ folder, images: items.filter((item) => item.folder === folder.path) }))
-    .filter((group) => group.images.length);
+  const gallery = useRef<HTMLDivElement>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const selectedFolder = folders.find((folder) => folder.path === selectedPath);
+  const groups = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of items) counts.set(item.folder, (counts.get(item.folder) ?? 0) + 1);
+    const search = query.trim().replace(/\\/g, "/").toLocaleLowerCase();
+    return folders
+      .map((folder) => ({ folder, count: counts.get(folder.path) ?? 0 }))
+      .filter(
+        ({ folder, count }) =>
+          count ||
+          !search ||
+          `${folder.path} ${folder.relativePath}`
+            .replace(/\\/g, "/")
+            .toLocaleLowerCase()
+            .includes(search),
+      );
+  }, [folders, items, query]);
+  const selectFolder = (path: string | null) => {
+    setSelectedPath(path);
+    requestAnimationFrame(() =>
+      gallery.current?.scrollIntoView({ block: "start", behavior: "instant" }),
+    );
+  };
+  const folderImages = selectedFolder
+    ? items.filter((item) => item.folder === selectedFolder.path)
+    : [];
   return (
-    <Stack spacing={2}>
+    <Stack
+      ref={gallery}
+      spacing={2}
+      sx={{ scrollMarginTop: "calc(var(--mizuki-panel-header-height, 65px) + 16px)" }}
+    >
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
@@ -54,7 +87,9 @@ export function MediaGallery({
           <Box>
             <Typography variant="h6">公共图片</Typography>
             <Typography variant="body2" color="text.secondary">
-              {items.length} 张图片 · {groups.length} 个文件夹
+              {selectedFolder
+                ? `${folderImages.length} 张图片 · 当前文件夹`
+                : `${items.length} 张图片 · ${groups.length} 个文件夹`}
             </Typography>
           </Box>
           <TextField
@@ -65,46 +100,116 @@ export function MediaGallery({
           />
         </Stack>
       </Paper>
-      {groups.map(({ folder, images }, index) => {
-        return (
-          <Accordion
-            key={`${folder.path}-${Boolean(query.trim())}`}
-            defaultExpanded={index === 0 || Boolean(query.trim())}
-            slotProps={{ transition: { unmountOnExit: true } }}
-            variant="outlined"
-            disableGutters
-          >
-            <AccordionSummary expandIcon={<ExpandMore />}>
-              <Stack
-                direction="row"
-                spacing={1.5}
-                sx={{ minWidth: 0, width: "100%", alignItems: "center" }}
+      {selectedFolder ? (
+        <Stack
+          key={selectedFolder.path}
+          spacing={2}
+          component="section"
+          aria-label="文件夹图片"
+          sx={{
+            animation: `${enterFolder} 260ms ease-out`,
+            "@media (prefers-reduced-motion: reduce)": { animation: "none" },
+          }}
+        >
+          <Stack spacing={1}>
+            <Button
+              startIcon={<ArrowBackOutlined />}
+              onClick={() => selectFolder(null)}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              返回文件夹
+            </Button>
+            <Typography variant="h6" sx={{ overflowWrap: "anywhere" }}>
+              {folderName(selectedFolder)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+              {selectedFolder.path}
+            </Typography>
+          </Stack>
+          {folderImages.length ? (
+            <FolderImages
+              key={`${selectedFolder.path}-${query}`}
+              items={folderImages}
+              {...actions}
+            />
+          ) : (
+            <Alert severity="info">当前文件夹没有匹配的图片。</Alert>
+          )}
+        </Stack>
+      ) : (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "minmax(0, 1fr)",
+              sm: "repeat(auto-fill, minmax(240px, 1fr))",
+            },
+            gap: 2,
+          }}
+        >
+          {groups.map(({ folder, count }) => (
+            <CatalogCardSlot
+              key={folder.path}
+              cardKey={folder.path}
+              kind="media"
+              label={`查看文件夹 ${folderName(folder)}`}
+              onSelect={() => selectFolder(folder.path)}
+            >
+              <Card
+                variant="outlined"
+                sx={{
+                  height: "100%",
+                  transition: "border-color 180ms, background-color 180ms",
+                  "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+                  "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+                }}
               >
-                <FolderOutlined color="primary" />
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>
-                    {folder.relativePath === "." || !folder.relativePath
-                      ? "项目根目录"
-                      : folder.relativePath}
-                  </Typography>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ overflowWrap: "anywhere" }}
-                  >
-                    {folder.path}
-                  </Typography>
-                </Box>
-                <Chip size="small" label={`${images.length} 张`} />
-              </Stack>
-            </AccordionSummary>
-            <AccordionDetails>
-              <FolderImages key={query} items={images} {...actions} />
-            </AccordionDetails>
-          </Accordion>
-        );
-      })}
-      {!items.length && <Alert severity="info">没有匹配的图片。</Alert>}
+                <CardActionArea
+                  onClick={() => selectFolder(folder.path)}
+                  aria-label={`查看文件夹 ${folderName(folder)}`}
+                  title={folder.path}
+                  sx={{ height: "100%" }}
+                >
+                  <Stack spacing={1} sx={{ p: 2, height: "100%", boxSizing: "border-box" }}>
+                    <Stack
+                      direction="row"
+                      sx={{ alignItems: "center", justifyContent: "space-between" }}
+                    >
+                      <FolderOutlined sx={{ fontSize: 28, color: "primary.main" }} />
+                      <Chip size="small" label={`${count} 张`} />
+                    </Stack>
+                    <Typography
+                      sx={{
+                        fontWeight: 600,
+                        overflowWrap: "anywhere",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {folderName(folder)}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{
+                        mt: "auto !important",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {folder.path}
+                    </Typography>
+                  </Stack>
+                </CardActionArea>
+              </Card>
+            </CatalogCardSlot>
+          ))}
+        </Box>
+      )}
+      {!selectedFolder && !groups.length && <Alert severity="info">没有匹配的图片或文件夹。</Alert>}
     </Stack>
   );
 }

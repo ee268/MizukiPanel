@@ -13,7 +13,7 @@ export function CatalogCardSlot({
 }: {
   cardKey: string;
   label: string;
-  kind: "config" | "feature";
+  kind: "config" | "feature" | "media";
   onSelect: () => void;
   children: ReactNode;
 }) {
@@ -40,7 +40,8 @@ export function CatalogCardSlot({
       ref={slot}
       data-config-slot={kind === "config" ? cardKey : undefined}
       data-feature-slot={kind === "feature" ? cardKey : undefined}
-      tabIndex={visible ? undefined : 0}
+      data-media-slot={kind === "media" ? cardKey : undefined}
+      tabIndex={visible ? -1 : 0}
       aria-label={visible ? undefined : label}
       onBlurCapture={() => {
         requestAnimationFrame(() => {

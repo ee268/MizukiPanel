@@ -1,4 +1,5 @@
-import { Alert, Box, Container, Snackbar, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Container, Snackbar, Stack, Typography } from "@mui/material";
+import { ContentLoading } from "../components/ContentLoading";
 import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { DeleteMediaDialog } from "../media/DeleteMediaDialog";
 import { MediaGallery } from "../media/MediaGallery";
@@ -25,11 +26,27 @@ export default function MediaPage() {
         </Box>
 
         {media.error && (
-          <Alert severity="error" onClose={() => media.setError("")}>
+          <Alert
+            severity="error"
+            onClose={media.data ? () => media.setError("") : undefined}
+            action={
+              !media.data && (
+                <Button color="inherit" disabled={media.loading} onClick={() => void media.load()}>
+                  重试
+                </Button>
+              )
+            }
+          >
             {media.error}
           </Alert>
         )}
-        {!media.data && !media.error && <Alert severity="info">正在扫描项目图片和文件夹…</Alert>}
+        {!media.data && media.loading && (
+          <ContentLoading
+            kind="media"
+            heading="正在展开媒体库"
+            description="正在扫描项目图片与文件夹，准备目录和预览区域"
+          />
+        )}
         {readOnly && <Alert severity="warning">当前工作区只读，媒体写入已禁用。</Alert>}
         {media.data?.warnings.map((warning) => (
           <Alert severity="warning" key={warning}>
@@ -37,16 +54,20 @@ export default function MediaPage() {
           </Alert>
         ))}
 
-        <MediaUpload controller={media} readOnly={readOnly} />
-        <MediaGallery
-          items={media.visibleItems}
-          folders={media.data?.folders ?? []}
-          query={media.query}
-          readOnly={readOnly}
-          onQueryChange={media.setQuery}
-          onCopy={(item) => void media.copy(item.reference, item.publicReference)}
-          onDelete={media.setDeleting}
-        />
+        {media.data && (
+          <>
+            <MediaUpload controller={media} readOnly={readOnly} />
+            <MediaGallery
+              items={media.visibleItems}
+              folders={media.data?.folders ?? []}
+              query={media.query}
+              readOnly={readOnly}
+              onQueryChange={media.setQuery}
+              onCopy={(item) => void media.copy(item.reference, item.publicReference)}
+              onDelete={media.setDeleting}
+            />
+          </>
+        )}
 
         <DeleteMediaDialog
           item={media.deleting}
