@@ -1,73 +1,31 @@
-import { useState } from "react";
+import { lazy, Suspense } from "react";
 import {
   Alert,
   Box,
-  Button,
   Divider,
   FormControlLabel,
   MenuItem,
-  Paper,
   Stack,
   Switch,
   TextField,
   Typography,
 } from "@mui/material";
 import type { EditorSettings } from "../../shared/panel-settings";
-import { VditorBodyEditor } from "../articles/VditorBodyEditor";
-import { useEditorFontMode } from "../articles/useEditorFontMode";
-import type { ArticleRecord } from "../types";
 import { usePersonalSettings } from "./PersonalSettingsProvider";
 import { SettingsCard, type SettingsController } from "./SettingsCard";
 import "../articles/editor-fonts.css";
 import { DraftSettingsForm } from "./DraftSettingsForm";
+import { SettingsModule } from "./SettingsModule";
+import { ContentLoading } from "../components/ContentLoading";
+const EditorPreview = lazy(() => import("./EditorPreview"));
 
-const previewSource =
-  '# 字体与编辑预览\n\n调整设置，查看正文、**加粗**、[链接](https://example.com)和 `行内代码` 的效果。\n\n## 代码与大纲\n\n```js\nfunction example() {\n\treturn "制表宽度只影响显示";\n}\n```\n';
-function EditorPreview({ projectRoot }: { projectRoot: string }) {
-  const [source, setSource] = useState(previewSource);
-  const [version, setVersion] = useState(0);
-  const fontMode = useEditorFontMode(projectRoot);
-  const article = {
-    id: "settings-editor-preview.md",
-    version: String(version),
-    format: "md",
-    source,
-  } as ArticleRecord;
-  return (
-    <Paper variant="outlined" component="section" aria-label="编辑预览" sx={{ minWidth: 0 }}>
-      <Stack spacing={1} sx={{ p: 3 }}>
-        <Typography variant="h6" component="h3">
-          编辑预览
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          可以试写；预览内容不会保存为文章。显示选项即时生效，默认模式需要重新打开预览后查看。
-        </Typography>
-        <Button sx={{ alignSelf: "flex-start" }} onClick={() => setVersion((value) => value + 1)}>
-          重新打开预览
-        </Button>
-      </Stack>
-      <VditorBodyEditor
-        article={article}
-        source={source}
-        fontMode={fontMode}
-        busy={false}
-        readOnly={false}
-        showSave={false}
-        onChange={setSource}
-        onSave={() => {}}
-      />
-    </Paper>
-  );
-}
 export function EditorSettingsForms({
   controller,
   projectRoot,
-  active,
   template,
 }: {
   controller: SettingsController;
   projectRoot: string;
-  active: boolean;
   template?: React.ReactNode;
 }) {
   const settings = controller.drafts.editor.value;
@@ -248,7 +206,19 @@ export function EditorSettingsForms({
       </SettingsCard>
       <DraftSettingsForm controller={controller} />
       {template}
-      {active && <EditorPreview projectRoot={projectRoot} />}
+      <SettingsModule label="编辑预览" estimatedHeight={620}>
+        <Suspense
+          fallback={
+            <ContentLoading
+              heading="正在展开编辑预览"
+              description="正在准备编辑器与预览字体"
+              size="compact"
+            />
+          }
+        >
+          <EditorPreview projectRoot={projectRoot} />
+        </Suspense>
+      </SettingsModule>
     </Stack>
   );
 }

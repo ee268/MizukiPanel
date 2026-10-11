@@ -1,6 +1,7 @@
 import { useState } from "react";
 import FolderOutlined from "@mui/icons-material/FolderOutlined";
-import { Box, Skeleton, Typography } from "@mui/material";
+import { Box, Typography } from "@mui/material";
+import { ContentLoading } from "../components/ContentLoading";
 import type { ProjectImage } from "../../shared/project-media";
 import { mediaImageUrl } from "./image";
 
@@ -37,12 +38,15 @@ export function MediaImagePreview({
       ) : (
         <>
           {!loaded && (
-            <Skeleton
-              variant="rectangular"
-              width="100%"
-              height="100%"
-              sx={{ position: "absolute", inset: 0 }}
-            />
+            <Box sx={{ position: "absolute", inset: 0 }}>
+              <ContentLoading
+                heading="正在加载图片"
+                description="正在准备图片预览"
+                kind="media"
+                size="thumbnail"
+                framed={false}
+              />
+            </Box>
           )}
           <Box
             component="img"

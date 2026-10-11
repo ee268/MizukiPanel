@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import {
   Alert,
@@ -24,22 +24,47 @@ import { api } from "../api";
 import { settingsSections } from "../settings/sections";
 import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
 import { usePersonalDrafts } from "../settings/usePersonalDrafts";
-import { AppearanceSettingsForms } from "../settings/AppearanceSettingsForms";
-import { EditorSettingsForms } from "../settings/EditorSettingsForms";
 import { useProjectTemplate } from "../settings/useProjectTemplate";
-import { ProjectTemplateForm } from "../settings/ProjectTemplateForm";
 import { useScopedSettings } from "../settings/useScopedSettings";
-import { WorkspaceSettingsForms } from "../settings/WorkspaceSettingsForms";
 import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
-import { MediaSettingsForm } from "../settings/MediaSettingsForm";
-import { TaskSettingsForms } from "../settings/TaskSettingsForms";
-import { MaintenanceSettingsForms } from "../settings/MaintenanceSettingsForms";
-import { PreferenceTransferForm } from "../settings/PreferenceTransferForm";
-import { SessionSettingsForm } from "../settings/SessionSettingsForm";
+import { SettingsModule } from "../settings/SettingsModule";
+import { ContentLoading } from "../components/ContentLoading";
 import { useSessionRecovery } from "../auth/useSessionRecovery";
 import { sessionLifecycle } from "../auth/session-lifecycle";
 import { exportPreferenceGroups, type PreferenceGroups } from "../../shared/preferences-transfer";
 import { defaultValues } from "../../shared/panel-settings";
+
+const AppearanceSettingsForms = lazy(() =>
+  import("../settings/AppearanceSettingsForms").then((m) => ({
+    default: m.AppearanceSettingsForms,
+  })),
+);
+const EditorSettingsForms = lazy(() =>
+  import("../settings/EditorSettingsForms").then((m) => ({ default: m.EditorSettingsForms })),
+);
+const ProjectTemplateForm = lazy(() =>
+  import("../settings/ProjectTemplateForm").then((m) => ({ default: m.ProjectTemplateForm })),
+);
+const WorkspaceSettingsForms = lazy(() =>
+  import("../settings/WorkspaceSettingsForms").then((m) => ({ default: m.WorkspaceSettingsForms })),
+);
+const MediaSettingsForm = lazy(() =>
+  import("../settings/MediaSettingsForm").then((m) => ({ default: m.MediaSettingsForm })),
+);
+const TaskSettingsForms = lazy(() =>
+  import("../settings/TaskSettingsForms").then((m) => ({ default: m.TaskSettingsForms })),
+);
+const MaintenanceSettingsForms = lazy(() =>
+  import("../settings/MaintenanceSettingsForms").then((m) => ({
+    default: m.MaintenanceSettingsForms,
+  })),
+);
+const PreferenceTransferForm = lazy(() =>
+  import("../settings/PreferenceTransferForm").then((m) => ({ default: m.PreferenceTransferForm })),
+);
+const SessionSettingsForm = lazy(() =>
+  import("../settings/SessionSettingsForm").then((m) => ({ default: m.SessionSettingsForm })),
+);
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -49,6 +74,10 @@ export default function SettingsPage() {
   const sectionId = settingsSections.some((item) => item.id === selected)
     ? selected!
     : "appearance";
+  const [visited, setVisited] = useState(() => new Set([sectionId]));
+  useEffect(() => {
+    setVisited((current) => (current.has(sectionId) ? current : new Set([...current, sectionId])));
+  }, [sectionId]);
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
     // Browser history may restore the previous offset after the navigation event.
@@ -60,6 +89,7 @@ export default function SettingsPage() {
   const preferences = usePersonalSettings();
   const controller = usePersonalDrafts();
   const [overview, setOverview] = useState<SettingsOverview | null>(null);
+  const [loading, setLoading] = useState(true);
   const workspace = useWorkspaceSession();
   const refreshWorkspace = () => {
     workspace.notify();
@@ -218,9 +248,7 @@ export default function SettingsPage() {
   });
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty &&
-      currentLocation.pathname + currentLocation.search !==
-        nextLocation.pathname + nextLocation.search,
+      dirty && currentLocation.pathname !== nextLocation.pathname,
   );
   const [serverError, setServerError] = useState("");
   const [reload, setReload] = useState(0);
@@ -230,6 +258,7 @@ export default function SettingsPage() {
   const allowLogout = useRef(false);
   useEffect(() => {
     const abort = new AbortController();
+    setLoading(true);
     setServerError("");
     void api<SettingsOverview>("/api/settings", { signal: abort.signal })
       .then((value) => {
@@ -238,9 +267,12 @@ export default function SettingsPage() {
       .catch((cause) => {
         if (!abort.signal.aborted)
           setServerError(cause instanceof Error ? cause.message : "设置状态读取失败。");
+      })
+      .finally(() => {
+        if (!abort.signal.aborted) setLoading(false);
       });
     return () => abort.abort();
-  }, [reload, workspace.data]);
+  }, [reload, workspace.data?.version]);
   useEffect(() => {
     if (!dirty) return;
     const unload = (event: BeforeUnloadEvent) => {
@@ -335,135 +367,180 @@ export default function SettingsPage() {
             本机/项目设置暂不可读取：{serverError}。仍可调整浏览器外观。
           </Alert>
         )}
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "220px minmax(0, 1fr)" },
-            gap: 3,
-            alignItems: "start",
-          }}
-        >
-          <Paper
-            data-page-motion="navigation"
-            variant="outlined"
+        {loading && !overview ? (
+          <ContentLoading
+            heading="正在展开设置"
+            description="正在读取偏好并准备设置分类"
+            kind="settings"
+          />
+        ) : (
+          <Box
             sx={{
-              minWidth: 0,
-              p: 1,
-              position: { md: "sticky" },
-              top: { md: "calc(var(--mizuki-panel-header-height, 64px) + 24px)" },
+              display: "grid",
+              gridTemplateColumns: { xs: "minmax(0, 1fr)", md: "220px minmax(0, 1fr)" },
+              gap: 3,
+              alignItems: "start",
             }}
           >
-            <Tabs
-              value={sectionId}
-              onChange={(_, value: string) => {
-                const next = new URLSearchParams(params);
-                next.set("section", value);
-                setParams(next);
+            <Paper
+              data-page-motion="navigation"
+              variant="outlined"
+              sx={{
+                minWidth: 0,
+                p: 1,
+                position: { md: "sticky" },
+                top: { md: "calc(var(--mizuki-panel-header-height, 64px) + 24px)" },
               }}
-              orientation={desktop ? "vertical" : "horizontal"}
-              variant="scrollable"
-              scrollButtons="auto"
-              allowScrollButtonsMobile
-              aria-label="设置分类"
-              sx={{ "& .MuiTab-root": { minHeight: 52, justifyContent: "flex-start", px: 2 } }}
             >
-              {settingsSections.map((item) => (
-                <Tab
-                  key={item.id}
-                  value={item.id}
-                  id={`settings-tab-${item.id}`}
-                  aria-controls={`settings-panel-${item.id}`}
-                  icon={item.icon}
-                  iconPosition="start"
-                  label={item.title}
-                />
-              ))}
-            </Tabs>
-          </Paper>
-          <Box data-page-motion="content" sx={{ minWidth: 0 }}>
-            {settingsSections.map((item) => (
-              <Box
-                key={item.id}
-                role="tabpanel"
-                id={`settings-panel-${item.id}`}
-                aria-labelledby={`settings-tab-${item.id}`}
-                hidden={sectionId !== item.id}
-                tabIndex={0}
+              <Tabs
+                value={sectionId}
+                onChange={(_, value: string) => {
+                  const next = new URLSearchParams(params);
+                  next.set("section", value);
+                  setParams(next);
+                }}
+                orientation={desktop ? "vertical" : "horizontal"}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
+                aria-label="设置分类"
+                sx={{ "& .MuiTab-root": { minHeight: 52, justifyContent: "flex-start", px: 2 } }}
               >
-                {item.id !== "appearance" && item.id !== "editor" && (
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="h5" component="h2">
-                      {item.title}
-                    </Typography>
-                    <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                      {item.description}
-                    </Typography>
-                  </Box>
-                )}
-                {item.id === "appearance" ? (
-                  <AppearanceSettingsForms controller={controller} />
-                ) : item.id === "editor" ? (
-                  <EditorSettingsForms
-                    controller={controller}
-                    projectRoot={overview?.project?.root ?? ""}
-                    active={sectionId === "editor"}
-                    template={
-                      <ProjectTemplateForm
-                        controller={template}
-                        onRefresh={() => setReload((value) => value + 1)}
-                      />
-                    }
+                {settingsSections.map((item) => (
+                  <Tab
+                    key={item.id}
+                    value={item.id}
+                    id={`settings-tab-${item.id}`}
+                    aria-controls={`settings-panel-${item.id}`}
+                    icon={item.icon}
+                    iconPosition="start"
+                    label={item.title}
                   />
-                ) : item.id === "workspace" ? (
-                  <WorkspaceSettingsForms
-                    controller={controller}
-                    machine={machine}
-                    access={access}
-                    project={overview?.project ?? null}
-                    dirty={dirty || saving}
-                    onRefresh={() => setReload((value) => value + 1)}
-                  />
-                ) : item.id === "media" ? (
-                  <MediaSettingsForm
-                    controller={media}
-                    projectRoot={overview?.project?.root ?? ""}
-                  />
-                ) : item.id === "preview" ? (
-                  <TaskSettingsForms
-                    preview={previewSettings}
-                    publish={publishSettings}
-                    retention={retention}
-                    controller={controller}
-                    projectRoot={overview?.project?.root ?? ""}
-                    active={sectionId === "preview"}
-                  />
-                ) : (
-                  <Stack spacing={3}>
-                    <SessionSettingsForm controller={sessionSettings} />
-                    <MaintenanceSettingsForms
-                      controller={maintenance}
-                      active={sectionId === "maintenance"}
-                      revision={`${workspace.data?.version}:${workspace.data?.report?.readOnly}:${reload}`}
-                      disabled={dirty || saving}
-                      onRestored={() => {
-                        setReload((value) => value + 1);
-                        refreshWorkspace();
-                      }}
-                    />
-                    <PreferenceTransferForm
-                      overview={overview}
-                      disabled={dirty || saving}
-                      onApplied={() => {
-                        setReload((value) => value + 1);
-                        refreshWorkspace();
-                      }}
-                    />
-                  </Stack>
-                )}
-              </Box>
-            ))}
+                ))}
+              </Tabs>
+            </Paper>
+            <Box data-page-motion="content" sx={{ minWidth: 0 }}>
+              {settingsSections.map((item) => (
+                <Box
+                  key={item.id}
+                  role="tabpanel"
+                  id={`settings-panel-${item.id}`}
+                  aria-labelledby={`settings-tab-${item.id}`}
+                  hidden={sectionId !== item.id}
+                  tabIndex={0}
+                >
+                  {(sectionId === item.id || visited.has(item.id)) && (
+                    <Suspense
+                      fallback={
+                        <ContentLoading
+                          heading={`正在展开${item.title}`}
+                          description="正在准备设置模块"
+                          kind="settings"
+                        />
+                      }
+                    >
+                      {item.id !== "appearance" && item.id !== "editor" && (
+                        <Box sx={{ mb: 3 }}>
+                          <Typography variant="h5" component="h2">
+                            {item.title}
+                          </Typography>
+                          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                            {item.description}
+                          </Typography>
+                        </Box>
+                      )}
+                      {item.id === "appearance" ? (
+                        <AppearanceSettingsForms controller={controller} />
+                      ) : item.id === "editor" ? (
+                        <EditorSettingsForms
+                          controller={controller}
+                          projectRoot={overview?.project?.root ?? ""}
+                          template={
+                            <SettingsModule label="新建文章模板" estimatedHeight={820}>
+                              <Suspense
+                                fallback={
+                                  <ContentLoading
+                                    heading="正在展开新建文章模板"
+                                    description="正在读取模板与预览区域"
+                                    kind="settings"
+                                    size="compact"
+                                  />
+                                }
+                              >
+                                <ProjectTemplateForm
+                                  controller={template}
+                                  onRefresh={() => setReload((value) => value + 1)}
+                                />
+                              </Suspense>
+                            </SettingsModule>
+                          }
+                        />
+                      ) : item.id === "workspace" ? (
+                        <WorkspaceSettingsForms
+                          controller={controller}
+                          machine={machine}
+                          access={access}
+                          project={overview?.project ?? null}
+                          dirty={dirty || saving}
+                          onRefresh={() => setReload((value) => value + 1)}
+                        />
+                      ) : item.id === "media" ? (
+                        <MediaSettingsForm
+                          controller={media}
+                          projectRoot={overview?.project?.root ?? ""}
+                        />
+                      ) : item.id === "preview" ? (
+                        <TaskSettingsForms
+                          preview={previewSettings}
+                          publish={publishSettings}
+                          retention={retention}
+                          controller={controller}
+                          projectRoot={overview?.project?.root ?? ""}
+                          active={sectionId === "preview"}
+                        />
+                      ) : (
+                        <Stack spacing={3}>
+                          <SessionSettingsForm controller={sessionSettings} />
+                          <MaintenanceSettingsForms
+                            controller={maintenance}
+                            active={sectionId === "maintenance"}
+                            revision={`${workspace.data?.version}:${workspace.data?.report?.readOnly}:${reload}`}
+                            disabled={dirty || saving}
+                            onRestored={() => {
+                              setReload((value) => value + 1);
+                              refreshWorkspace();
+                            }}
+                          />
+                          <SettingsModule label="偏好导入导出" estimatedHeight={520}>
+                            <Suspense
+                              fallback={
+                                <ContentLoading
+                                  heading="正在展开偏好导入导出"
+                                  description="正在准备迁移工具"
+                                  kind="settings"
+                                  size="compact"
+                                />
+                              }
+                            >
+                              <PreferenceTransferForm
+                                overview={overview}
+                                disabled={dirty || saving}
+                                onApplied={() => {
+                                  setReload((value) => value + 1);
+                                  refreshWorkspace();
+                                }}
+                              />
+                            </Suspense>
+                          </SettingsModule>
+                        </Stack>
+                      )}
+                    </Suspense>
+                  )}
+                </Box>
+              ))}
+            </Box>
           </Box>
-        </Box>
+        )}
       </Stack>
       <Snackbar
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}

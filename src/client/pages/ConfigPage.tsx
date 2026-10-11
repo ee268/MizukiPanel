@@ -4,7 +4,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Container,
   Dialog,
   DialogActions,
@@ -18,6 +17,7 @@ import { useBlocker, useLocation, useNavigationType, useSearchParams } from "rea
 import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { ConfigCatalog } from "../config/ConfigCatalog";
 import { useConfigs } from "../config/useConfigs";
+import { ContentLoading } from "../components/ContentLoading";
 
 const ConfigEditor = lazy(() =>
   import("../config/ConfigEditor").then((module) => ({ default: module.ConfigEditor })),
@@ -25,9 +25,11 @@ const ConfigEditor = lazy(() =>
 
 function LoadingDetails() {
   return (
-    <Box sx={{ minHeight: 420, display: "grid", placeItems: "center" }}>
-      <CircularProgress aria-label="加载配置详情" />
-    </Box>
+    <ContentLoading
+      heading="正在展开站点配置"
+      description="正在准备配置内容与编辑区域"
+      kind="settings"
+    />
   );
 }
 

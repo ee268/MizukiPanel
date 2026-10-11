@@ -14,6 +14,7 @@ import { errorMessage } from "../shared/errors";
 import type { ImageFolder } from "../../shared/project-media";
 import type { useScopedSettings } from "./useScopedSettings";
 import { ScopedCard } from "./WorkspaceSettingsForms";
+import { ContentLoading } from "../components/ContentLoading";
 export function MediaSettingsForm({
   controller,
   projectRoot,
@@ -75,6 +76,14 @@ export function MediaSettingsForm({
           </Typography>
         )}
         {directoryError && <Alert severity="warning">{directoryError}</Alert>}
+        {projectRoot && !directories && !directoryError && (
+          <ContentLoading
+            heading="正在展开图片文件夹"
+            description="正在读取可用的上传目录"
+            kind="media"
+            size="inline"
+          />
+        )}
         {directories?.warnings.map((warning) => (
           <Alert severity="warning" key={warning}>
             {warning}

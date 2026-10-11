@@ -26,6 +26,7 @@ import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
 import { useWorkspaceActions } from "../workspace/useWorkspaceActions";
 import type { WorkspaceData } from "../workspace/types";
 import { RecentProjectList } from "../workspace/RecentProjectList";
+import { SettingsModule } from "./SettingsModule";
 
 type ScopedController = ReturnType<typeof useScopedSettings>;
 export function ScopedCard({
@@ -38,57 +39,64 @@ export function ScopedCard({
   children: ReactNode;
 }) {
   return (
-    <Paper variant="outlined" component="section" aria-label={title} sx={{ p: { xs: 2.5, sm: 3 } }}>
-      <Stack spacing={2.5}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-          <Typography variant="h6" component="h3">
-            {title}
-          </Typography>
-          {controller.dirty && <Chip label="未保存" size="small" color="warning" />}
-        </Stack>
-        {controller.error && <Alert severity="error">{controller.error}</Alert>}
-        {controller.notice && <Alert severity="success">{controller.notice}</Alert>}
-        {controller.conflict && (
-          <Alert
-            severity="warning"
-            action={<Button onClick={() => controller.reset()}>重新载入本组</Button>}
-          >
-            本组设置已变化，当前输入已保留。
-          </Alert>
-        )}
-        <Box
-          component="fieldset"
-          disabled={!controller.available || controller.readOnly || controller.saving}
-          sx={{ p: 0, m: 0, border: 0, minWidth: 0 }}
-        >
-          {children}
-        </Box>
-        <Divider />
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
-          <Button
-            variant="contained"
-            disabled={
-              !controller.dirty || controller.saving || controller.readOnly || controller.conflict
-            }
-            onClick={() => void controller.save()}
-          >
-            保存{title}
-          </Button>
-          <Button
-            disabled={!controller.dirty || controller.saving}
-            onClick={() => controller.reset()}
-          >
-            取消修改
-          </Button>
-          <Button
+    <SettingsModule label={title}>
+      <Paper
+        variant="outlined"
+        component="section"
+        aria-label={title}
+        sx={{ p: { xs: 2.5, sm: 3 } }}
+      >
+        <Stack spacing={2.5}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Typography variant="h6" component="h3">
+              {title}
+            </Typography>
+            {controller.dirty && <Chip label="未保存" size="small" color="warning" />}
+          </Stack>
+          {controller.error && <Alert severity="error">{controller.error}</Alert>}
+          {controller.notice && <Alert severity="success">{controller.notice}</Alert>}
+          {controller.conflict && (
+            <Alert
+              severity="warning"
+              action={<Button onClick={() => controller.reset()}>重新载入本组</Button>}
+            >
+              本组设置已变化，当前输入已保留。
+            </Alert>
+          )}
+          <Box
+            component="fieldset"
             disabled={!controller.available || controller.readOnly || controller.saving}
-            onClick={() => controller.reset(true)}
+            sx={{ p: 0, m: 0, border: 0, minWidth: 0 }}
           >
-            恢复本组默认
-          </Button>
+            {children}
+          </Box>
+          <Divider />
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+            <Button
+              variant="contained"
+              disabled={
+                !controller.dirty || controller.saving || controller.readOnly || controller.conflict
+              }
+              onClick={() => void controller.save()}
+            >
+              保存{title}
+            </Button>
+            <Button
+              disabled={!controller.dirty || controller.saving}
+              onClick={() => controller.reset()}
+            >
+              取消修改
+            </Button>
+            <Button
+              disabled={!controller.available || controller.readOnly || controller.saving}
+              onClick={() => controller.reset(true)}
+            >
+              恢复本组默认
+            </Button>
+          </Stack>
         </Stack>
-      </Stack>
-    </Paper>
+      </Paper>
+    </SettingsModule>
   );
 }
 export function WorkspaceSettingsForms({
@@ -241,84 +249,86 @@ export function WorkspaceSettingsForms({
           />
         </Stack>
       </ScopedCard>
-      <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 } }}>
-        <Stack spacing={2}>
-          <Typography variant="h6" component="h3">
-            最近项目
-          </Typography>
-          <Typography color="text.secondary">
-            移除仅清理列表记录，不会删除项目文件、项目设置或默认项目关联。路径移动后可预览并重新关联设置。
-          </Typography>
-          {dirty && (
-            <Alert severity="info">请先保存或取消本页修改，再连接、移除或重新关联项目。</Alert>
-          )}
-          {actions.error && <Alert severity="error">{actions.error}</Alert>}
-          {data?.warnings.map((warning) => (
-            <Alert severity="warning" key={warning}>
-              {warning}
-            </Alert>
-          ))}
-          <RecentProjectList
-            projects={data?.recentProjects ?? []}
-            selectedId={selectedProject?.id ?? null}
-            defaultProjectId={data?.defaultProject?.id}
-            disabled={busy || actions.busy}
-            onSelect={setSelectedProjectId}
-            actions={(item) => (
-              <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-                <Button
-                  disabled={blocked || machine.readOnly}
-                  onClick={() => machine.change({ defaultProject: item.id })}
-                >
-                  设为默认
-                </Button>
-                <Button
-                  disabled={blocked || data?.historyReadOnly || data?.report?.root === item.path}
-                  onClick={() => {
-                    setAssociate(item);
-                    setProjectPath(item.path);
-                    setPreview(null);
-                    setError("");
-                  }}
-                >
-                  重新关联
-                </Button>
-                <Button
-                  disabled={blocked || data?.historyReadOnly}
-                  onClick={() => {
-                    setRemove(item);
-                    setError("");
-                  }}
-                >
-                  移除记录
-                </Button>
-              </Stack>
+      <SettingsModule label="最近项目" estimatedHeight={480}>
+        <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3 } }}>
+          <Stack spacing={2}>
+            <Typography variant="h6" component="h3">
+              最近项目
+            </Typography>
+            <Typography color="text.secondary">
+              移除仅清理列表记录，不会删除项目文件、项目设置或默认项目关联。路径移动后可预览并重新关联设置。
+            </Typography>
+            {dirty && (
+              <Alert severity="info">请先保存或取消本页修改，再连接、移除或重新关联项目。</Alert>
             )}
-          />
-          <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
-            <Button
-              disabled={blocked || !selectedProject?.available}
-              onClick={() => selectedProject && void actions.connect(selectedProject.path)}
-            >
-              连接项目
-            </Button>
-            <Button
-              disabled={blocked}
-              onClick={() => {
-                void session.refresh().catch((cause) => actions.setError(cause.message));
-                onRefresh();
-              }}
-            >
-              刷新记录
-            </Button>
-            {data?.connectedPath && (
-              <Button disabled={blocked} onClick={() => void actions.disconnect()}>
-                断开当前项目
+            {actions.error && <Alert severity="error">{actions.error}</Alert>}
+            {data?.warnings.map((warning) => (
+              <Alert severity="warning" key={warning}>
+                {warning}
+              </Alert>
+            ))}
+            <RecentProjectList
+              projects={data?.recentProjects ?? []}
+              selectedId={selectedProject?.id ?? null}
+              defaultProjectId={data?.defaultProject?.id}
+              disabled={busy || actions.busy}
+              onSelect={setSelectedProjectId}
+              actions={(item) => (
+                <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
+                  <Button
+                    disabled={blocked || machine.readOnly}
+                    onClick={() => machine.change({ defaultProject: item.id })}
+                  >
+                    设为默认
+                  </Button>
+                  <Button
+                    disabled={blocked || data?.historyReadOnly || data?.report?.root === item.path}
+                    onClick={() => {
+                      setAssociate(item);
+                      setProjectPath(item.path);
+                      setPreview(null);
+                      setError("");
+                    }}
+                  >
+                    重新关联
+                  </Button>
+                  <Button
+                    disabled={blocked || data?.historyReadOnly}
+                    onClick={() => {
+                      setRemove(item);
+                      setError("");
+                    }}
+                  >
+                    移除记录
+                  </Button>
+                </Stack>
+              )}
+            />
+            <Stack direction="row" sx={{ flexWrap: "wrap", gap: 1 }}>
+              <Button
+                disabled={blocked || !selectedProject?.available}
+                onClick={() => selectedProject && void actions.connect(selectedProject.path)}
+              >
+                连接项目
               </Button>
-            )}
+              <Button
+                disabled={blocked}
+                onClick={() => {
+                  void session.refresh().catch((cause) => actions.setError(cause.message));
+                  onRefresh();
+                }}
+              >
+                刷新记录
+              </Button>
+              {data?.connectedPath && (
+                <Button disabled={blocked} onClick={() => void actions.disconnect()}>
+                  断开当前项目
+                </Button>
+              )}
+            </Stack>
           </Stack>
-        </Stack>
-      </Paper>
+        </Paper>
+      </SettingsModule>
       <ScopedCard title="项目访问权限" controller={access}>
         {!project ? (
           <Alert severity="info">连接项目后可设置只读偏好。</Alert>

@@ -5,18 +5,10 @@ import CloseOutlined from "@mui/icons-material/CloseOutlined";
 import FitScreenOutlined from "@mui/icons-material/FitScreenOutlined";
 import ZoomInOutlined from "@mui/icons-material/ZoomInOutlined";
 import ZoomOutOutlined from "@mui/icons-material/ZoomOutOutlined";
-import {
-  Alert,
-  Box,
-  CircularProgress,
-  Dialog,
-  IconButton,
-  Stack,
-  Tooltip,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Dialog, IconButton, Stack, Tooltip, Typography } from "@mui/material";
 import type { ProjectImage } from "../../shared/project-media";
 import { mediaImageName, mediaImageUrl } from "./image";
+import { ContentLoading } from "../components/ContentLoading";
 
 const minZoom = 0.25;
 const maxZoom = 16;
@@ -288,12 +280,16 @@ export function MediaImageViewer({
       >
         {!ready && !failed && (
           <Stack
-            role="status"
             spacing={1.5}
             sx={{ position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" }}
           >
-            <CircularProgress size={32} />
-            <Typography color="text.secondary">正在加载图片…</Typography>
+            <ContentLoading
+              heading="正在展开图片"
+              description="正在准备图片预览"
+              kind="media"
+              size="compact"
+              framed={false}
+            />
           </Stack>
         )}
         {failed ? (

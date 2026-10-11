@@ -20,6 +20,8 @@ export function usePublish() {
   const commitMessage = commitPrefix(commitType, commitScope) + commitDescription;
   const [diffPath, setDiffPath] = useState("");
   const [diff, setDiff] = useState("");
+  const [diffLoading, setDiffLoading] = useState(false);
+  const diffRequest = useRef(0);
   const [dialog, setDialog] = useState<PublishDialog>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -86,6 +88,8 @@ export function usePublish() {
   }
 
   async function showDiff(path: string) {
+    const request = ++diffRequest.current;
+    setDiffLoading(true);
     setDiffPath(path);
     setDiff("");
     setError("");
@@ -93,9 +97,11 @@ export function usePublish() {
       const result = await api<{ diff: string }>(
         `/api/publish/diff?path=${encodeURIComponent(path)}`,
       );
-      setDiff(result.diff);
+      if (request === diffRequest.current) setDiff(result.diff);
     } catch (cause) {
-      setError(errorMessage(cause, "差异读取失败"));
+      if (request === diffRequest.current) setError(errorMessage(cause, "差异读取失败"));
+    } finally {
+      if (request === diffRequest.current) setDiffLoading(false);
     }
   }
 
@@ -159,6 +165,7 @@ export function usePublish() {
     commitDescription,
     diffPath,
     diff,
+    diffLoading,
     dialog,
     error,
     notice,

@@ -1,20 +1,11 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Container,
-  Paper,
-  Snackbar,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Alert, Box, Button, Container, Paper, Snackbar, Stack, Typography } from "@mui/material";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import { FeatureCatalog } from "../features/FeatureCatalog";
+import { ContentLoading } from "../components/ContentLoading";
 import type { FeatureDataDescriptor, FeatureModule, ProjectReport } from "../types";
 import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { useLiveProjectReport } from "../workspace/WorkspaceSessionProvider";
@@ -30,9 +21,11 @@ interface IndexResponse {
 }
 function Loading() {
   return (
-    <Paper variant="outlined" sx={{ minHeight: 420, display: "grid", placeItems: "center" }}>
-      <CircularProgress aria-label="加载特色页面" />
-    </Paper>
+    <ContentLoading
+      heading="正在展开特色页面"
+      description="正在准备页面内容与编辑区域"
+      kind="page"
+    />
   );
 }
 export default function FeaturesPage() {

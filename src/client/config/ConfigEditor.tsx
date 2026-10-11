@@ -7,7 +7,6 @@ import {
   Avatar,
   Box,
   Button,
-  CircularProgress,
   FormControl,
   InputLabel,
   MenuItem,
@@ -22,6 +21,7 @@ import { TypeScriptEditor } from "../components/TypeScriptEditor";
 import type { SiteConfigDocument } from "../types";
 import type { ConfigBackup } from "../../shared/config-backups";
 import { ConfigIcon } from "./ConfigIcon";
+import { ContentLoading } from "../components/ContentLoading";
 
 interface ConfigEditorProps {
   document: SiteConfigDocument | null;
@@ -56,9 +56,11 @@ export function ConfigEditor({
   }, [backups, backupId]);
   if (!document)
     return (
-      <Paper variant="outlined" sx={{ minHeight: 420, display: "grid", placeItems: "center" }}>
-        <CircularProgress aria-label="加载配置详情" />
-      </Paper>
+      <ContentLoading
+        heading="正在展开站点配置"
+        description="正在准备配置内容与编辑区域"
+        kind="settings"
+      />
     );
   const dirty = initializer !== document.initializer;
   return (

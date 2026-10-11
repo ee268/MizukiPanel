@@ -1,9 +1,5 @@
-import { CircularProgress, Paper } from "@mui/material";
+import { ContentLoading } from "../components/ContentLoading";
 
 export function LoadingPaper() {
-  return (
-    <Paper variant="outlined" sx={{ minHeight: 360, display: "grid", placeItems: "center" }}>
-      <CircularProgress />
-    </Paper>
-  );
+  return <ContentLoading heading="正在展开内容" description="正在准备内容与编辑区域" kind="page" />;
 }

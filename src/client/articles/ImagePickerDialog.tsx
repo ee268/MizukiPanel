@@ -1,8 +1,8 @@
+import { ContentLoading } from "../components/ContentLoading";
 import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -152,7 +152,14 @@ export function ImagePickerDialog({
                   fullWidth
                 />
               </Stack>
-              {loading && <CircularProgress size={24} />}
+              {loading && (
+                <ContentLoading
+                  heading="正在展开图片列表"
+                  description="正在读取可用图片资源"
+                  kind="media"
+                  size="compact"
+                />
+              )}
               {error && <Alert severity="error">{error}</Alert>}
               {!loading && !error && !visibleItems.length && (
                 <Alert severity="info">当前范围没有图片。可到媒体管理上传，或使用 URL 插入。</Alert>

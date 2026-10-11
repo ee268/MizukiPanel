@@ -10,6 +10,7 @@ import {
   Typography,
 } from "@mui/material";
 import { api } from "../api";
+import { ContentLoading } from "../components/ContentLoading";
 import { sessionLifecycle } from "./session-lifecycle";
 import type { PanelSessionStatus } from "../../shared/session";
 export function SessionGuard() {
@@ -137,11 +138,18 @@ export function SessionGuard() {
       <DialogContent>
         <Stack spacing={2}>
           <Typography>{exit?.message}</Typography>
-          <Typography>
-            {exit?.working
-              ? "正在保留本地恢复副本…"
-              : "尚有修改未能保留，当前输入仍在页面中。可重试或下载恢复副本后返回登录。"}
-          </Typography>
+          {exit?.working ? (
+            <ContentLoading
+              heading="正在保留修改"
+              description="正在保留本地恢复副本…"
+              kind="page"
+              size="inline"
+            />
+          ) : (
+            <Typography>
+              尚有修改未能保留，当前输入仍在页面中。可重试或下载恢复副本后返回登录。
+            </Typography>
+          )}
           {exit?.errors.map((error) => (
             <Alert severity="error" key={error}>
               {error}

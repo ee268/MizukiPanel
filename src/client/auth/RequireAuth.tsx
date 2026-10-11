@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Alert, Button, Box, CircularProgress } from "@mui/material";
+import { Alert, Button, Box } from "@mui/material";
+import { ContentLoading } from "../components/ContentLoading";
 import { Navigate } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { SessionGuard } from "./SessionGuard";
@@ -26,8 +27,8 @@ export default function RequireAuth() {
 
   if (state === "loading") {
     return (
-      <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-        <CircularProgress />
+      <Box sx={{ minHeight: "100vh", display: "grid", alignItems: "center", p: 4 }}>
+        <ContentLoading heading="正在验证登录" description="正在确认会话并准备面板" kind="page" />
       </Box>
     );
   }

@@ -1,5 +1,6 @@
 import { Suspense, useState } from "react";
-import { Alert, Box, Button, CircularProgress, useMediaQuery, useTheme } from "@mui/material";
+import { Alert, Box, Button, useMediaQuery, useTheme } from "@mui/material";
+import { RouteLoading } from "../components/RouteLoading";
 import { Outlet } from "react-router-dom";
 import { api } from "../api";
 import { sessionLifecycle } from "../auth/session-lifecycle";
@@ -103,13 +104,7 @@ function Shell() {
           </Alert>
         )}
         <PageEntrance>
-          <Suspense
-            fallback={
-              <Box sx={{ minHeight: "60vh", display: "grid", placeItems: "center" }}>
-                <CircularProgress aria-label="加载页面" />
-              </Box>
-            }
-          >
+          <Suspense fallback={<RouteLoading />}>
             <Outlet key={workspace.outletVersion} />
           </Suspense>
         </PageEntrance>

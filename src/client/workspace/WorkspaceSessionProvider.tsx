@@ -8,16 +8,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
-} from "@mui/material";
+import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack } from "@mui/material";
 import { api, setWorkspaceVersion } from "../api";
+import { ContentLoading } from "../components/ContentLoading";
 import type { WorkspaceData } from "./types";
 import type { ProjectReport } from "../types";
 
@@ -107,7 +100,11 @@ export function WorkspaceSessionProvider({ children }: { children: ReactNode }) 
         children
       ) : (
         <Stack sx={{ p: 4 }} spacing={2}>
-          <CircularProgress aria-label="读取工作区" />
+          <ContentLoading
+            heading="正在展开工作区"
+            description="正在读取项目连接与工作区状态"
+            kind="page"
+          />
         </Stack>
       )}
       <Dialog

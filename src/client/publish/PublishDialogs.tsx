@@ -9,11 +9,13 @@ import {
 } from "@mui/material";
 import type { PublishOverview } from "../types";
 import type { PublishDialog } from "./usePublish";
+import { ContentLoading } from "../components/ContentLoading";
 
 interface PublishDialogsProps {
   overview: PublishOverview | null;
   diffPath: string;
   diff: string;
+  diffLoading: boolean;
   dialog: PublishDialog;
   busy: boolean;
   onCloseDiff: () => void;
@@ -26,6 +28,7 @@ export function PublishDialogs({
   overview,
   diffPath,
   diff,
+  diffLoading,
   dialog,
   busy,
   onCloseDiff,
@@ -38,22 +41,31 @@ export function PublishDialogs({
       <Dialog open={Boolean(diffPath)} onClose={onCloseDiff} fullWidth maxWidth="lg">
         <DialogTitle>文件差异 · {diffPath}</DialogTitle>
         <DialogContent>
-          <Box
-            component="pre"
-            sx={{
-              m: 0,
-              p: 2,
-              bgcolor: "#111827",
-              color: "#e5e7eb",
-              borderRadius: 1,
-              overflow: "auto",
-              maxHeight: "65vh",
-              whiteSpace: "pre-wrap",
-              fontSize: 12,
-            }}
-          >
-            {diff || "正在加载…"}
-          </Box>
+          {diffLoading ? (
+            <ContentLoading
+              heading="正在展开文件差异"
+              description="正在读取变更内容"
+              kind="page"
+              size="compact"
+            />
+          ) : (
+            <Box
+              component="pre"
+              sx={{
+                m: 0,
+                p: 2,
+                bgcolor: "#111827",
+                color: "#e5e7eb",
+                borderRadius: 1,
+                overflow: "auto",
+                maxHeight: "65vh",
+                whiteSpace: "pre-wrap",
+                fontSize: 12,
+              }}
+            >
+              {diff || "没有差异。"}
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={onCloseDiff}>关闭</Button>

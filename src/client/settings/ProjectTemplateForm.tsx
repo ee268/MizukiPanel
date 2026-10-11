@@ -19,6 +19,7 @@ import { localDate, type CreationPreview } from "../articles/creation-types";
 import type { useProjectTemplate } from "./useProjectTemplate";
 import { useEditorFontMode } from "../articles/useEditorFontMode";
 import { useArticleFonts } from "../articles/useArticleFonts";
+import { ContentLoading } from "../components/ContentLoading";
 export function ProjectTemplateForm({
   controller,
   onRefresh,
@@ -28,6 +29,7 @@ export function ProjectTemplateForm({
 }) {
   const [preview, setPreview] = useState<CreationPreview | null>(null);
   const [previewError, setPreviewError] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
   const previewRevision = useRef(0);
   const { base, value } = controller;
   const fonts = useArticleFonts(useEditorFontMode(base?.articleKey ?? ""));
@@ -35,11 +37,13 @@ export function ProjectTemplateForm({
     previewRevision.current += 1;
     setPreview(null);
     setPreviewError("");
+    setPreviewLoading(false);
   }, [base?.key, base?.settings.version, value]);
   const disabled = !base || base.settings.readOnly || controller.saving;
   async function showPreview() {
     if (!base) return;
     const request = ++previewRevision.current;
+    setPreviewLoading(true);
     setPreviewError("");
     setPreview(null);
     try {
@@ -73,6 +77,8 @@ export function ProjectTemplateForm({
     } catch (cause) {
       if (request === previewRevision.current)
         setPreviewError(cause instanceof Error ? cause.message : "模板预览失败。");
+    } finally {
+      if (request === previewRevision.current) setPreviewLoading(false);
     }
   }
   return (
@@ -162,6 +168,13 @@ export function ProjectTemplateForm({
           预览新建结果
         </Button>
         {previewError && <Alert severity="warning">{previewError}</Alert>}
+        {previewLoading && (
+          <ContentLoading
+            heading="正在展开新建预览"
+            description="正在校验文章模板与生成内容"
+            size="inline"
+          />
+        )}
         {preview && (
           <Box>
             <Typography variant="body2">

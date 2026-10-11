@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Container,
   Paper,
   Stack,
@@ -18,6 +17,7 @@ import { PublishChecks } from "../publish/PublishChecks";
 import { PublishDialogs } from "../publish/PublishDialogs";
 import { PublishSidebar } from "../publish/PublishSidebar";
 import { usePublish } from "../publish/usePublish";
+import { ContentLoading } from "../components/ContentLoading";
 import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
 
 export default function PublishPage() {
@@ -27,8 +27,12 @@ export default function PublishPage() {
 
   if (!overview && !publish.error) {
     return (
-      <Box sx={{ minHeight: "60vh", display: "grid", placeItems: "center" }}>
-        <CircularProgress />
+      <Box sx={{ p: 3 }}>
+        <ContentLoading
+          heading="正在展开发布工作流"
+          description="正在读取变更与发布状态"
+          kind="page"
+        />
       </Box>
     );
   }
@@ -135,6 +139,7 @@ export default function PublishPage() {
           overview={overview}
           diffPath={publish.diffPath}
           diff={publish.diff}
+          diffLoading={publish.diffLoading}
           dialog={publish.dialog}
           busy={publish.busy}
           onCloseDiff={() => publish.setDiffPath("")}

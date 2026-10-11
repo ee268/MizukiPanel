@@ -20,6 +20,8 @@ import type { ArchiveInventory, ArchiveItem, MaintenancePreview } from "../../sh
 import { api, json } from "../api";
 import { ScopedCard } from "./WorkspaceSettingsForms";
 import type { useScopedSettings } from "./useScopedSettings";
+import { SettingsModule } from "./SettingsModule";
+import { ContentLoading } from "../components/ContentLoading";
 export const archiveSize = (bytes: number) =>
   bytes < 1024
     ? `${bytes} B`
@@ -59,6 +61,7 @@ export function MaintenanceSettingsForms({
   onRestored: () => void;
 }) {
   const [inventory, setInventory] = useState<ArchiveInventory | null>(null);
+  const [inventoryVisible, setInventoryVisible] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -74,7 +77,7 @@ export function MaintenanceSettingsForms({
     setInventory(await api<ArchiveInventory>("/api/maintenance"));
   }
   useEffect(() => {
-    if (!active) return;
+    if (!active || !inventoryVisible) return;
     const abort = new AbortController();
     setError("");
     setPreview(null);
@@ -86,7 +89,7 @@ export function MaintenanceSettingsForms({
         if (!abort.signal.aborted) setError(cause.message);
       });
     return () => abort.abort();
-  }, [active, revision]);
+  }, [active, revision, inventoryVisible]);
   async function run(work: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -147,135 +150,149 @@ export function MaintenanceSettingsForms({
           />
         </Stack>
       </ScopedCard>
-      <Paper
-        variant="outlined"
-        component="section"
-        aria-label="备份与回收"
-        sx={{ p: { xs: 2, sm: 3 } }}
+      <SettingsModule
+        label="备份与回收"
+        estimatedHeight={620}
+        onVisibilityChange={setInventoryVisible}
       >
-        <Stack spacing={2}>
-          <Typography variant="h6" component="h3">
-            备份与回收
-          </Typography>
-          {inventory && (
-            <Typography color="text.secondary">
-              共 {inventory.totals.count} 项 · 备份 {archiveSize(inventory.totals.backup)} · 回收{" "}
-              {archiveSize(inventory.totals.trash)}
+        <Paper
+          variant="outlined"
+          component="section"
+          aria-label="备份与回收"
+          sx={{ p: { xs: 2, sm: 3 } }}
+        >
+          <Stack spacing={2}>
+            <Typography variant="h6" component="h3">
+              备份与回收
             </Typography>
-          )}
-          {inventory?.warnings.map((warning) => (
-            <Alert severity="warning" key={warning}>
-              {warning}
-            </Alert>
-          ))}
-          {error && <Alert severity="error">{error}</Alert>}
-          {notice && <Alert severity="success">{notice}</Alert>}
-          {disabled && <Alert severity="info">请先保存或取消设置修改，再执行恢复或清理。</Alert>}
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <TextField
-              select
-              label="归属筛选"
-              value={filter}
-              onChange={(e) => {
-                setFilter(e.target.value);
-                setLimit(20);
-              }}
-              fullWidth
-            >
-              <MenuItem value="all">全部项目与本机</MenuItem>
-              <MenuItem value="project" disabled={!inventory?.projectKey}>
-                当前项目
-              </MenuItem>
-              <MenuItem value="machine">本机设置</MenuItem>
-              <MenuItem value="unknown">归属未知</MenuItem>
-              {[
-                ...new Map(
-                  (inventory?.items ?? [])
-                    .filter((item) => item.projectKey)
-                    .map((item) => [item.projectKey!, item.projectName]),
-                ).entries(),
-              ].map(([key, name]) => (
-                <MenuItem key={key} value={`owned:${key}`}>
-                  {name} · {key.slice(0, 8)}
+            {inventory && (
+              <Typography color="text.secondary">
+                共 {inventory.totals.count} 项 · 备份 {archiveSize(inventory.totals.backup)} · 回收{" "}
+                {archiveSize(inventory.totals.trash)}
+              </Typography>
+            )}
+            {inventory?.warnings.map((warning) => (
+              <Alert severity="warning" key={warning}>
+                {warning}
+              </Alert>
+            ))}
+            {error && <Alert severity="error">{error}</Alert>}
+            {!inventory && !error && (
+              <ContentLoading
+                heading="正在展开备份与回收"
+                description="正在读取可用恢复项"
+                kind="settings"
+                size="compact"
+              />
+            )}
+            {notice && <Alert severity="success">{notice}</Alert>}
+            {disabled && <Alert severity="info">请先保存或取消设置修改，再执行恢复或清理。</Alert>}
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                select
+                label="归属筛选"
+                value={filter}
+                onChange={(e) => {
+                  setFilter(e.target.value);
+                  setLimit(20);
+                }}
+                fullWidth
+              >
+                <MenuItem value="all">全部项目与本机</MenuItem>
+                <MenuItem value="project" disabled={!inventory?.projectKey}>
+                  当前项目
                 </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="恢复项类型"
-              value={kind}
-              onChange={(e) => {
-                setKind(e.target.value);
-                setLimit(20);
-              }}
-              fullWidth
-            >
-              <MenuItem value="all">全部类型</MenuItem>
-              <MenuItem value="backup">保存备份</MenuItem>
-              <MenuItem value="trash">回收项</MenuItem>
-            </TextField>
-            <TextField
-              label="查找原路径"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setLimit(20);
-              }}
-              fullWidth
-            />
+                <MenuItem value="machine">本机设置</MenuItem>
+                <MenuItem value="unknown">归属未知</MenuItem>
+                {[
+                  ...new Map(
+                    (inventory?.items ?? [])
+                      .filter((item) => item.projectKey)
+                      .map((item) => [item.projectKey!, item.projectName]),
+                  ).entries(),
+                ].map(([key, name]) => (
+                  <MenuItem key={key} value={`owned:${key}`}>
+                    {name} · {key.slice(0, 8)}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="恢复项类型"
+                value={kind}
+                onChange={(e) => {
+                  setKind(e.target.value);
+                  setLimit(20);
+                }}
+                fullWidth
+              >
+                <MenuItem value="all">全部类型</MenuItem>
+                <MenuItem value="backup">保存备份</MenuItem>
+                <MenuItem value="trash">回收项</MenuItem>
+              </TextField>
+              <TextField
+                label="查找原路径"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setLimit(20);
+                }}
+                fullWidth
+              />
+            </Stack>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+              <Button disabled={busy} onClick={() => void run(refresh)}>
+                刷新列表
+              </Button>
+              <Button
+                disabled={locked || !inventory}
+                onClick={() =>
+                  void run(async () => {
+                    const value = await api<MaintenancePreview>(
+                      "/api/maintenance/cleanup-preview",
+                      json("POST"),
+                    );
+                    setSelected([]);
+                    setPreview({ ...value, kind: "cleanup" });
+                  })
+                }
+              >
+                预览手动清理
+              </Button>
+            </Stack>
+            {inventory && visible.length === 0 && (
+              <Typography color="text.secondary">没有符合筛选条件的恢复项。</Typography>
+            )}
+            {visible.slice(0, limit).map((item) => (
+              <ArchiveRow key={item.id} item={item}>
+                <Box>
+                  <Button
+                    disabled={locked || !item.restorable}
+                    onClick={() =>
+                      void run(async () =>
+                        setPreview({
+                          ...(await api<MaintenancePreview>(
+                            "/api/maintenance/restore-preview",
+                            json("POST", { id: item.id }),
+                          )),
+                          kind: "restore",
+                        }),
+                      )
+                    }
+                  >
+                    预览恢复
+                  </Button>
+                </Box>
+              </ArchiveRow>
+            ))}
+            {visible.length > limit && (
+              <Button onClick={() => setLimit((value) => value + 20)}>
+                显示更多（剩余 {visible.length - limit} 项）
+              </Button>
+            )}
           </Stack>
-          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-            <Button disabled={busy} onClick={() => void run(refresh)}>
-              刷新列表
-            </Button>
-            <Button
-              disabled={locked || !inventory}
-              onClick={() =>
-                void run(async () => {
-                  const value = await api<MaintenancePreview>(
-                    "/api/maintenance/cleanup-preview",
-                    json("POST"),
-                  );
-                  setSelected([]);
-                  setPreview({ ...value, kind: "cleanup" });
-                })
-              }
-            >
-              预览手动清理
-            </Button>
-          </Stack>
-          {inventory && visible.length === 0 && (
-            <Typography color="text.secondary">没有符合筛选条件的恢复项。</Typography>
-          )}
-          {visible.slice(0, limit).map((item) => (
-            <ArchiveRow key={item.id} item={item}>
-              <Box>
-                <Button
-                  disabled={locked || !item.restorable}
-                  onClick={() =>
-                    void run(async () =>
-                      setPreview({
-                        ...(await api<MaintenancePreview>(
-                          "/api/maintenance/restore-preview",
-                          json("POST", { id: item.id }),
-                        )),
-                        kind: "restore",
-                      }),
-                    )
-                  }
-                >
-                  预览恢复
-                </Button>
-              </Box>
-            </ArchiveRow>
-          ))}
-          {visible.length > limit && (
-            <Button onClick={() => setLimit((value) => value + 20)}>
-              显示更多（剩余 {visible.length - limit} 项）
-            </Button>
-          )}
-        </Stack>
-      </Paper>
+        </Paper>
+      </SettingsModule>
       <Dialog
         open={Boolean(preview)}
         onClose={() => {

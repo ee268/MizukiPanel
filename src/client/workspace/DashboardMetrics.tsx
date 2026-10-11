@@ -1,17 +1,9 @@
 import ArticleOutlined from "@mui/icons-material/ArticleOutlined";
+import { ContentLoading } from "../components/ContentLoading";
 import CommitOutlined from "@mui/icons-material/CommitOutlined";
 import DescriptionOutlined from "@mui/icons-material/DescriptionOutlined";
 import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
-import {
-  Box,
-  Card,
-  CardContent,
-  Grid,
-  Skeleton,
-  Stack,
-  Typography,
-  useMediaQuery,
-} from "@mui/material";
+import { Box, Card, CardContent, Grid, Stack, Typography, useMediaQuery } from "@mui/material";
 import { useEffect, useRef, type PointerEvent, type ReactNode } from "react";
 import type { DashboardOverview } from "../types";
 
@@ -106,13 +98,17 @@ function MetricCard({ label, value, detail, icon }: MetricCardProps) {
   );
 }
 
-function MetricSkeleton() {
+function MetricLoading() {
   return (
     <Card variant="outlined" sx={{ height: "100%" }}>
       <CardContent>
-        <Skeleton width="45%" />
-        <Skeleton variant="text" width="30%" sx={{ fontSize: "2.5rem", mt: 0.5 }} />
-        <Skeleton width="70%" sx={{ mt: 1 }} />
+        <ContentLoading
+          heading="正在展开统计"
+          description="正在读取工作区数据"
+          kind="page"
+          size="inline"
+          framed={false}
+        />
       </CardContent>
     </Card>
   );
@@ -160,7 +156,7 @@ export function DashboardMetrics({ dashboard, loading }: DashboardMetricsProps) 
       {loading || !dashboard
         ? Array.from({ length: 4 }, (_, index) => (
             <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={index}>
-              <MetricSkeleton />
+              <MetricLoading />
             </Grid>
           ))
         : metrics.map((metric) => (

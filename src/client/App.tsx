@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Box, CircularProgress } from "@mui/material";
+import { RouteLoading } from "./components/RouteLoading";
 import { Navigate, Route, Routes } from "react-router-dom";
 import RequireAuth from "./auth/RequireAuth";
 import { BackToTop } from "./components/BackToTop";
@@ -16,11 +16,7 @@ const AboutPage = lazy(() => import("./pages/AboutPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 function LoadingFallback() {
-  return (
-    <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-      <CircularProgress />
-    </Box>
-  );
+  return <RouteLoading fullPage />;
 }
 
 export default function App() {

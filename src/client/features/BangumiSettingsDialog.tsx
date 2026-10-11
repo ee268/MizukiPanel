@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
+import { ContentLoading } from "../components/ContentLoading";
 import {
   Alert,
   Box,
   Button,
-  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -89,10 +89,12 @@ export function BangumiSettingsDialog({
       <DialogTitle>搜索设置</DialogTitle>
       {loading ? (
         <DialogContent>
-          <Stack sx={{ py: 4, alignItems: "center", gap: 2 }}>
-            <CircularProgress size={28} />
-            <Typography>正在读取搜索设置…</Typography>
-          </Stack>
+          <ContentLoading
+            heading="正在展开搜索设置"
+            description="正在读取 Bangumi 网络偏好"
+            kind="settings"
+            size="compact"
+          />
         </DialogContent>
       ) : error ? (
         <DialogContent>

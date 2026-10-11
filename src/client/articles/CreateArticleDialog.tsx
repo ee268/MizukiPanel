@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { ContentLoading } from "../components/ContentLoading";
 import {
   Alert,
   Box,
@@ -255,9 +256,11 @@ export function CreateArticleDialog({
               </>
             )}
             {loading && (
-              <Typography variant="body2" color="text.secondary">
-                正在读取默认值或校验预览…
-              </Typography>
+              <ContentLoading
+                heading="正在准备新文章"
+                description="正在读取默认值或校验预览…"
+                size="inline"
+              />
             )}
           </Stack>
         </DialogContent>
