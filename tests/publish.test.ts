@@ -6,35 +6,41 @@ import { afterEach, expect, it } from "vitest";
 import type { ProjectReport } from "../src/lib/server/project";
 import {
   commitSelected,
+  publishCommitDetail,
   publishDiff,
+  publishHistory,
   publishOperationStatus,
   publishOverview,
-  PublishError,
-  pushCurrentBranch,
-  revertPanelCommit,
   startPublishOperation,
   validateCommitMessage,
+  workspacePublishTask,
 } from "../src/lib/server/publish";
 
 const directories: string[] = [];
-
-function git(root: string, ...args: string[]): string {
-  return execFileSync("git", ["-C", root, ...args], { encoding: "utf8" }).trim();
+function git(root: string, ...args: string[]) {
+  return execFileSync("git", ["-C", root, ...args], { encoding: "utf8", windowsHide: true }).trim();
 }
-
-async function fixture(): Promise<{ root: string; report: ProjectReport }> {
-  const root = await mkdtemp(path.join(tmpdir(), "mizuki-publish-"));
+async function fixture(initialCommit = true) {
+  const root = await mkdtemp(path.join(tmpdir(), "mizuki-git-management-"));
   directories.push(root);
   await mkdir(path.join(root, "src/content/posts"), { recursive: true });
-  await mkdir(path.join(root, "src/config"), { recursive: true });
   await writeFile(path.join(root, "src/content/posts/one.md"), "# One\n");
-  await writeFile(path.join(root, "src/config/siteConfig.ts"), "export const siteConfig = {};\n");
   await writeFile(path.join(root, "README.md"), "# Fixture\n");
-  git(root, "init");
+  await writeFile(
+    path.join(root, "package.json"),
+    JSON.stringify({ private: true, scripts: { build: "node build.mjs" } }),
+  );
+  await writeFile(
+    path.join(root, "build.mjs"),
+    "import {writeFileSync} from 'node:fs'; console.log('正在构建 Mizuki'); setTimeout(() => { writeFileSync('build.marker','ok'); console.log('构建完成'); }, 400);",
+  );
+  git(root, "init", "-b", "main");
   git(root, "config", "user.name", "MizukiPanel Test");
   git(root, "config", "user.email", "panel@example.invalid");
-  git(root, "add", ".");
-  git(root, "commit", "-m", "chore(test): initialize fixture");
+  if (initialCommit) {
+    git(root, "add", ".");
+    git(root, "commit", "-m", "chore(test): initialize fixture");
+  }
   const report: ProjectReport = {
     requestedPath: root,
     root,
@@ -42,204 +48,207 @@ async function fixture(): Promise<{ root: string; report: ProjectReport }> {
     readOnly: false,
     contentRoot: null,
     warnings: [],
-    mappings: [
-      {
-        key: "posts",
-        label: "文章",
-        sourcePath: path.join(root, "src/content/posts"),
-        exists: true,
-      },
-      { key: "config", label: "配置", sourcePath: path.join(root, "src/config"), exists: true },
-    ],
+    mappings: [],
   };
   return { root, report };
 }
-
 afterEach(async () => {
-  await Promise.all(
-    directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
-  );
+  for (const directory of directories.splice(0))
+    await rm(directory, { recursive: true, force: true });
 });
-
-it("separates managed content changes from unrelated repository files", async () => {
-  const { root, report } = await fixture();
-  await writeFile(path.join(root, "src/content/posts/one.md"), "# Updated\n");
-  await writeFile(path.join(root, "notes.txt"), "unrelated\n");
-
-  const overview = await publishOverview(report);
-  expect(
-    overview.changes.find((change) => change.path === "src/content/posts/one.md"),
-  ).toMatchObject({ managed: true, staged: false });
-  expect(overview.changes.find((change) => change.path === "notes.txt")).toMatchObject({
-    managed: false,
-    staged: false,
-  });
-  expect(overview.canCommit).toBe(true);
-  expect(overview.checks.find((check) => check.key === "unmanaged")?.status).toBe("warning");
-});
-it("keeps read-only Git status and differences available but rejects all publish mutations", async () => {
-  const { root, report } = await fixture();
-  await writeFile(path.join(root, "src/content/posts/one.md"), "# Read-only draft\n");
-  const before = git(root, "status", "--porcelain");
-  const restricted = { ...report, readOnly: true };
-  const overview = await publishOverview(restricted);
-  expect([overview.canCommit, overview.canPush, overview.canSync, overview.canBuild]).toEqual([
-    false,
-    false,
-    false,
-    false,
-  ]);
-  expect(overview.checks.find((check) => check.key === "writable")?.status).toBe("error");
-  expect(await publishDiff(restricted, "src/content/posts/one.md")).toContain("Read-only draft");
-  await expect(
-    commitSelected(restricted, ["src/content/posts/one.md"], "feat(content): test"),
-  ).rejects.toThrow("只读");
-  await expect(pushCurrentBranch(restricted)).rejects.toThrow("只读");
-  await expect(revertPanelCommit(restricted)).rejects.toThrow("只读");
-  await expect(startPublishOperation(restricted, "build")).rejects.toThrow("只读");
-  expect(git(root, "status", "--porcelain")).toBe(before);
-});
-
-it("commits only selected managed files and leaves other changes untouched", async () => {
-  const { root, report } = await fixture();
-  await writeFile(path.join(root, "src/content/posts/one.md"), "# Published\n");
-  await writeFile(
-    path.join(root, "src/config/siteConfig.ts"),
-    'export const siteConfig = { title: "Draft" };\n',
-  );
-  await writeFile(path.join(root, "README.md"), "# Local edit\n");
-
-  const result = await commitSelected(
-    report,
-    ["src/content/posts/one.md"],
-    "feat(content): publish selected post",
-  );
-  expect(result.subject).toBe("feat(content): publish selected post");
-  expect(git(root, "show", "--format=", "--name-only", "HEAD")).toBe("src/content/posts/one.md");
-  expect(git(root, "show", "HEAD:src/content/posts/one.md")).toBe("# Published");
-  const status = git(root, "status", "--short");
-  expect(status).toContain("src/config/siteConfig.ts");
-  expect(status).toContain("README.md");
-});
-
-it("previews new text files and rejects unmanaged selections", async () => {
-  const { root, report } = await fixture();
-  await writeFile(path.join(root, "src/content/posts/new.md"), "# New\n");
-  await writeFile(path.join(root, "outside.txt"), "outside\n");
-  expect(await publishDiff(report, "src/content/posts/new.md")).toContain("+# New");
-  await expect(publishDiff(report, "outside.txt")).rejects.toBeInstanceOf(PublishError);
-});
-
-it("creates an explicit revert commit only for the last panel commit", async () => {
-  const { root, report } = await fixture();
-  await writeFile(path.join(root, "src/content/posts/one.md"), "# Published\n");
-  const published = await commitSelected(
-    report,
-    ["src/content/posts/one.md"],
-    "feat(content): publish post",
-  );
-  const restored = await revertPanelCommit(report);
-  expect(restored.sha).not.toBe(published.sha);
-  expect(
-    (await readFile(path.join(root, "src/content/posts/one.md"), "utf8")).replaceAll("\r\n", "\n"),
-  ).toBe("# One\n");
-  expect(git(root, "log", "-1", "--format=%s")).toContain("Revert");
-});
-
-it("requires Conventional Commits and refuses pre-existing staged changes", async () => {
-  expect(() => validateCommitMessage("publish content")).toThrow(PublishError);
-  expect(validateCommitMessage("docs(posts): update article")).toBe("docs(posts): update article");
-  const { root, report } = await fixture();
-  await writeFile(path.join(root, "README.md"), "# Staged\n");
-  await writeFile(path.join(root, "src/content/posts/one.md"), "# Updated\n");
-  git(root, "add", "README.md");
-  await expect(
-    commitSelected(report, ["src/content/posts/one.md"], "feat(content): publish post"),
-  ).rejects.toThrow("暂存区已有内容");
-  expect(git(root, "diff", "--cached", "--name-only")).toBe("README.md");
-});
-async function externalFixture(): Promise<{
-  base: string;
-  site: string;
-  contentRoot: string;
-  remote: string;
-  report: ProjectReport;
-}> {
-  const base = await mkdtemp(path.join(tmpdir(), "mizuki-publish-external-"));
-  directories.push(base);
-  const site = path.join(base, "site");
-  const contentRoot = path.join(base, "content");
-  const remote = path.join(base, "remote.git");
-  await mkdir(path.join(contentRoot, "posts"), { recursive: true });
-  await mkdir(site, { recursive: true });
-  await writeFile(path.join(contentRoot, "posts/one.md"), "# One\n");
-  await writeFile(
-    path.join(site, "package.json"),
-    JSON.stringify({
-      private: true,
-      scripts: {
-        "sync-content": "node -e \"require('node:fs').writeFileSync('sync.marker', 'ok')\"",
-        build: "node -e \"require('node:fs').writeFileSync('build.marker', 'ok')\"",
-      },
-    }),
-  );
-  git(contentRoot, "init");
-  git(contentRoot, "config", "user.name", "MizukiPanel Test");
-  git(contentRoot, "config", "user.email", "panel@example.invalid");
-  git(contentRoot, "add", ".");
-  git(contentRoot, "commit", "-m", "chore(test): initialize content");
-  git(contentRoot, "branch", "-M", "main");
-  execFileSync("git", ["init", "--bare", remote], { stdio: "ignore" });
-  git(contentRoot, "remote", "add", "origin", remote);
-  git(contentRoot, "push", "-u", "origin", "main");
-  const report: ProjectReport = {
-    requestedPath: site,
-    root: site,
-    mode: "external",
-    readOnly: false,
-    contentRoot,
-    warnings: [],
-    mappings: [
-      { key: "posts", label: "文章", sourcePath: path.join(contentRoot, "posts"), exists: true },
-    ],
-  };
-  return { base, site, contentRoot, remote, report };
-}
-
-async function waitForOperation(
-  report: ProjectReport,
-): Promise<ReturnType<typeof publishOperationStatus>> {
-  for (let attempt = 0; attempt < 100; attempt++) {
+async function waitForOperation(report: ProjectReport) {
+  for (let index = 0; index < 200; index++) {
     const status = publishOperationStatus(report);
     if (status.state !== "running") return status;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error("发布操作等待超时");
+  throw new Error("构建等待超时");
 }
 
-it("publishes an external content commit to its configured upstream", async () => {
-  const { contentRoot, remote, report } = await externalFixture();
-  await writeFile(path.join(contentRoot, "posts/one.md"), "# External\n");
-  expect((await publishOverview(report)).repositoryLabel).toBe("独立内容仓库");
-  const published = await commitSelected(
-    report,
-    ["posts/one.md"],
-    "feat(content): publish external post",
-  );
-  expect((await publishOverview(report)).canPush).toBe(true);
-  await pushCurrentBranch(report);
-  expect(git(remote, "rev-parse", "refs/heads/main")).toBe(published.sha);
-  expect((await publishOverview(report)).ahead).toBe(0);
-}, 20_000);
+it("manages all Mizuki project files and always uses the project repository in external mode", async () => {
+  const { root, report } = await fixture();
+  const external = await fixture();
+  await writeFile(path.join(root, "README.md"), "# Project edit\n");
+  await writeFile(path.join(external.root, "README.md"), "# External edit\n");
+  const current = { ...report, mode: "external" as const, contentRoot: external.root };
+  expect((await publishOverview(current)).repositoryRoot).toBe(root);
+  await commitSelected(current, ["README.md"], "docs: update project");
+  expect(git(root, "show", "HEAD:README.md")).toBe("# Project edit");
+  expect(git(external.root, "status", "--porcelain")).toContain("README.md");
+  expect(git(external.root, "log", "-1", "--format=%s")).toBe("chore(test): initialize fixture");
+});
 
-it("requires explicit external synchronization before running a build", async () => {
-  const { site, report } = await externalFixture();
-  expect((await publishOverview(report)).canBuild).toBe(false);
-  await startPublishOperation(report, "sync");
-  expect((await waitForOperation(report)).state).toBe("succeeded");
-  expect(await readFile(path.join(site, "sync.marker"), "utf8")).toBe("ok");
-  expect((await publishOverview(report)).canBuild).toBe(true);
+it("commits only selected project files and leaves other changes untouched", async () => {
+  const { root, report } = await fixture();
+  await writeFile(path.join(root, "README.md"), "# Selected\n");
+  await writeFile(path.join(root, "src/content/posts/one.md"), "# Not selected\n");
+  const result = await commitSelected(report, ["README.md"], "docs: update selected file");
+  expect(result.sha).toBe(git(root, "rev-parse", "HEAD"));
+  expect(git(root, "show", "--format=", "--name-only", "HEAD")).toBe("README.md");
+  expect(git(root, "status", "--short")).toContain("src/content/posts/one.md");
+  expect(publishOperationStatus(report).logs.join("\n")).toContain("docs: update selected file");
+  expect(publishOperationStatus(report).state).toBe("succeeded");
+});
+
+it("paginates a fixed history snapshot and reads full commit details without modifying Git", async () => {
+  const { root, report } = await fixture();
+  for (let index = 0; index < 23; index++)
+    git(root, "commit", "--allow-empty", "-m", `docs: history ${index}`);
+  const first = await publishHistory(report);
+  expect(first.total).toBe(24);
+  expect(first.commits).toHaveLength(20);
+  expect(first.commits[0]).toMatchObject({
+    sha: first.head,
+    subject: "docs: history 22",
+    author: "MizukiPanel Test",
+  });
+  const before = git(root, "status", "--porcelain");
+  git(root, "commit", "--allow-empty", "-m", "docs: later commit");
+  const second = await publishHistory(report, 2, first.head!);
+  expect(second.total).toBe(24);
+  expect(second.commits).toHaveLength(4);
+  expect(second.commits.some((c) => c.subject === "docs: later commit")).toBe(false);
+  const initial = second.commits.at(-1)!;
+  const detail = await publishCommitDetail(report, initial.sha);
+  expect(detail.message).toBe("chore(test): initialize fixture");
+  expect(detail.diff).toContain("README.md");
+  expect(git(root, "status", "--porcelain")).toBe(before);
+  expect(publishOperationStatus(report).logs.join("\n")).toContain("已读取提交历史第 2 页");
+}, 20000);
+
+it("shows fetch and push remotes, upstream counts and the current branch, redacting credentials", async () => {
+  const { root, report } = await fixture();
+  git(root, "remote", "add", "origin", "https://user:secret@example.invalid/Mizuki.git");
+  git(root, "remote", "set-url", "--push", "origin", "git@example.invalid:user/Mizuki.git");
+  git(root, "update-ref", "refs/remotes/origin/main", "HEAD");
+  git(root, "branch", "--set-upstream-to=origin/main");
+  const overview = await publishOverview(report);
+  expect(overview).toMatchObject({ branch: "main", upstream: "origin/main", ahead: 0, behind: 0 });
+  expect(overview.remotes).toEqual([
+    {
+      name: "origin",
+      fetchUrls: ["https://***@example.invalid/Mizuki.git"],
+      pushUrls: ["git@example.invalid:user/Mizuki.git"],
+    },
+  ]);
+  expect(JSON.stringify(publishOperationStatus(report))).not.toContain("secret");
+});
+
+it("keeps all read-only inspection available while refusing commits and builds", async () => {
+  const { root, report } = await fixture();
+  await writeFile(path.join(root, "README.md"), "# Read-only edit\n");
+  const restricted = { ...report, readOnly: true };
+  expect(await publishOverview(restricted)).toMatchObject({ canCommit: false, canBuild: false });
+  expect((await publishHistory(restricted)).total).toBe(1);
+  expect(await publishDiff(restricted, "README.md")).toContain("Read-only edit");
+  await expect(commitSelected(restricted, ["README.md"], "docs: edit")).rejects.toThrow("只读");
+  await expect(startPublishOperation(restricted, "build")).rejects.toThrow("只读");
+  expect(git(root, "diff", "--cached", "--name-only")).toBe("");
+});
+
+it("rejects invalid selections and preserves pre-existing staging", async () => {
+  const { root, report } = await fixture();
+  await writeFile(path.join(root, "README.md"), "# Edit\n");
+  await expect(commitSelected(report, ["../outside"], "docs: edit")).rejects.toThrow("项目内");
+  await expect(commitSelected(report, ["missing"], "docs: edit")).rejects.toThrow("不存在");
+  await expect(publishCommitDetail(report, "--output=outside")).rejects.toThrow("无效");
+  await expect(publishHistory(report, -1)).rejects.toThrow("无效");
+  git(root, "add", "README.md");
+  await expect(commitSelected(report, ["README.md"], "docs: edit")).rejects.toThrow(
+    "暂存区已有内容",
+  );
+  expect(git(root, "diff", "--cached", "--name-only")).toBe("README.md");
+});
+
+it("previews project text and binary changes without requiring content mappings", async () => {
+  const { root, report } = await fixture();
+  await writeFile(path.join(root, "new.txt"), "# New\n");
+  await writeFile(path.join(root, "binary.dat"), Buffer.from([0, 1, 2]));
+  expect(await publishDiff(report, "new.txt")).toContain("+# New");
+  expect(await publishDiff(report, "binary.dat")).toContain("二进制");
+  expect(() => validateCommitMessage("invalid")).toThrow("Conventional");
+});
+
+it("supports an unborn repository and restores its empty staging area after commit failure", async () => {
+  const { root, report } = await fixture(false);
+  expect((await publishHistory(report)).commits).toEqual([]);
+  expect((await publishOverview(report)).canCommit).toBe(true);
+  git(root, "config", "user.email", "");
+  git(root, "config", "user.name", "");
+  await expect(commitSelected(report, ["README.md"], "docs: initial")).rejects.toThrow();
+  expect(git(root, "diff", "--cached", "--name-only")).toBe("");
+  expect(await readFile(path.join(root, "README.md"), "utf8")).toContain("Fixture");
+  git(root, "config", "user.name", "Test");
+  git(root, "config", "user.email", "test@example.invalid");
+  await commitSelected(report, ["README.md"], "docs: initial");
+  expect((await publishHistory(report)).total).toBe(1);
+});
+
+it("blocks commits on detached HEAD but allows independent builds", async () => {
+  const { root, report } = await fixture();
+  git(root, "checkout", "--detach");
+  await writeFile(path.join(root, "README.md"), "# Dirty\n");
+  const overview = await publishOverview(report);
+  expect(overview).toMatchObject({ branch: null, canCommit: false, canBuild: true });
+  await expect(commitSelected(report, ["README.md"], "docs: edit")).rejects.toThrow("游离");
+});
+
+it("builds dirty Mizuki projects without content sync, streams logs and isolates project state", async () => {
+  const { root, report } = await fixture();
+  const other = await fixture();
+  await writeFile(path.join(root, "README.md"), "# Dirty\n");
+  const external = { ...report, mode: "external" as const, contentRoot: other.root };
+  const started = await startPublishOperation(external, "build");
+  expect(started.state).toBe("running");
+  expect(workspacePublishTask()?.projectRoot).toBe(root);
+  await expect(startPublishOperation(other.report, "build")).rejects.toThrow("正在运行");
+  await expect(commitSelected(report, ["README.md"], "docs: edit")).rejects.toThrow("正在运行");
+  const status = await waitForOperation(external);
+  expect(status.state).toBe("succeeded");
+  expect(status.logs.join("\n")).toContain("正在构建 Mizuki");
+  expect(status.logs.join("\n")).toContain("pnpm run build");
+  expect(await readFile(path.join(root, "build.marker"), "utf8")).toBe("ok");
+  await expect(readFile(path.join(other.root, "build.marker"), "utf8")).rejects.toThrow();
+  expect(publishOperationStatus(other.report).logs).toEqual([]);
+  expect(workspacePublishTask()).toBeNull();
+  expect(git(root, "status", "--porcelain")).toContain("README.md");
+}, 15000);
+
+it("keeps build available without Git and reports failed build output", async () => {
+  const { root, report } = await fixture();
+  await rm(path.join(root, ".git"), { recursive: true, force: true });
+  await writeFile(path.join(root, "build.mjs"), "console.error('构建错误测试'); process.exit(2);");
+  expect(await publishOverview(report)).toMatchObject({
+    repositoryAvailable: false,
+    canBuild: true,
+  });
   await startPublishOperation(report, "build");
-  expect((await waitForOperation(report)).state).toBe("succeeded");
-  expect(await readFile(path.join(site, "build.marker"), "utf8")).toBe("ok");
-}, 30_000);
+  const status = await waitForOperation(report);
+  expect(status.state).toBe("failed");
+  expect(status.error).toContain("构建失败");
+  expect(status.logs.join("\n")).toContain("构建错误测试");
+  expect(workspacePublishTask()).toBeNull();
+}, 15000);
+
+it("restores staging after a failed commit while preserving working files", async () => {
+  const { root, report } = await fixture();
+  await writeFile(path.join(root, "README.md"), "# Keep my edit\n");
+  git(root, "config", "user.name", "");
+  git(root, "config", "user.email", "");
+  await expect(commitSelected(report, ["README.md"], "docs: change")).rejects.toThrow();
+  expect(git(root, "diff", "--cached", "--name-only")).toBe("");
+  expect(await readFile(path.join(root, "README.md"), "utf8")).toBe("# Keep my edit\n");
+  expect(publishOperationStatus(report).state).toBe("failed");
+});
+
+it("bounds large historical diffs and keeps Git metadata read-only", async () => {
+  const { root, report } = await fixture();
+  await writeFile(path.join(root, "large.txt"), "large content\n".repeat(30000));
+  git(root, "add", "large.txt");
+  git(root, "commit", "-m", "docs: large text");
+  const head = git(root, "rev-parse", "HEAD");
+  const detail = await publishCommitDetail(report, head);
+  expect(detail.truncated).toBe(true);
+  expect(detail.diff).toContain("差异已截断");
+  expect(git(root, "rev-parse", "HEAD")).toBe(head);
+}, 15000);

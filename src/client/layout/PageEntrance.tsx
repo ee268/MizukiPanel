@@ -37,9 +37,9 @@ const entrances: Record<string, Record<string, Motion>> = {
   },
   "/publish": {
     heading: { duration: 220 },
-    step: { from: "translateX(-10px)", duration: 260, stagger: 45 },
     content: { duration: 300, delay: 100 },
     aside: { from: "translateY(10px)", duration: 320, delay: 160 },
+    logs: { from: "translateY(12px)", duration: 320, delay: 180 },
   },
   "/settings": {
     heading: { duration: 200 },

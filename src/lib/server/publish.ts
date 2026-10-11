@@ -2,167 +2,168 @@ import { execFile, spawn } from "node:child_process";
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import type { Readable } from "node:stream";
 import type { ProjectReport } from "./project";
 import { logLimit, readLogRetention } from "./task-preferences";
+import type {
+  PublishChange,
+  PublishCommitDetail,
+  PublishHistory,
+  PublishOperationStatus,
+  PublishOverview,
+  PublishRemote,
+} from "../../shared/publish";
+export type { PublishChange, PublishOperationStatus, PublishOverview } from "../../shared/publish";
 
 const execute = promisify(execFile);
 const MAX_BUFFER = 8 * 1024 * 1024;
 const MAX_DIFF_BYTES = 256 * 1024;
-
 export class PublishError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "PublishError";
   }
 }
-
-export interface PublishChange {
-  status: string;
-  path: string;
-  originalPath: string | null;
-  staged: boolean;
-  conflict: boolean;
-  managed: boolean;
-}
-
-export interface PublishCheck {
-  key: string;
-  label: string;
-  status: "pass" | "warning" | "error";
-  detail: string;
-}
-
-export interface PublishOverview {
-  mode: ProjectReport["mode"];
-  repositoryLabel: string;
-  repositoryRoot: string;
-  branch: string | null;
-  upstream: string | null;
-  ahead: number;
-  behind: number;
-  head: string | null;
-  lastSubject: string | null;
-  changes: PublishChange[];
-  checks: PublishCheck[];
-  canCommit: boolean;
-  canPush: boolean;
-  canSync: boolean;
-  canBuild: boolean;
-}
-
-export interface PublishOperationStatus {
-  kind: "validate" | "sync" | "build" | null;
-  state: "idle" | "running" | "succeeded" | "failed";
-  projectRoot: string | null;
-  startedAt: string | null;
-  finishedAt: string | null;
-  logs: string[];
-  error: string | null;
-  logLimit?: number;
-}
-
-interface OperationRuntime extends PublishOperationStatus {
-  child: ReturnType<typeof spawn> | null;
+interface Runtime extends PublishOperationStatus {
   stateDir?: string;
 }
-
-interface PanelCommit {
-  sha: string;
-  paths: string[];
-}
-
-const runtimeKey = Symbol.for("mizuki-panel.publish-runtime");
-const commitsKey = Symbol.for("mizuki-panel.publish-commits");
-const syncKey = Symbol.for("mizuki-panel.publish-synced-heads");
+const runtimeKey = Symbol.for("mizuki-panel.git-management-runtime");
 const globals = globalThis as typeof globalThis & {
-  [runtimeKey]?: OperationRuntime;
-  [commitsKey]?: Map<string, PanelCommit>;
-  [syncKey]?: Map<string, string>;
+  [runtimeKey]?: { projects: Map<string, Runtime>; active: Runtime | null };
 };
-const runtime = (globals[runtimeKey] ??= {
-  kind: null,
-  state: "idle",
-  projectRoot: null,
-  startedAt: null,
-  finishedAt: null,
-  logs: [],
-  error: null,
-  child: null,
-});
-const panelCommits = (globals[commitsKey] ??= new Map<string, PanelCommit>());
-const syncedHeads = (globals[syncKey] ??= new Map<string, string>());
-
+const store = (globals[runtimeKey] ??= { projects: new Map(), active: null });
+function projectRuntime(report: ProjectReport): Runtime {
+  const root = path.resolve(report.root);
+  let runtime = store.projects.get(root);
+  if (!runtime) {
+    runtime = {
+      kind: null,
+      state: "idle",
+      projectRoot: root,
+      startedAt: null,
+      finishedAt: null,
+      logs: [],
+      error: null,
+    };
+    store.projects.set(root, runtime);
+  }
+  return runtime;
+}
+export async function preparePublishLogs(report: ProjectReport, stateDir?: string) {
+  await readLogRetention(stateDir);
+  projectRuntime(report).stateDir = stateDir;
+}
+function redact(value: string) {
+  return value.replace(/(https?:\/\/)[^\s/@]+@/gi, "$1***@");
+}
+function appendLog(runtime: Runtime, text: string) {
+  const clean = redact(text.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, ""));
+  for (const line of clean.split(/\r?\n/).filter(Boolean))
+    runtime.logs.push(`[${new Date().toLocaleTimeString("zh-CN", { hour12: false })}] ${line}`);
+  const limit = logLimit("publish", runtime.stateDir);
+  if (runtime.logs.length > limit) runtime.logs.splice(0, runtime.logs.length - limit);
+}
 export function workspacePublishTask() {
-  return runtime.state === "running" && runtime.projectRoot
-    ? { kind: "publish" as const, projectRoot: runtime.projectRoot, canStop: false }
+  return store.active?.state === "running" && store.active.projectRoot
+    ? { kind: "publish" as const, projectRoot: store.active.projectRoot, canStop: false }
     : null;
 }
-
-function repositoryRoot(report: ProjectReport): string {
-  if (report.mode === "blocked") throw new PublishError("项目内容模式尚未就绪");
-  return path.resolve(report.contentRoot ?? report.root);
-}
-function requireWritable(report: ProjectReport) {
-  if (report.readOnly) throw new PublishError("当前工作区为只读，不能执行发布操作");
-}
-
-function normalizeGitPath(value: string): string {
-  return value.replaceAll("\\", "/").replace(/^\.\//, "");
-}
-
-function pathInside(root: string, target: string): boolean {
+function pathInside(root: string, target: string) {
   const relative = path.relative(path.resolve(root), path.resolve(target));
   return (
     relative === "" ||
     (!relative.startsWith(".." + path.sep) && relative !== ".." && !path.isAbsolute(relative))
   );
 }
-
+function normalizeGitPath(value: string) {
+  return value.replaceAll("\\", "/").replace(/^\.\//, "");
+}
+function requireWritable(report: ProjectReport) {
+  if (report.readOnly) {
+    appendLog(projectRuntime(report), "操作被拒绝：当前工作区为只读，不能提交或构建。");
+    throw new PublishError("当前工作区为只读，不能提交或构建");
+  }
+}
+function streamLogs(runtime: Runtime, stream: Readable | null) {
+  let pending = "";
+  stream?.setEncoding("utf8");
+  stream?.on("data", (chunk: string) => {
+    const lines = (pending + chunk).split(/\r?\n/);
+    pending = lines.pop() ?? "";
+    for (const line of lines) appendLog(runtime, line);
+    if (pending.length > 8192) {
+      appendLog(runtime, pending);
+      pending = "";
+    }
+  });
+  stream?.on("end", () => {
+    if (pending) appendLog(runtime, pending);
+  });
+}
 async function git(
-  root: string,
+  report: ProjectReport,
   args: string[],
-  options: { allowFailure?: boolean; timeout?: number } = {},
-): Promise<string> {
+  options: {
+    allowFailure?: boolean;
+    timeout?: number;
+    output?: boolean;
+    boundedDiff?: boolean;
+  } = {},
+) {
+  const runtime = projectRuntime(report);
+  appendLog(runtime, `$ git ${args.map((arg) => JSON.stringify(arg)).join(" ")}`);
   try {
-    const { stdout } = await execute("git", ["-C", root, ...args], {
+    const pending = execute("git", ["-C", path.resolve(report.root), ...args], {
       encoding: "utf8",
       windowsHide: true,
-      maxBuffer: MAX_BUFFER,
+      maxBuffer: options.boundedDiff ? MAX_DIFF_BYTES : MAX_BUFFER,
       timeout: options.timeout ?? 30_000,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_LITERAL_PATHSPECS: "1" },
+      env: {
+        ...process.env,
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_LITERAL_PATHSPECS: "1",
+        GIT_OPTIONAL_LOCKS: "0",
+      },
     });
+    if (options.output) {
+      streamLogs(runtime, pending.child.stdout);
+      streamLogs(runtime, pending.child.stderr);
+    }
+    const { stdout, stderr } = await pending;
+    if (!options.output && stderr.trim()) appendLog(runtime, stderr);
     return stdout;
-  } catch (error) {
+  } catch (cause) {
+    const error = cause as Error & { stderr?: string; stdout?: string; code?: string };
+    if (options.boundedDiff && error.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+      appendLog(runtime, "差异内容过大，仅显示前 256 KiB。");
+      return (error.stdout ?? "").slice(0, MAX_DIFF_BYTES) + "\n[差异已截断]";
+    }
     if (options.allowFailure) return "";
-    const failure = error as Error & { stderr?: string; stdout?: string };
-    throw new PublishError((failure.stderr || failure.stdout || failure.message).trim());
+    const message = redact((error.stderr || error.stdout || error.message).trim());
+    appendLog(runtime, `失败：${message}`);
+    throw new PublishError(message);
   }
 }
-
-async function assertRepository(root: string): Promise<void> {
-  const top = (await git(root, ["rev-parse", "--show-toplevel"])).trim();
-  if (
-    !pathInside(root, top) ||
-    !pathInside(top, root) ||
-    path.resolve(top).toLowerCase() !== path.resolve(root).toLowerCase()
-  ) {
-    throw new PublishError("内容目录不是独立的 Git 仓库根目录");
-  }
+async function assertRepository(report: ProjectReport) {
+  const root = path.resolve(report.root);
+  const top = (await git(report, ["rev-parse", "--show-toplevel"])).trim();
+  if (!pathInside(root, top) || !pathInside(top, root))
+    throw new PublishError("Mizuki 项目目录不是独立的 Git 仓库根目录");
 }
-
-function parseStatus(raw: string): Array<Omit<PublishChange, "managed">> {
-  const records = raw.split("\0");
-  const changes: Array<Omit<PublishChange, "managed">> = [];
+function parseStatus(raw: string): PublishChange[] {
+  const records = raw.split("\0"),
+    changes: PublishChange[] = [];
   for (let index = 0; index < records.length - 1; index++) {
     const record = records[index];
     if (!record) continue;
     const status = record.slice(0, 2);
-    const filePath = normalizeGitPath(record.slice(3));
-    const renamed = status.includes("R") || status.includes("C");
-    const originalPath = renamed ? normalizeGitPath(records[++index] ?? "") : null;
+    const originalPath =
+      status.includes("R") || status.includes("C")
+        ? normalizeGitPath(records[++index] ?? "")
+        : null;
     changes.push({
       status,
-      path: filePath,
+      path: normalizeGitPath(record.slice(3)),
       originalPath: originalPath || null,
       staged: status[0] !== " " && status[0] !== "?",
       conflict: status.includes("U") || ["AA", "DD"].includes(status),
@@ -170,392 +171,361 @@ function parseStatus(raw: string): Array<Omit<PublishChange, "managed">> {
   }
   return changes;
 }
-
-function managedRoots(report: ProjectReport, root: string): string[] {
-  return report.mappings.flatMap((mapping) => {
-    if (!pathInside(root, mapping.sourcePath)) return [];
-    const relative = normalizeGitPath(path.relative(root, mapping.sourcePath));
-    return relative && relative !== "." ? [relative.replace(/\/$/, "")] : [];
-  });
+async function changesFor(report: ProjectReport) {
+  await assertRepository(report);
+  return parseStatus(
+    await git(report, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]),
+  );
 }
-
-function isManaged(changePath: string, roots: string[]): boolean {
-  const normalized = normalizeGitPath(changePath);
-  return roots.some((root) => normalized === root || normalized.startsWith(root + "/"));
+async function ref(report: ProjectReport, args: string[]) {
+  return (await git(report, args, { allowFailure: true })).trim() || null;
 }
-
-async function changesFor(
-  report: ProjectReport,
-): Promise<{ root: string; changes: PublishChange[] }> {
-  const root = repositoryRoot(report);
-  await assertRepository(root);
-  const roots = managedRoots(report, root);
-  if (!roots.length) throw new PublishError("未找到可发布的受管理内容目录");
-  const raw = await git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
-  const changes = parseStatus(raw).map((change) => ({
-    ...change,
-    managed:
-      isManaged(change.path, roots) &&
-      (!change.originalPath || isManaged(change.originalPath, roots)),
-  }));
-  return { root, changes };
-}
-
-async function ref(root: string, args: string[]): Promise<string | null> {
-  const value = (await git(root, args, { allowFailure: true })).trim();
-  return value || null;
-}
-
-export async function publishOverview(report: ProjectReport): Promise<PublishOverview> {
-  const { root, changes } = await changesFor(report);
-  const branch = await ref(root, ["branch", "--show-current"]);
-  const upstream = await ref(root, [
-    "rev-parse",
-    "--abbrev-ref",
-    "--symbolic-full-name",
-    "@{upstream}",
-  ]);
-  const head = await ref(root, ["rev-parse", "HEAD"]);
-  const lastSubject = await ref(root, ["log", "-1", "--format=%s"]);
-  let ahead = 0;
-  let behind = 0;
-  if (upstream) {
-    const counts = (await git(root, ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"]))
-      .trim()
-      .split(/\s+/);
-    ahead = Number(counts[0]) || 0;
-    behind = Number(counts[1]) || 0;
+async function buildAvailability(report: ProjectReport) {
+  if (report.readOnly) return "当前工作区为只读";
+  try {
+    const pkg = JSON.parse(await readFile(path.join(report.root, "package.json"), "utf8"));
+    return typeof pkg.scripts?.build === "string" && pkg.scripts.build.trim()
+      ? null
+      : "Mizuki 项目未配置 build 脚本";
+  } catch {
+    return "无法读取 Mizuki 项目的 package.json";
   }
-  const managed = changes.filter((change) => change.managed);
-  const unmanaged = changes.filter((change) => !change.managed);
-  const staged = changes.filter((change) => change.staged);
-  const conflicts = changes.filter((change) => change.conflict);
-  const checks: PublishCheck[] = [
-    {
-      key: "writable",
-      label: "工作区可写",
-      status: report.readOnly ? "error" : "pass",
-      detail: report.readOnly
-        ? "当前工作区只读，仅可查看发布状态与差异"
-        : report.mode === "external"
-          ? "独立内容仓库可写"
-          : "Mizuki 本地内容可写",
-    },
-    {
-      key: "branch",
-      label: "Git 分支",
-      status: branch ? "pass" : "error",
-      detail: branch ? `当前分支：${branch}` : "当前处于游离 HEAD，不能发布",
-    },
-    {
-      key: "conflicts",
-      label: "合并冲突",
-      status: conflicts.length ? "error" : "pass",
-      detail: conflicts.length ? `存在 ${conflicts.length} 个未解决冲突` : "未发现合并冲突",
-    },
-    {
-      key: "staged",
-      label: "暂存区",
-      status: staged.length ? "error" : "pass",
-      detail: staged.length
-        ? `已有 ${staged.length} 项暂存内容，请先提交或取消暂存`
-        : "没有预先暂存的内容",
-    },
-    {
-      key: "managed",
-      label: "可发布内容",
-      status: managed.length ? "pass" : "warning",
-      detail: managed.length ? `${managed.length} 项受管理内容变更` : "没有待发布的内容变更",
-    },
-    {
-      key: "unmanaged",
-      label: "无关文件隔离",
-      status: unmanaged.length ? "warning" : "pass",
-      detail: unmanaged.length ? `${unmanaged.length} 项无关变更不会被发布` : "没有检测到无关变更",
-    },
-    {
-      key: "upstream",
-      label: "远程跟踪",
-      status: upstream ? "pass" : "warning",
-      detail: upstream ? `上游：${upstream}` : "尚未配置上游分支，可以提交但不能从面板推送",
-    },
-  ];
-  const blocking = report.readOnly || !branch || conflicts.length > 0 || staged.length > 0;
-  const cleanManaged = managed.length === 0;
-  const syncedHead =
-    report.mode === "external" && head ? syncedHeads.get(report.root) === head : true;
-  return {
-    mode: report.mode,
-    repositoryLabel: report.mode === "external" ? "独立内容仓库" : "Mizuki 仓库",
-    repositoryRoot: root,
-    branch,
-    upstream,
-    ahead,
-    behind,
-    head,
-    lastSubject,
-    changes,
-    checks,
-    canCommit: !blocking && managed.length > 0,
-    canPush: Boolean(!report.readOnly && branch && upstream && ahead > 0 && !conflicts.length),
-    canSync: report.mode === "external" && !blocking && cleanManaged,
-    canBuild: !blocking && cleanManaged && syncedHead,
-  };
 }
-
-function findSelected(changes: PublishChange[], selected: string[]): PublishChange[] {
+export async function publishOverview(report: ProjectReport): Promise<PublishOverview> {
+  const runtime = projectRuntime(report);
+  appendLog(runtime, `正在读取 Mizuki 仓库：${path.resolve(report.root)}`);
+  const buildDisabledReason = await buildAvailability(report);
+  const base = {
+    repositoryRoot: path.resolve(report.root),
+    canBuild: !buildDisabledReason,
+    buildDisabledReason,
+  };
+  try {
+    const changes = await changesFor(report);
+    const branch = await ref(report, ["branch", "--show-current"]);
+    const head = await ref(report, ["rev-parse", "--verify", "HEAD"]);
+    const upstream = await ref(report, [
+      "rev-parse",
+      "--abbrev-ref",
+      "--symbolic-full-name",
+      "@{upstream}",
+    ]);
+    let ahead = 0,
+      behind = 0;
+    if (head && upstream) {
+      const counts = (
+        await git(report, ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"])
+      )
+        .trim()
+        .split(/\s+/);
+      ahead = Number(counts[0]) || 0;
+      behind = Number(counts[1]) || 0;
+    }
+    const remotes: PublishRemote[] = [];
+    for (const name of (await git(report, ["remote"])).split(/\r?\n/).filter(Boolean)) {
+      remotes.push({
+        name,
+        fetchUrls: (await git(report, ["remote", "get-url", "--all", name]))
+          .trim()
+          .split(/\r?\n/)
+          .filter(Boolean)
+          .map(redact),
+        pushUrls: (await git(report, ["remote", "get-url", "--push", "--all", name]))
+          .trim()
+          .split(/\r?\n/)
+          .filter(Boolean)
+          .map(redact),
+      });
+    }
+    const commitDisabledReason = report.readOnly
+      ? "当前工作区为只读"
+      : !branch
+        ? "当前处于游离 HEAD"
+        : changes.some((c) => c.conflict)
+          ? "请先解决 Git 合并冲突"
+          : changes.some((c) => c.staged)
+            ? "暂存区已有内容，请先在终端处理暂存项"
+            : !changes.length
+              ? "没有待提交的修改"
+              : null;
+    appendLog(
+      runtime,
+      `读取完成：分支 ${branch ?? "游离 HEAD"}，${changes.length} 项修改，${remotes.length} 个远程仓库。`,
+    );
+    return {
+      ...base,
+      repositoryAvailable: true,
+      repositoryError: null,
+      branch,
+      upstream,
+      head,
+      ahead,
+      behind,
+      changes,
+      remotes,
+      canCommit: !commitDisabledReason,
+      commitDisabledReason,
+    };
+  } catch (cause) {
+    const message = (cause as Error).message;
+    appendLog(runtime, `仓库读取失败：${message}`);
+    return {
+      ...base,
+      repositoryAvailable: false,
+      repositoryError: message,
+      branch: null,
+      upstream: null,
+      head: null,
+      ahead: 0,
+      behind: 0,
+      changes: [],
+      remotes: [],
+      canCommit: false,
+      commitDisabledReason: message,
+    };
+  }
+}
+function validateSha(sha: string) {
+  if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(sha)) throw new PublishError("提交标识无效");
+  return sha;
+}
+export async function publishHistory(
+  report: ProjectReport,
+  page = 1,
+  head?: string,
+): Promise<PublishHistory> {
+  if (!Number.isInteger(page) || page < 1 || page > 100000) throw new PublishError("历史页码无效");
+  await assertRepository(report);
+  const anchor = head ? validateSha(head) : await ref(report, ["rev-parse", "--verify", "HEAD"]);
+  if (!anchor) return { commits: [], total: 0, page: 1, pageSize: 20, head: null };
+  const total = Number((await git(report, ["rev-list", "--count", anchor])).trim());
+  const raw = await git(report, [
+    "log",
+    anchor,
+    "--date-order",
+    "-z",
+    "--format=%H%x00%an%x00%ae%x00%aI%x00%s%x00%P%x00%D",
+    `--skip=${(page - 1) * 20}`,
+    "-20",
+  ]);
+  const fields = raw.split("\0"),
+    commits: PublishHistory["commits"] = [];
+  for (let index = 0; index + 6 < fields.length; index += 7) {
+    const [sha, author, email, date, subject, parents, refs] = fields.slice(index, index + 7);
+    commits.push({
+      sha,
+      author,
+      email,
+      date,
+      subject,
+      parents: parents.split(" ").filter(Boolean),
+      refs,
+    });
+  }
+  appendLog(
+    projectRuntime(report),
+    `已读取提交历史第 ${page} 页：${commits.length} / ${total} 条。`,
+  );
+  return { commits, total, page, pageSize: 20, head: anchor };
+}
+export async function publishCommitDetail(
+  report: ProjectReport,
+  sha: string,
+): Promise<PublishCommitDetail> {
+  validateSha(sha);
+  await assertRepository(report);
+  const message = (await git(report, ["show", "--no-patch", "--format=%B", sha])).trim();
+  const diff = await git(
+    report,
+    ["show", "--format=", "--stat", "--patch", "--no-ext-diff", "--no-textconv", sha],
+    { boundedDiff: true },
+  );
+  appendLog(projectRuntime(report), `已读取提交 ${sha.slice(0, 12)} 的说明与差异。`);
+  return { sha, message, diff, truncated: diff.endsWith("[差异已截断]") };
+}
+function findSelected(report: ProjectReport, changes: PublishChange[], selected: string[]) {
+  if (
+    !selected.length ||
+    selected.length > 500 ||
+    selected.some(
+      (p) =>
+        typeof p !== "string" ||
+        !p ||
+        p.includes("\0") ||
+        !pathInside(report.root, path.resolve(report.root, p)),
+    )
+  )
+    throw new PublishError("请选择项目内的待提交文件（最多 500 项）");
   const wanted = new Set(selected.map(normalizeGitPath));
-  if (!wanted.size) throw new PublishError("请至少选择一个待提交文件");
-  const found = changes.filter((change) => wanted.has(change.path));
+  const found = changes.filter((c) => wanted.has(c.path));
   if (found.length !== wanted.size)
-    throw new PublishError("选择中包含已变化或不存在的文件，请刷新后重试");
-  if (found.some((change) => !change.managed)) throw new PublishError("只能提交面板管理的内容文件");
-  if (found.some((change) => change.conflict))
-    throw new PublishError("所选文件包含未解决的 Git 冲突");
+    throw new PublishError("所选文件已经变化或不存在，请刷新后重试");
+  if (found.some((c) => c.conflict)) throw new PublishError("所选文件包含未解决的 Git 冲突");
   return found;
 }
-
-function selectedPaths(changes: PublishChange[]): string[] {
+function selectedPaths(changes: PublishChange[]) {
   return [
-    ...new Set(
-      changes.flatMap((change) => [
-        change.path,
-        ...(change.originalPath ? [change.originalPath] : []),
-      ]),
-    ),
+    ...new Set(changes.flatMap((c) => [c.path, ...(c.originalPath ? [c.originalPath] : [])])),
   ];
 }
-
-export function validateCommitMessage(message: string): string {
+export function validateCommitMessage(message: string) {
   const normalized = message.replaceAll("\r\n", "\n").trim();
   if (!normalized || normalized.length > 5000 || normalized.includes("\0"))
     throw new PublishError("提交说明不能为空且不能超过 5000 个字符");
   const subject = normalized.split("\n", 1)[0];
   if (subject.length > 100) throw new PublishError("提交标题不能超过 100 个字符");
-  if (!/^[a-z][a-z0-9-]*(\([a-z0-9][a-z0-9._/-]*\))?!?: .+/.test(subject)) {
-    throw new PublishError(
-      "提交说明需遵循 Conventional Commits，例如 feat(content): publish blog updates",
-    );
-  }
+  if (!/^[a-z][a-z0-9-]*(\([a-z0-9][a-z0-9._/-]*\))?!?: .+/.test(subject))
+    throw new PublishError("提交说明需遵循 Conventional Commits，例如 feat(content): update posts");
   return normalized;
 }
-
-export async function publishDiff(report: ProjectReport, selectedPath: string): Promise<string> {
-  const { root, changes } = await changesFor(report);
-  const [change] = findSelected(changes, [selectedPath]);
-  const paths = selectedPaths([change]);
+export async function publishDiff(report: ProjectReport, selectedPath: string) {
+  const changes = await changesFor(report);
+  const [change] = findSelected(report, changes, [selectedPath]);
   if (change.status === "??") {
-    const absolute = path.resolve(root, change.path);
-    if (!pathInside(root, absolute)) throw new PublishError("文件路径越过仓库边界");
-    const info = await lstat(absolute);
+    const absolute = path.resolve(report.root, change.path),
+      info = await lstat(absolute);
     if (!info.isFile() || info.isSymbolicLink()) throw new PublishError("只能预览普通文件");
-    if (info.size > MAX_DIFF_BYTES)
-      return `新文件 ${change.path}（${info.size} 字节），内容过大，未显示差异。`;
+    if (info.size > MAX_DIFF_BYTES) return `新文件 ${change.path}（${info.size} 字节），内容过大。`;
     const content = await readFile(absolute);
-    if (content.includes(0)) return `新文件 ${change.path} 是二进制文件，未显示文本差异。`;
-    const lines = content
+    if (content.includes(0)) return `新文件 ${change.path} 是二进制文件。`;
+    appendLog(projectRuntime(report), `已读取新文件差异：${change.path}`);
+    return `+++ ${change.path}\n${content
       .toString("utf8")
       .split(/\r?\n/)
       .map((line) => `+${line}`)
-      .join("\n");
-    return `diff --git a/${change.path} b/${change.path}\nnew file mode 100644\n--- /dev/null\n+++ b/${change.path}\n@@ -0,0 +1 @@\n${lines}`;
+      .join("\n")}`;
   }
-  const output = await git(root, ["diff", "--no-ext-diff", "--text", "HEAD", "--", ...paths]);
-  return output || "所选文件没有可显示的文本差异。";
+  const head = await ref(report, ["rev-parse", "--verify", "HEAD"]);
+  const diff = await git(
+    report,
+    [
+      "diff",
+      "--no-ext-diff",
+      "--no-textconv",
+      ...(head ? [head] : ["--cached"]),
+      "--",
+      ...selectedPaths([change]),
+    ],
+    { boundedDiff: true },
+  );
+  appendLog(projectRuntime(report), `已读取工作区差异：${change.path}`);
+  return diff;
 }
-
+function begin(report: ProjectReport, kind: "commit" | "build", stateDir?: string) {
+  if (store.active) throw new PublishError("已有提交或构建任务正在运行，请等待完成");
+  requireWritable(report);
+  const runtime = projectRuntime(report);
+  runtime.stateDir = stateDir;
+  runtime.kind = kind;
+  runtime.state = "running";
+  runtime.startedAt = new Date().toISOString();
+  runtime.finishedAt = null;
+  runtime.error = null;
+  store.active = runtime;
+  appendLog(runtime, kind === "build" ? "开始构建 Mizuki…" : "开始提交所选文件…");
+  return runtime;
+}
+function finish(runtime: Runtime, cause?: unknown) {
+  runtime.state = cause ? "failed" : "succeeded";
+  runtime.error = cause ? (cause as Error).message : null;
+  runtime.finishedAt = new Date().toISOString();
+  appendLog(runtime, cause ? `任务失败：${runtime.error}` : "任务执行成功。");
+  if (store.active === runtime) store.active = null;
+}
 export async function commitSelected(
   report: ProjectReport,
   selected: string[],
   message: string,
-): Promise<{ sha: string; subject: string }> {
-  requireWritable(report);
-  const subject = validateCommitMessage(message);
-  const { root, changes } = await changesFor(report);
-  if (changes.some((change) => change.staged))
-    throw new PublishError("暂存区已有内容；为避免混入无关文件，请先处理现有暂存项");
-  if (changes.some((change) => change.conflict)) throw new PublishError("仓库存在未解决的合并冲突");
-  const paths = selectedPaths(findSelected(changes, selected));
+  stateDir?: string,
+) {
+  await readLogRetention(stateDir);
+  const runtime = begin(report, "commit", stateDir);
+  let paths: string[] = [],
+    added = false,
+    hadHead = false;
   try {
-    await git(root, ["add", "-A", "--", ...paths]);
-    const cached = (await git(root, ["diff", "--cached", "--name-only", "-z"]))
+    const subject = validateCommitMessage(message);
+    const changes = await changesFor(report);
+    if (changes.some((c) => c.staged)) throw new PublishError("暂存区已有内容；请先处理现有暂存项");
+    if (changes.some((c) => c.conflict)) throw new PublishError("仓库存在未解决的合并冲突");
+    if (!(await ref(report, ["branch", "--show-current"])))
+      throw new PublishError("游离 HEAD 不能创建提交");
+    hadHead = Boolean(await ref(report, ["rev-parse", "--verify", "HEAD"]));
+    paths = selectedPaths(findSelected(report, changes, selected));
+    added = true;
+    await git(report, ["add", "-A", "--", ...paths]);
+    const cached = (await git(report, ["diff", "--cached", "--name-only", "-z"]))
       .split("\0")
       .filter(Boolean)
       .map(normalizeGitPath);
-    if (!cached.length || cached.some((entry) => !paths.includes(entry))) {
+    if (!cached.length || cached.some((entry) => !paths.includes(entry)))
       throw new PublishError("暂存结果与所选文件不一致，已取消提交");
-    }
-    await git(root, ["commit", "-m", subject], { timeout: 60_000 });
-  } catch (error) {
-    await git(root, ["restore", "--staged", "--", ...paths], { allowFailure: true });
-    throw error;
+    await git(report, ["commit", "-m", subject], { timeout: 60_000, output: true });
+    added = false;
+    const sha = (await git(report, ["rev-parse", "HEAD"])).trim();
+    finish(runtime);
+    return { sha, subject: subject.split("\n", 1)[0] };
+  } catch (cause) {
+    if (added)
+      await git(
+        report,
+        hadHead
+          ? ["restore", "--staged", "--", ...paths]
+          : ["rm", "--cached", "-r", "--ignore-unmatch", "--", ...paths],
+        { allowFailure: true },
+      );
+    finish(runtime, cause);
+    throw cause;
   }
-  const sha = (await git(root, ["rev-parse", "HEAD"])).trim();
-  panelCommits.set(root, { sha, paths });
-  return { sha, subject: subject.split("\n", 1)[0] };
 }
-
-export async function pushCurrentBranch(
-  report: ProjectReport,
-): Promise<{ head: string; upstream: string }> {
-  requireWritable(report);
-  const overview = await publishOverview(report);
-  if (!overview.branch) throw new PublishError("游离 HEAD 不能推送");
-  if (!overview.upstream) throw new PublishError("当前分支没有上游；请先在终端明确配置推送目标");
-  if (overview.changes.some((change) => change.conflict))
-    throw new PublishError("仓库存在未解决的合并冲突");
-  await git(overview.repositoryRoot, ["push"], { timeout: 120_000 });
-  return {
-    head: (await git(overview.repositoryRoot, ["rev-parse", "HEAD"])).trim(),
-    upstream: overview.upstream,
-  };
-}
-
-export async function revertPanelCommit(report: ProjectReport): Promise<{ sha: string }> {
-  requireWritable(report);
-  const root = repositoryRoot(report);
-  await assertRepository(root);
-  const previous = panelCommits.get(root);
-  if (!previous) throw new PublishError("本次面板会话中没有可还原的发布提交");
-  const head = (await git(root, ["rev-parse", "HEAD"])).trim();
-  if (head !== previous.sha)
-    throw new PublishError("仓库 HEAD 已变化，不能自动还原；请人工检查历史");
-  const dirty = (await git(root, ["status", "--porcelain=v1", "--", ...previous.paths])).trim();
-  if (dirty) throw new PublishError("已提交文件又发生变化，不能自动还原");
+async function runBuild(report: ProjectReport, runtime: Runtime) {
   try {
-    await git(root, ["revert", "--no-edit", previous.sha], { timeout: 60_000 });
-  } catch (error) {
-    await git(root, ["revert", "--abort"], { allowFailure: true });
-    throw error;
-  }
-  panelCommits.delete(root);
-  return { sha: (await git(root, ["rev-parse", "HEAD"])).trim() };
-}
-
-function appendLog(line: string): void {
-  const clean = line.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
-  for (const item of clean.split(/\r?\n/).filter(Boolean)) {
-    runtime.logs.push(`[${new Date().toLocaleTimeString("zh-CN", { hour12: false })}] ${item}`);
-  }
-  const limit = logLimit("publish", runtime.stateDir);
-  if (runtime.logs.length > limit) runtime.logs.splice(0, runtime.logs.length - limit);
-}
-
-function pnpmProcess(cwd: string, args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const command = process.platform === "win32" ? (process.env.ComSpec ?? "cmd.exe") : "pnpm";
-    const commandArgs =
-      process.platform === "win32" ? ["/d", "/s", "/c", "pnpm.cmd", ...args] : args;
-    const child = spawn(command, commandArgs, {
-      cwd,
-      windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, CI: "1", BROWSER: "none", ASTRO_TELEMETRY_DISABLED: "1" },
+    await new Promise<void>((resolve, reject) => {
+      appendLog(runtime, `$ pnpm run build · ${path.resolve(report.root)}`);
+      const windows = process.platform === "win32";
+      const child = spawn(
+        windows ? (process.env.ComSpec ?? "cmd.exe") : "pnpm",
+        windows ? ["/d", "/s", "/c", "pnpm.cmd", "run", "build"] : ["run", "build"],
+        {
+          cwd: report.root,
+          windowsHide: true,
+          stdio: ["ignore", "pipe", "pipe"],
+          env: { ...process.env, CI: "1", BROWSER: "none", ASTRO_TELEMETRY_DISABLED: "1" },
+        },
+      );
+      streamLogs(runtime, child.stdout);
+      streamLogs(runtime, child.stderr);
+      child.once("error", reject);
+      child.once("close", (code, signal) =>
+        code === 0
+          ? resolve()
+          : reject(new PublishError(`构建失败（退出码 ${code ?? "-"}，信号 ${signal ?? "-"}）`)),
+      );
     });
-    runtime.child = child;
-    child.stdout?.on("data", (chunk) => appendLog(chunk.toString()));
-    child.stderr?.on("data", (chunk) => appendLog(chunk.toString()));
-    child.once("error", reject);
-    child.once("exit", (code, signal) => {
-      runtime.child = null;
-      if (code === 0) resolve();
-      else
-        reject(
-          new PublishError(
-            `命令 pnpm ${args.join(" ")} 失败（code=${code ?? "-"}, signal=${signal ?? "-"}）`,
-          ),
-        );
-    });
-  });
-}
-
-async function runOperation(
-  report: ProjectReport,
-  kind: NonNullable<PublishOperationStatus["kind"]>,
-): Promise<void> {
-  try {
-    if (kind === "validate") {
-      if (report.mode === "external") await pnpmProcess(report.root, ["sync-content"]);
-      await pnpmProcess(report.root, ["check"]);
-      await pnpmProcess(report.root, ["type-check"]);
-    } else if (kind === "sync") {
-      await pnpmProcess(report.root, ["sync-content"]);
-      const contentRoot = repositoryRoot(report);
-      syncedHeads.set(report.root, (await git(contentRoot, ["rev-parse", "HEAD"])).trim());
-    } else {
-      await pnpmProcess(report.root, ["build"]);
-    }
-    runtime.state = "succeeded";
-    appendLog(
-      kind === "validate"
-        ? "发布校验完成。"
-        : kind === "sync"
-          ? "独立内容同步完成。"
-          : "Mizuki 构建完成。",
-    );
-  } catch (error) {
-    runtime.state = "failed";
-    runtime.error = error instanceof Error ? error.message : "操作失败";
-    appendLog(`失败：${runtime.error}`);
-  } finally {
-    runtime.finishedAt = new Date().toISOString();
-    runtime.child = null;
+    finish(runtime);
+  } catch (cause) {
+    finish(runtime, cause);
   }
 }
-
 export async function startPublishOperation(
   report: ProjectReport,
-  kind: NonNullable<PublishOperationStatus["kind"]>,
+  kind: "build",
   stateDir?: string,
-): Promise<PublishOperationStatus> {
+) {
+  if (kind !== "build") throw new PublishError("仅支持 Mizuki 构建操作");
   requireWritable(report);
-  if (runtime.state === "running") throw new PublishError("已有发布操作正在运行");
-  if (!["validate", "sync", "build"].includes(kind)) throw new PublishError("不支持的发布操作");
-  const overview = await publishOverview(report);
-  if (kind === "sync") {
-    if (report.mode !== "external") throw new PublishError("本地内容模式不需要同步");
-    if (!overview.canSync)
-      throw new PublishError("请先提交所有受管理内容并解决 Git 状态问题，再执行同步");
-  }
-  if (kind === "build" && !overview.canBuild) {
-    throw new PublishError(
-      report.mode === "external"
-        ? "请先提交内容并完成当前版本的独立仓库同步"
-        : "请先提交受管理内容并解决 Git 状态问题",
-    );
+  const reason = await buildAvailability(report);
+  if (reason) {
+    appendLog(projectRuntime(report), `构建未启动：${reason}`);
+    throw new PublishError(reason);
   }
   await readLogRetention(stateDir);
-  runtime.stateDir = stateDir;
-  runtime.kind = kind;
-  runtime.state = "running";
-  runtime.projectRoot = report.root;
-  runtime.startedAt = new Date().toISOString();
-  runtime.finishedAt = null;
-  runtime.logs = [];
-  runtime.error = null;
-  appendLog(
-    kind === "validate"
-      ? "开始运行 Astro 检查和 TypeScript 类型检查…"
-      : kind === "sync"
-        ? "开始安全同步独立内容仓库…"
-        : "开始构建 Mizuki…",
-  );
-  void runOperation(report, kind);
+  const runtime = begin(report, "build", stateDir);
+  void runBuild(report, runtime);
   return publishOperationStatus(report);
 }
-
 export function publishOperationStatus(report: ProjectReport): PublishOperationStatus {
-  if (runtime.projectRoot && path.resolve(runtime.projectRoot) !== path.resolve(report.root)) {
-    return {
-      kind: null,
-      state: "idle",
-      projectRoot: report.root,
-      startedAt: null,
-      finishedAt: null,
-      logs: [],
-      error: null,
-    };
-  }
+  const runtime = projectRuntime(report);
   return {
     kind: runtime.kind,
     state: runtime.state,

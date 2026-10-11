@@ -10,7 +10,7 @@ const names: Record<string, string> = {
   "/features": "特色页面",
   "/media": "媒体库",
   "/preview": "预览",
-  "/publish": "发布工作流",
+  "/publish": "发布管理",
   "/about": "面板信息",
   "/settings": "设置",
   "/login": "登录页面",

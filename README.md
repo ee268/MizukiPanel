@@ -1,6 +1,6 @@
 # MizukiPanel
 
-Mizuki 博客的本机管理面板。界面使用 React 与 Material UI，采用顶部标题栏、左侧主导航和右侧内容区。当前已完成文章、18 项站点配置、全部特色页、公共图片与文章资源、Mizuki预览及发布工作流。项目的模块边界与扩展约定见 [架构说明](docs/ARCHITECTURE.md)，安全同步与存储见 [阶段 2 说明](docs/STAGE_2.md)，文章操作见 [阶段 3 说明](docs/STAGE_3.md)，媒体与预览见 [阶段 4 说明](docs/STAGE_4.md)，配置管理见 [阶段 5 说明](docs/STAGE_5.md)，特色页管理见 [阶段 6 说明](docs/STAGE_6.md)，发布流程见 [发布工作流](docs/PUBLISHING.md)，界面迁移见 [React + Material UI 迁移说明](docs/REACT_MUI_MIGRATION.md)。
+Mizuki 博客的本机管理面板。界面使用 React 与 Material UI，采用顶部标题栏、左侧主导航和右侧内容区。当前已完成文章、18 项站点配置、全部特色页、公共图片、Mizuki预览及发布管理。项目的模块边界与扩展约定见 [架构说明](docs/ARCHITECTURE.md)，安全同步与存储见 [阶段 2 说明](docs/STAGE_2.md)，文章操作见 [阶段 3 说明](docs/STAGE_3.md)，媒体与预览见 [阶段 4 说明](docs/STAGE_4.md)，配置管理见 [阶段 5 说明](docs/STAGE_5.md)，特色页管理见 [阶段 6 说明](docs/STAGE_6.md)，Git 提交历史、分支、远程仓库和构建日志见 [发布管理](docs/PUBLISHING.md)，界面迁移见 [React + Material UI 迁移说明](docs/REACT_MUI_MIGRATION.md)。
 
 文章默认使用 [Vditor](https://github.com/Vanessa219/vditor) 即时渲染编辑器，支持所见即所得、分屏预览、图片插入和撤销/重做。正文统一使用 Vditor，Frontmatter 使用独立表单；原独立源码模式与 Milkdown 编辑器已移除。资源随面板本地打包，接入与兼容边界见 [Vditor 编辑器说明](docs/VDITOR_EDITOR.md)。
 

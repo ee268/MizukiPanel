@@ -195,7 +195,7 @@ export function WorkspaceSettingsForms({
             ["/features", "特色页面"],
             ["/media", "媒体管理"],
             ["/preview", "本地预览"],
-            ["/publish", "发布工作流"],
+            ["/publish", "发布管理"],
           ].map(([value, label]) => (
             <MenuItem key={value} value={value}>
               {label}

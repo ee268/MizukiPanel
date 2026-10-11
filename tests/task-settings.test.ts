@@ -248,13 +248,13 @@ it("bounds publish logs with saved machine preferences during real fixture opera
   const { report, stateDir, root, save } = await fixture();
   await writeFile(
     path.join(root, "package.json"),
-    JSON.stringify({ scripts: { check: "node task.mjs", "type-check": "node task.mjs" } }),
+    JSON.stringify({ scripts: { build: "node task.mjs" } }),
   );
   await writeFile(path.join(root, "task.mjs"), "for(let i=0;i<350;i++)console.log('fixture '+i);");
   execFileSync("git", ["-C", root, "init"]);
   await save("machine", "logs", { publish: 100 });
   await readLogRetention(stateDir);
-  await startPublishOperation(report, "validate", stateDir);
+  await startPublishOperation(report, "build", stateDir);
   await vi.waitFor(() => expect(publishOperationStatus(report).state).toBe("succeeded"), {
     timeout: 20000,
     interval: 100,

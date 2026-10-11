@@ -1,6 +1,4 @@
-import CloudUploadOutlined from "@mui/icons-material/CloudUploadOutlined";
 import DifferenceOutlined from "@mui/icons-material/DifferenceOutlined";
-import RestoreOutlined from "@mui/icons-material/RestoreOutlined";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import {
   Box,
@@ -23,7 +21,6 @@ import {
 } from "@mui/material";
 import type { PublishOverview } from "../types";
 import { statusLabel } from "./constants";
-import type { PublishDialog } from "./usePublish";
 import { commitTypes, validCommitScope } from "../../shared/task-settings";
 
 interface PublishChangesProps {
@@ -42,7 +39,6 @@ interface PublishChangesProps {
   onCommitDescriptionChange: (value: string) => void;
   onShowDiff: (path: string) => void;
   onCommit: () => void;
-  onOpenDialog: (dialog: PublishDialog) => void;
 }
 
 export function PublishChanges({
@@ -61,7 +57,6 @@ export function PublishChanges({
   onCommitDescriptionChange,
   onShowDiff,
   onCommit,
-  onOpenDialog,
 }: PublishChangesProps) {
   return (
     <Paper variant="outlined">
@@ -73,7 +68,7 @@ export function PublishChanges({
         <Box>
           <Typography variant="h6">选择提交内容</Typography>
           <Typography variant="body2" color="text.secondary">
-            只会暂存并提交勾选的受管理文件。
+            从 Mizuki 项目工作区中选择文件，只提交勾选的修改。
           </Typography>
         </Box>
         <FormControlLabel
@@ -82,29 +77,32 @@ export function PublishChanges({
               checked={allSelected}
               indeterminate={selected.length > 0 && !allSelected}
               onChange={onToggleAll}
+              disabled={disabled || !overview.canCommit}
             />
           }
-          label="全选可发布项"
+          label="全选可提交文件"
         />
       </Stack>
       <Divider />
 
       {overview.changes.length ? (
-        <List disablePadding>
+        <List disablePadding sx={{ maxHeight: 440, overflow: "auto" }}>
           {overview.changes.map((change) => {
-            const enabled = change.managed && !change.conflict && !change.staged;
+            const enabled = !disabled && overview.canCommit && !change.conflict && !change.staged;
             return (
               <ListItem
                 key={`${change.status}-${change.path}`}
                 disablePadding
                 secondaryAction={
-                  change.managed && (
-                    <Tooltip title="查看差异">
-                      <IconButton onClick={() => onShowDiff(change.path)}>
-                        <DifferenceOutlined />
-                      </IconButton>
-                    </Tooltip>
-                  )
+                  <Tooltip title="查看差异">
+                    <IconButton
+                      aria-label={`查看 ${change.path} 的差异`}
+                      onClick={() => onShowDiff(change.path)}
+                      disabled={change.conflict}
+                    >
+                      <DifferenceOutlined />
+                    </IconButton>
+                  </Tooltip>
                 }
               >
                 <ListItemButton
@@ -120,7 +118,11 @@ export function PublishChanges({
                   />
                   <ListItemText
                     primary={
-                      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        sx={{ alignItems: "center", flexWrap: "wrap" }}
+                      >
                         <Typography
                           component="span"
                           sx={{
@@ -135,7 +137,7 @@ export function PublishChanges({
                           label={statusLabel(change)}
                           color={change.conflict ? "error" : "default"}
                         />
-                        {!change.managed && <Chip size="small" label="不属于管理范围" />}
+                        {change.staged && <Chip size="small" label="已暂存" />}
                       </Stack>
                     }
                     secondary={change.originalPath ? `原路径：${change.originalPath}` : undefined}
@@ -158,6 +160,7 @@ export function PublishChanges({
             fullWidth
             select
             label="提交类型"
+            disabled={disabled}
             value={commitType}
             onChange={(event) => onCommitTypeChange(event.target.value)}
           >
@@ -170,6 +173,7 @@ export function PublishChanges({
           <TextField
             fullWidth
             label="提交作用域"
+            disabled={disabled}
             value={commitScope}
             onChange={(event) => onCommitScopeChange(event.target.value)}
             error={!validCommitScope(commitScope)}
@@ -178,6 +182,7 @@ export function PublishChanges({
         </Stack>
         <TextField
           label="提交说明"
+          disabled={disabled}
           value={commitDescription}
           onChange={(event) => onCommitDescriptionChange(event.target.value)}
           helperText="填写本次变更说明；类型和作用域会自动组成 Conventional Commit。正文不记忆。"
@@ -197,7 +202,7 @@ export function PublishChanges({
         <Typography variant="caption" color="text.secondary">
           {overview.preferences?.remember
             ? "提交成功后记住类型与作用域；文件勾选和正文不保存为默认值。"
-            : "发布默认值记忆未开启；本次填写不会作为下次默认值。"}
+            : "提交默认值记忆未开启；本次填写不会作为下次默认值。"}
         </Typography>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
           <Button
@@ -213,23 +218,6 @@ export function PublishChanges({
             }
           >
             提交所选文件
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<CloudUploadOutlined />}
-            onClick={() => onOpenDialog("push")}
-            disabled={disabled || !overview.canPush}
-          >
-            推送当前分支
-          </Button>
-          <Button
-            color="warning"
-            variant="text"
-            startIcon={<RestoreOutlined />}
-            onClick={() => onOpenDialog("revert")}
-            disabled={disabled}
-          >
-            还原面板提交
           </Button>
         </Stack>
       </Stack>

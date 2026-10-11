@@ -108,12 +108,12 @@ export function TaskSettingsForms({
             helperText="100—5000，默认 300；本机后续日志追加时生效。"
           />
           <TextField
-            label="发布日志条数"
+            label="Git 与构建日志条数"
             type="number"
             value={retention.value.publish}
             onChange={(event) => retention.change({ publish: Number(event.target.value) })}
             slotProps={{ htmlInput: { min: 100, max: 5000 } }}
-            helperText="100—5000，默认 500；只保留日志，不改变运行中的发布任务。"
+            helperText="100—5000，默认 500；只保留日志，不改变运行中的提交或构建。"
           />
         </Stack>
       </ScopedCard>
@@ -140,7 +140,7 @@ export function TaskSettingsForms({
           />
         </Stack>
       </SettingsCard>
-      <ScopedCard title="发布表单默认值" controller={publish}>
+      <ScopedCard title="Git 提交默认值" controller={publish}>
         <Stack spacing={3}>
           <FormControlLabel
             control={
