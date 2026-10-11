@@ -24,9 +24,11 @@ export function useConfigs() {
   const [configs, setConfigs] = useState<ConfigDescriptor[]>([]);
   const [loadedReport, setReport] = useState<ProjectReport | null>(null);
   const report = useLiveProjectReport(loadedReport);
-  const [selected, setSelected] = useState(() => searchParams.get("key") ?? "siteConfig");
+  const selected = searchParams.get("key") || null;
+  const [indexLoading, setIndexLoading] = useState(true);
   const [loadedDocument, setDocument] = useState<SiteConfigDocument | null>(null);
-  const document = useLiveProjectDocument(loadedDocument);
+  const liveDocument = useLiveProjectDocument(loadedDocument);
+  const document = liveDocument?.descriptor.key === selected ? liveDocument : null;
   const [initializer, setInitializer] = useState("");
   const [busy, setBusy] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
@@ -43,22 +45,25 @@ export function useConfigs() {
   });
 
   useEffect(() => {
+    let alive = true;
     api<{ report: ProjectReport; configs: ConfigDescriptor[] }>("/api/configs")
       .then((data) => {
+        if (!alive) return;
         setConfigs(data.configs);
         setReport(data.report);
       })
-      .catch((cause) => setError(errorMessage(cause, "配置清单读取失败")));
+      .catch((cause) => {
+        if (alive) setError(errorMessage(cause, "配置清单读取失败"));
+      })
+      .finally(() => {
+        if (alive) setIndexLoading(false);
+      });
     return () => {
+      alive = false;
       generation.current++;
       editSession.current = null;
     };
   }, []);
-  useEffect(() => {
-    const requested = searchParams.get("key");
-    if (requested && configs.some((item) => item.key === requested)) setSelected(requested);
-  }, [configs, searchParams]);
-
   const load = useCallback(async (key: string) => {
     const request = ++generation.current;
     editSession.current = null;
@@ -83,7 +88,16 @@ export function useConfigs() {
     }
   }, []);
   useEffect(() => {
-    if (configs.some((item) => item.key === selected)) void load(selected);
+    if (selected && configs.some((item) => item.key === selected)) void load(selected);
+    else {
+      generation.current++;
+      editSession.current = null;
+      setDocument(null);
+      setInitializer("");
+      setBackups([]);
+      setBusy(false);
+      setBackingUp(false);
+    }
   }, [configs, load, selected]);
 
   const groups = useMemo(
@@ -96,10 +110,18 @@ export function useConfigs() {
   );
   function select(key: string) {
     if (key === selected) return;
-    generation.current++;
-    editSession.current = null;
-    setSelected(key);
-    setSearchParams(key === "siteConfig" ? {} : { key }, { replace: true });
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("key", key);
+      return next;
+    });
+  }
+  function close() {
+    setSearchParams((previous) => {
+      const next = new URLSearchParams(previous);
+      next.delete("key");
+      return next;
+    });
   }
 
   function ensureBackup(current: SiteConfigDocument) {
@@ -154,13 +176,14 @@ export function useConfigs() {
     setError("");
   }
   async function save() {
-    if (!document || document.readOnly || busy || initializer === document.initializer) return;
+    if (!document || document.readOnly || busy) return false;
+    if (initializer === document.initializer) return true;
     const request = generation.current;
     const key = document.descriptor.key;
     setBusy(true);
     try {
       const backupId = await ensureBackup(document);
-      if (request !== generation.current) return;
+      if (request !== generation.current) return false;
       const result = await api<{ config: SiteConfigDocument; backups: ConfigBackup[] }>(
         "/api/config",
         json("PUT", {
@@ -170,7 +193,7 @@ export function useConfigs() {
           backupId,
         }),
       );
-      if (request !== generation.current) return;
+      if (request !== generation.current) return false;
       setDocument(result.config);
       setInitializer(result.config.initializer);
       setBackups(result.backups);
@@ -182,8 +205,10 @@ export function useConfigs() {
       );
       setError("");
       notifyIdentityChange(key);
+      return true;
     } catch (cause) {
       if (request === generation.current) setError(errorMessage(cause, "配置保存失败"));
+      return false;
     } finally {
       if (request === generation.current) setBusy(false);
     }
@@ -215,6 +240,8 @@ export function useConfigs() {
   }
   return {
     report,
+    configs,
+    indexLoading,
     selected,
     document,
     initializer,
@@ -228,6 +255,8 @@ export function useConfigs() {
     setError,
     setNotice,
     select,
+    close,
+    reload: () => (selected ? load(selected) : Promise.resolve()),
     discardChanges,
     save,
     restore,

@@ -4,6 +4,8 @@ import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import { useEffect, useState } from "react";
 import {
   Alert,
+  Avatar,
+  Box,
   Button,
   CircularProgress,
   FormControl,
@@ -12,11 +14,15 @@ import {
   Paper,
   Select,
   Stack,
+  Tab,
+  Tabs,
   Typography,
 } from "@mui/material";
 import { TypeScriptEditor } from "../components/TypeScriptEditor";
 import type { SiteConfigDocument } from "../types";
 import type { ConfigBackup } from "../../shared/config-backups";
+import type { ConfigDetailLayout } from "./catalog";
+import { ConfigIcon } from "./ConfigIcon";
 
 interface ConfigEditorProps {
   document: SiteConfigDocument | null;
@@ -29,6 +35,7 @@ interface ConfigEditorProps {
   onDiscard: () => void;
   onClear: () => void;
   onRestore: (id: string) => void;
+  layout?: ConfigDetailLayout;
 }
 
 export function ConfigEditor({
@@ -42,22 +49,46 @@ export function ConfigEditor({
   onDiscard,
   onClear,
   onRestore,
+  layout = "focus",
 }: ConfigEditorProps) {
   const [backupId, setBackupId] = useState("");
+  const [tab, setTab] = useState("edit");
+  useEffect(() => setTab("edit"), [document?.descriptor.key]);
   useEffect(() => {
     if (!backups.some((entry) => entry.id === backupId)) setBackupId(backups[0]?.id ?? "");
   }, [backups, backupId]);
   if (!document)
     return (
       <Paper variant="outlined" sx={{ minHeight: 420, display: "grid", placeItems: "center" }}>
-        <CircularProgress />
+        <CircularProgress aria-label="加载配置详情" />
       </Paper>
     );
   const dirty = initializer !== document.initializer;
   return (
-    <Stack spacing={2}>
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography variant="h5">{document.descriptor.label}</Typography>
+    <Stack spacing={2.5} data-config-detail-layout={layout}>
+      <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: 3 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <Avatar
+            variant="rounded"
+            sx={(theme) => ({
+              width: 60,
+              height: 60,
+              borderRadius: "18px",
+              bgcolor: "color-mix(in srgb, var(--mui-palette-primary-main) 10%, transparent)",
+              color: "primary.main",
+            })}
+          >
+            <ConfigIcon configKey={document.descriptor.key} />
+          </Avatar>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h5" component="h1">
+              {document.descriptor.label}
+            </Typography>
+            <Typography color="text.secondary" sx={{ overflowWrap: "anywhere", mt: 0.5 }}>
+              {document.descriptor.key} · {document.descriptor.group}
+            </Typography>
+          </Box>
+        </Stack>
         <Typography
           variant="body2"
           color="text.secondary"
@@ -73,22 +104,38 @@ export function ConfigEditor({
           </Alert>
         ))}
       </Paper>
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          编辑导出对象的 TypeScript
-          内容。仅允许对象、数组、标量、枚举和标识符；函数调用及其他可执行表达式会被拒绝。
-        </Typography>
-        <TypeScriptEditor
-          value={initializer}
-          onChange={onInitializerChange}
-          disabled={document.readOnly || busy}
-        />
-        {backingUp && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-            正在保留编辑前备份…
-          </Typography>
-        )}
-        <Stack direction="row" spacing={1.5} sx={{ mt: 2, flexWrap: "wrap" }} useFlexGap>
+      {layout === "tabs" && (
+        <Tabs value={tab} onChange={(_, value: string) => setTab(value)} aria-label="配置详情分区">
+          <Tab
+            value="edit"
+            label="配置编辑"
+            id="config-edit-tab"
+            aria-controls="config-edit-panel"
+          />
+          <Tab
+            value="backups"
+            label={`配置备份（${backups.length}）`}
+            id="config-backups-tab"
+            aria-controls="config-backups-panel"
+          />
+        </Tabs>
+      )}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 1.5,
+          borderRadius: 3,
+          position: "sticky",
+          top: "calc(var(--mizuki-panel-header-height, 65px) + 12px)",
+          zIndex: 2,
+        }}
+      >
+        <Stack
+          direction="row"
+          spacing={1.5}
+          sx={{ flexWrap: "wrap", alignItems: "center" }}
+          useFlexGap
+        >
           <Button
             variant="contained"
             startIcon={<SaveOutlined />}
@@ -105,55 +152,119 @@ export function ConfigEditor({
               清空覆盖
             </Button>
           )}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ ml: { sm: "auto !important" } }}
+            aria-live="polite"
+          >
+            {backingUp ? "正在保留编辑前备份…" : dirty ? "有未保存修改" : "所有修改已保存"}
+          </Typography>
         </Stack>
       </Paper>
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography variant="h6">配置备份</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-          仅保留当前配置的最近 5 份备份。恢复前也会备份当前内容。
-        </Typography>
-        {backups.length ? (
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
-              <InputLabel id="config-backup-label">选择备份</InputLabel>
-              <Select
-                labelId="config-backup-label"
-                label="选择备份"
-                value={backups.some((item) => item.id === backupId) ? backupId : ""}
-                onChange={(event) => setBackupId(event.target.value)}
-                disabled={busy || backingUp}
-              >
-                {backups.map((entry, index) => (
-                  <MenuItem key={entry.id} value={entry.id}>
-                    {index + 1}. {new Date(entry.createdAt).toLocaleString()}
-                    {!entry.targetExists ? " · 未设置覆盖" : ""}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              startIcon={<RestoreOutlined />}
-              onClick={() => onRestore(backupId)}
-              disabled={
-                document.readOnly ||
-                busy ||
-                backingUp ||
-                dirty ||
-                !backups.some((entry) => entry.id === backupId)
-              }
-            >
-              恢复所选备份
-            </Button>
-          </Stack>
-        ) : (
-          <Typography color="text.secondary">尚无备份，开始修改时会自动保留。</Typography>
-        )}
-        {dirty && backups.length > 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-            请先保存或放弃当前编辑，再恢复备份。
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns:
+            layout === "workbench"
+              ? { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) minmax(260px, 340px)" }
+              : "minmax(0, 1fr)",
+          gridTemplateAreas:
+            layout === "workbench"
+              ? { xs: '"editor" "backups"', lg: '"editor backups"' }
+              : '"editor" "backups"',
+          gap: 2.5,
+          alignItems: "start",
+        }}
+      >
+        <Paper
+          id="config-edit-panel"
+          role={layout === "tabs" ? "tabpanel" : undefined}
+          aria-labelledby={layout === "tabs" ? "config-edit-tab" : undefined}
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            minWidth: 0,
+            gridArea: "editor",
+            display: layout === "tabs" && tab !== "edit" ? "none" : "block",
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            编辑导出对象的 TypeScript
+            内容。仅允许对象、数组、标量、枚举和标识符；函数调用及其他可执行表达式会被拒绝。
           </Typography>
-        )}
-      </Paper>
+          <TypeScriptEditor
+            value={initializer}
+            onChange={onInitializerChange}
+            disabled={document.readOnly || busy}
+          />
+        </Paper>
+        <Paper
+          id="config-backups-panel"
+          role={layout === "tabs" ? "tabpanel" : undefined}
+          aria-labelledby={layout === "tabs" ? "config-backups-tab" : undefined}
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            minWidth: 0,
+            gridArea: "backups",
+            display: layout === "tabs" && tab !== "backups" ? "none" : "block",
+            position: layout === "workbench" ? { lg: "sticky" } : "static",
+            top: "calc(var(--mizuki-panel-header-height, 65px) + 88px)",
+          }}
+        >
+          <Typography variant="h6">配置备份</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+            仅保留当前配置的最近 5 份备份。恢复前也会备份当前内容。
+          </Typography>
+          {backups.length ? (
+            <Stack
+              direction={layout === "workbench" ? "column" : { xs: "column", sm: "row" }}
+              spacing={2}
+            >
+              <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
+                <InputLabel id="config-backup-label">选择备份</InputLabel>
+                <Select
+                  labelId="config-backup-label"
+                  label="选择备份"
+                  value={backups.some((item) => item.id === backupId) ? backupId : ""}
+                  onChange={(event) => setBackupId(event.target.value)}
+                  disabled={busy || backingUp}
+                >
+                  {backups.map((entry, index) => (
+                    <MenuItem key={entry.id} value={entry.id}>
+                      {index + 1}. {new Date(entry.createdAt).toLocaleString()}
+                      {!entry.targetExists ? " · 未设置覆盖" : ""}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button
+                startIcon={<RestoreOutlined />}
+                onClick={() => onRestore(backupId)}
+                disabled={
+                  document.readOnly ||
+                  busy ||
+                  backingUp ||
+                  dirty ||
+                  !backups.some((entry) => entry.id === backupId)
+                }
+              >
+                恢复所选备份
+              </Button>
+            </Stack>
+          ) : (
+            <Typography color="text.secondary">尚无备份，开始修改时会自动保留。</Typography>
+          )}
+          {dirty && backups.length > 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+              请先保存或放弃当前编辑，再恢复备份。
+            </Typography>
+          )}
+        </Paper>
+      </Box>
     </Stack>
   );
 }

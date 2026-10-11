@@ -1,23 +1,162 @@
-import { Alert, Box, Container, Grid, Snackbar, Stack, Typography } from "@mui/material";
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
+import CenterFocusStrongOutlined from "@mui/icons-material/CenterFocusStrongOutlined";
+import ViewColumnOutlined from "@mui/icons-material/ViewColumnOutlined";
+import TabOutlined from "@mui/icons-material/TabOutlined";
+import {
+  Alert,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Snackbar,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
+  Typography,
+} from "@mui/material";
+import { useBlocker, useSearchParams } from "react-router-dom";
 import { useNoticeDuration } from "../settings/useNoticeDuration";
-import { ConfigEditor } from "../config/ConfigEditor";
-import { ConfigList } from "../config/ConfigList";
+import { ConfigCatalog } from "../config/ConfigCatalog";
+import { configDetailLayouts, type ConfigDetailLayout } from "../config/catalog";
 import { useConfigs } from "../config/useConfigs";
+
+const ConfigEditor = lazy(() =>
+  import("../config/ConfigEditor").then((module) => ({ default: module.ConfigEditor })),
+);
+const layoutStorageKey = "mizuki-panel.config-detail-layout";
+const layoutIcons = {
+  focus: <CenterFocusStrongOutlined />,
+  workbench: <ViewColumnOutlined />,
+  tabs: <TabOutlined />,
+};
+
+function LoadingDetails() {
+  return (
+    <Box sx={{ minHeight: 420, display: "grid", placeItems: "center" }}>
+      <CircularProgress aria-label="加载配置详情" />
+    </Box>
+  );
+}
 
 export default function ConfigPage() {
   const noticeDuration = useNoticeDuration(5000);
   const configs = useConfigs();
-
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get("q") ?? "";
+  const catalogScroll = useRef(0);
+  const catalogVisible = useRef(!configs.selected);
+  const restoringScroll = useRef(false);
+  catalogVisible.current = !configs.selected;
+  const previousSelected = useRef(configs.selected);
+  const [layout, setLayout] = useState<ConfigDetailLayout>(() => {
+    try {
+      const saved = localStorage.getItem(layoutStorageKey);
+      if (configDetailLayouts.some((item) => item.value === saved))
+        return saved as ConfigDetailLayout;
+    } catch {
+      /* The layout remains available when browser storage is disabled. */
+    }
+    return "focus";
+  });
+  const dirty = Boolean(configs.document && configs.initializer !== configs.document.initializer);
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+    const currentKey = new URLSearchParams(currentLocation.search).get("key");
+    const nextKey = new URLSearchParams(nextLocation.search).get("key");
+    return (
+      (dirty || configs.busy || configs.backingUp) &&
+      (currentLocation.pathname !== nextLocation.pathname || currentKey !== nextKey)
+    );
+  });
+  useLayoutEffect(() => {
+    const before = previousSelected.current;
+    previousSelected.current = configs.selected;
+    if (before === configs.selected) return;
+    restoringScroll.current = true;
+    const top = configs.selected ? 0 : catalogScroll.current;
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo({ top, behavior: "instant" });
+      restoringScroll.current = false;
+      if (!configs.selected) catalogScroll.current = window.scrollY;
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      restoringScroll.current = false;
+    };
+  }, [configs.selected]);
+  useEffect(() => {
+    const rememberScroll = () => {
+      if (catalogVisible.current && !restoringScroll.current)
+        catalogScroll.current = window.scrollY;
+    };
+    window.addEventListener("scroll", rememberScroll, { passive: true });
+    return () => window.removeEventListener("scroll", rememberScroll);
+  }, []);
+  function changeLayout(next: ConfigDetailLayout | null) {
+    if (!next) return;
+    setLayout(next);
+    try {
+      localStorage.setItem(layoutStorageKey, next);
+    } catch {
+      /* Keep the selection for this visit. */
+    }
+  }
+  const selectedValid = configs.configs.some((item) => item.key === configs.selected);
   return (
-    <Container maxWidth={false} sx={{ py: 4 }}>
+    <Container maxWidth={configs.selected && layout === "focus" ? "lg" : false} sx={{ py: 4 }}>
       <Stack spacing={3}>
-        <Box data-page-motion="heading">
-          <Typography variant="h4">站点配置</Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            管理 Mizuki 的 18 个站点配置，编辑前自动备份，每项最多保留 5 份。
-          </Typography>
-        </Box>
-
+        {configs.selected ? (
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={2}
+            sx={{ alignItems: { sm: "center" }, justifyContent: "space-between" }}
+          >
+            <Button
+              startIcon={<ArrowBackOutlined />}
+              onClick={configs.close}
+              disabled={configs.busy || configs.backingUp}
+              sx={{ alignSelf: "flex-start" }}
+            >
+              返回配置目录
+            </Button>
+            <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary">
+                详情布局
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={layout}
+                onChange={(_, value: ConfigDetailLayout | null) => changeLayout(value)}
+                aria-label="配置详情布局"
+                sx={{ flexWrap: "wrap" }}
+              >
+                {configDetailLayouts.map((item) => (
+                  <Tooltip key={item.value} title={item.description}>
+                    <ToggleButton value={item.value} aria-label={item.label} sx={{ gap: 0.75 }}>
+                      {layoutIcons[item.value]}
+                      {item.label}
+                    </ToggleButton>
+                  </Tooltip>
+                ))}
+              </ToggleButtonGroup>
+            </Stack>
+          </Stack>
+        ) : (
+          <Box data-page-motion="heading">
+            <Typography variant="h4" component="h1">
+              站点配置
+            </Typography>
+            <Typography color="text.secondary" sx={{ mt: 1 }}>
+              搜索并选择配置，编辑前自动备份，每项保留最近 5 份。
+            </Typography>
+          </Box>
+        )}
         {configs.error && (
           <Alert severity="error" onClose={() => configs.setError("")}>
             {configs.error}
@@ -26,32 +165,105 @@ export default function ConfigPage() {
         {configs.report?.readOnly && (
           <Alert severity="warning">当前工作区只读，配置只能查看。</Alert>
         )}
-
-        <Grid container spacing={3}>
-          <Grid data-page-motion="navigation" size={{ xs: 12, md: 3, lg: 2.5 }}>
-            <ConfigList
-              groups={configs.groups}
-              selected={configs.selected}
-              onSelect={configs.select}
-            />
-          </Grid>
-          <Grid data-page-motion="content" size={{ xs: 12, md: 9, lg: 9.5 }}>
-            <ConfigEditor
-              document={configs.document}
-              initializer={configs.initializer}
-              busy={configs.busy}
-              backingUp={configs.backingUp}
-              backups={configs.backups}
-              onInitializerChange={configs.changeInitializer}
-              onSave={configs.save}
-              onDiscard={configs.discardChanges}
-              onClear={() => configs.changeInitializer("{}")}
-              onRestore={configs.restore}
-            />
-          </Grid>
-        </Grid>
+        {configs.selected ? (
+          selectedValid &&
+          !configs.indexLoading &&
+          !configs.busy &&
+          !configs.document &&
+          configs.error ? (
+            <Alert
+              severity="info"
+              action={<Button onClick={() => void configs.reload()}>重试</Button>}
+            >
+              配置详情读取失败，可以重试或返回配置目录。
+            </Alert>
+          ) : configs.indexLoading || selectedValid ? (
+            <Suspense fallback={<LoadingDetails />}>
+              <ConfigEditor
+                layout={layout}
+                document={configs.document}
+                initializer={configs.initializer}
+                busy={configs.busy}
+                backingUp={configs.backingUp}
+                backups={configs.backups}
+                onInitializerChange={configs.changeInitializer}
+                onSave={configs.save}
+                onDiscard={configs.discardChanges}
+                onClear={() => configs.changeInitializer("{}")}
+                onRestore={configs.restore}
+              />
+            </Suspense>
+          ) : (
+            <Alert severity="info">没有找到此配置，请返回目录选择其他配置。</Alert>
+          )
+        ) : configs.indexLoading ? (
+          <LoadingDetails />
+        ) : (
+          <ConfigCatalog
+            groups={configs.groups}
+            query={query}
+            onQueryChange={(value) =>
+              setSearchParams(
+                (previous) => {
+                  const next = new URLSearchParams(previous);
+                  if (value) next.set("q", value);
+                  else next.delete("q");
+                  return next;
+                },
+                { replace: true },
+              )
+            }
+            onSelect={(key) => {
+              catalogScroll.current = window.scrollY;
+              configs.select(key);
+            }}
+          />
+        )}
       </Stack>
-
+      <Dialog
+        open={blocker.state === "blocked"}
+        onClose={() => {
+          if (blocker.state === "blocked") blocker.reset();
+        }}
+      >
+        <DialogTitle>{dirty ? "配置有未保存的修改" : "配置正在处理中"}</DialogTitle>
+        <DialogContent>
+          {dirty
+            ? "离开前可以保存修改，也可以放弃本次编辑。"
+            : "请等待当前保存或备份完成，再离开此配置。"}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              if (blocker.state === "blocked") blocker.reset();
+            }}
+          >
+            继续编辑
+          </Button>
+          <Button
+            disabled={configs.busy || configs.backingUp}
+            onClick={() => {
+              if (blocker.state === "blocked") {
+                configs.discardChanges();
+                blocker.proceed();
+              }
+            }}
+          >
+            放弃并离开
+          </Button>
+          {dirty && (
+            <Button
+              variant="contained"
+              disabled={configs.busy || configs.backingUp || configs.document?.readOnly}
+              onClick={async () => {
+                if (blocker.state === "blocked" && (await configs.save())) blocker.proceed();
+              }}
+            >
+              保存并离开
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
       <Snackbar
         open={Boolean(configs.notice)}
         autoHideDuration={noticeDuration}
