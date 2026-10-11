@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import ExpandLess from "@mui/icons-material/ExpandLess";
@@ -23,6 +23,7 @@ import {
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
 } from "@mui/material";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
@@ -64,6 +65,27 @@ export function AnimeSeasons({
   const currentYear = String(new Date().getFullYear());
   const [newYear, setNewYear] = useState(currentYear);
   const [newMonth, setNewMonth] = useState<number>(1);
+  const detail = useRef<HTMLDivElement>(null);
+  const transition = useRef<Animation | null>(null);
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const detailId = document?.id ?? newId;
+  useEffect(() => {
+    const element = detail.current;
+    if (!detailId || !element || reducedMotion || !element.animate) return;
+    const animation = element.animate(
+      [
+        { opacity: 0, transform: "translateX(12px)" },
+        { opacity: 1, transform: "translateX(0)" },
+      ],
+      { duration: 240, easing: "cubic-bezier(.2,.7,.2,1)" },
+    );
+    animation.id = "anime-season-detail";
+    transition.current = animation;
+    return () => {
+      animation.cancel();
+      transition.current = null;
+    };
+  }, [detailId, reducedMotion]);
   const readOnly = report.readOnly || Boolean(document?.readOnly);
   const validYear = /^[1-9]\d{3}$/.test(newYear);
   const duplicate = seasons.some((item) => item.id === `${newYear}/${newMonth}月.md`);
@@ -102,17 +124,20 @@ export function AnimeSeasons({
     pagination.reveal(groupAnimeSeasons(entries).findIndex((group) => group.year === year));
   }
   async function choose(id: string) {
+    if (busy || (id === document?.id && !newId)) return;
+    const previous = selected;
+    setSelected(id);
     setBusy(true);
     try {
       const data = await api<AnimeSeasonDocument>(
         `/api/feature/anime-season?id=${encodeURIComponent(id)}`,
       );
-      setSelected(id);
       setDocument(data);
       setNewId("");
       setContent(data.content);
       reveal(id, seasons);
     } catch (cause) {
+      setSelected(previous);
       fail(errorMessage(cause, "季度内容读取失败"));
     } finally {
       setBusy(false);
@@ -226,10 +251,41 @@ export function AnimeSeasons({
                         {items.map((item) => (
                           <ListItemButton
                             key={item.id}
+                            data-season-id={item.id}
                             selected={selected === item.id}
+                            aria-current={selected === item.id ? "true" : undefined}
                             disabled={busy}
                             onClick={() => void choose(item.id)}
-                            sx={{ pl: 4 }}
+                            sx={{
+                              pl: 4,
+                              position: "relative",
+                              transition: (theme) =>
+                                theme.transitions.create(["background-color", "color"], {
+                                  duration: 180,
+                                }),
+                              "&.Mui-selected": {
+                                color: "primary.main",
+                                bgcolor:
+                                  "color-mix(in srgb, var(--mui-palette-primary-main) 12%, var(--mui-palette-background-paper))",
+                                "&::before": {
+                                  content: '""',
+                                  position: "absolute",
+                                  left: 16,
+                                  top: 10,
+                                  bottom: 10,
+                                  width: 3,
+                                  borderRadius: 1,
+                                  bgcolor: "primary.main",
+                                },
+                                "& .MuiListItemText-primary": { fontWeight: 700 },
+                                "& .MuiListItemText-secondary": { color: "inherit", opacity: 0.8 },
+                              },
+                              "&.Mui-selected:hover": {
+                                bgcolor:
+                                  "color-mix(in srgb, var(--mui-palette-primary-main) 18%, var(--mui-palette-background-paper))",
+                              },
+                              "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+                            }}
                           >
                             <ListItemText
                               primary={item.id.split("/")[1]}
@@ -252,12 +308,21 @@ export function AnimeSeasons({
           </Paper>
         </Grid>
         <Grid size={{ xs: 12, lg: 8 }}>
-          <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <Paper
+            ref={detail}
+            data-anime-season-detail
+            role="region"
+            aria-label="季度文件详细"
+            aria-busy={busy}
+            onPointerDownCapture={() => transition.current?.cancel()}
+            variant="outlined"
+            sx={{ p: 2.5 }}
+          >
             {document || newId ? (
               <>
                 <Typography sx={{ mb: 2 }}>{document?.id ?? newId}</Typography>
                 <SyntaxEditor
-                  key={`${document?.id ?? newId}:${document?.version ?? ""}`}
+                  key={detailId}
                   language="markdown"
                   label="季度 Markdown"
                   value={content}

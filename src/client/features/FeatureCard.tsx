@@ -145,6 +145,22 @@ export default function FeatureCard({
               size="small"
               checked={module.enabled}
               disabled={!module.switchKey || readOnly || busy}
+              sx={
+                !module.switchKey
+                  ? {
+                      "& .MuiSwitch-switchBase.Mui-checked.Mui-disabled": {
+                        color:
+                          "color-mix(in srgb, var(--mui-palette-primary-main) 60%, var(--mui-palette-background-paper))",
+                      },
+                      "& .MuiSwitch-switchBase.Mui-checked.Mui-disabled + .MuiSwitch-track": {
+                        bgcolor:
+                          "color-mix(in srgb, var(--mui-palette-primary-main) 20%, var(--mui-palette-background-paper))",
+                        opacity: 1,
+                      },
+                      "& .MuiSwitch-thumb": { boxShadow: "none" },
+                    }
+                  : undefined
+              }
               onChange={(_, checked) => onToggle(module, checked)}
               slotProps={{
                 input: { "aria-label": `${module.label}页面开关`, "aria-busy": saving },
