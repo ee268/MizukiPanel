@@ -1,4 +1,4 @@
-import { useMemo, type Ref } from "react";
+import { useCallback, useMemo, type Ref } from "react";
 import { Box, Typography, useTheme } from "@mui/material";
 import CodeMirror, { EditorView, type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { syntaxLanguages, type SyntaxLanguage } from "./syntax-languages";
@@ -31,6 +31,13 @@ export function SyntaxEditor({
   initialCursorAtEnd = false,
 }: SyntaxEditorProps) {
   const theme = useTheme();
+  const initializeCursor = useCallback(
+    (view: EditorView) => {
+      // CodeMirror normalizes CRLF; positions must use its document length.
+      if (initialCursorAtEnd) view.dispatch({ selection: { anchor: view.state.doc.length } });
+    },
+    [initialCursorAtEnd],
+  );
   const editorTheme = useMemo(
     () =>
       EditorView.theme(
@@ -102,7 +109,7 @@ export function SyntaxEditor({
       >
         <CodeMirror
           ref={editorRef}
-          selection={initialCursorAtEnd ? { anchor: value.length } : undefined}
+          onCreateEditor={initializeCursor}
           value={value}
           onChange={onChange}
           theme={theme.palette.mode}
