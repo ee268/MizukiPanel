@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
 import { searchBangumiAnime } from "../src/lib/server/bangumi-search";
-import { bangumiSubjectMarker } from "../src/shared/bangumi-search";
+import {
+  bangumiSubjectMarker,
+  sortBangumiAnime,
+  type BangumiAnime,
+} from "../src/shared/bangumi-search";
 import { createApp } from "../src/server/app";
 import { loginCookie } from "./auth-fixture";
 
@@ -18,6 +22,41 @@ const entry = {
 };
 const response = (data = [entry], offset = 0) =>
   new Response(JSON.stringify({ total: 31, limit: 10, offset, data }));
+
+const anime = (id: number, date: string, score: number | null = null): BangumiAnime => ({
+  id,
+  date,
+  score,
+  name: String(id),
+  nameCn: "",
+  image: "",
+});
+it("sorts dates across all fetched pages with unknown and invalid dates last", () => {
+  const records = [
+    anime(1, "2023-09-29"),
+    anime(2, ""),
+    anime(3, "2026-01-16"),
+    anime(4, "2026-13-01"),
+    anime(5, "2026-12-01"),
+    anime(6, "2026-02-30"),
+  ];
+  expect(sortBangumiAnime(records, "date-desc").map((item) => item.id)).toEqual([5, 3, 1, 2, 4, 6]);
+  expect(sortBangumiAnime(records, "date-asc").map((item) => item.id)).toEqual([1, 3, 5, 2, 4, 6]);
+  expect(records.map((item) => item.id)).toEqual([1, 2, 3, 4, 5, 6]);
+});
+it("preserves relevance for ties and restores the original order when selecting match", () => {
+  const records = [anime(8, "2026-01-01"), anime(2, "2026-01-01"), anime(3, "2027-01-01")];
+  expect(sortBangumiAnime(records, "date-desc").map((item) => item.id)).toEqual([3, 8, 2]);
+  expect(sortBangumiAnime(records, "match").map((item) => item.id)).toEqual([8, 2, 3]);
+});
+it("ranks scores highest first without treating missing scores as zero", () => {
+  const records = [anime(1, "", null), anime(2, "", 0), anime(3, "", 8.7), anime(4, "", 7.2)];
+  expect(sortBangumiAnime(records, "score").map((item) => item.id)).toEqual([3, 4, 2, 1]);
+});
+it("accepts a leap day while placing impossible calendar dates last", () => {
+  const records = [anime(1, "2025-02-29"), anime(2, "2024-02-29"), anime(3, "2024-02-28")];
+  expect(sortBangumiAnime(records, "date-desc").map((item) => item.id)).toEqual([2, 3, 1]);
+});
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
@@ -29,7 +68,7 @@ it("searches only animation via POST with paging and a project User-Agent", asyn
   vi.stubGlobal("fetch", fetcher);
   const result = await searchBangumiAnime("  中文名  ", 10);
   const [url, options] = fetcher.mock.calls[0];
-  expect(String(url)).toBe("https://api.bgm.tv/v0/search/subjects?limit=10&offset=10");
+  expect(String(url)).toBe("https://api.bgm.tv/v0/search/subjects?limit=20&offset=10");
   expect(options.method).toBe("POST");
   expect(options.headers["User-Agent"]).toContain("ee268/MizukiPanel/0.1.0");
   expect(JSON.parse(options.body)).toEqual({

@@ -2,7 +2,7 @@ import type { BangumiAnime, BangumiSearchPage } from "../../shared/bangumi-searc
 
 const endpoint = "https://api.bgm.tv/v0/search/subjects";
 const userAgent = "ee268/MizukiPanel/0.1.0 (https://github.com/ee268/MizukiPanel)";
-const pageSize = 10;
+const pageSize = 20;
 
 export class BangumiSearchError extends Error {
   constructor(
