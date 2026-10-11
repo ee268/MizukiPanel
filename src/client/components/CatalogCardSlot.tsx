@@ -10,12 +10,14 @@ export function CatalogCardSlot({
   kind,
   onSelect,
   children,
+  height = 144,
 }: {
   cardKey: string;
   label: string;
   kind: "config" | "feature" | "media";
   onSelect: () => void;
   children: ReactNode;
+  height?: number;
 }) {
   const slot = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -64,7 +66,7 @@ export function CatalogCardSlot({
         }
       }}
       sx={{
-        height: 144,
+        height,
         minWidth: 0,
         borderRadius: 3,
         "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 3 },

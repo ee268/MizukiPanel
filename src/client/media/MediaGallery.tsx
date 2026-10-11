@@ -22,6 +22,9 @@ import {
 } from "@mui/material";
 import type { ProjectImage, ImageFolder } from "../../shared/project-media";
 import { CatalogCardSlot } from "../components/CatalogCardSlot";
+import { MediaImagePreview } from "./MediaImagePreview";
+import { MediaImageViewer } from "./MediaImageViewer";
+import { mediaImageName } from "./image";
 
 const enterFolder = keyframes`from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; }`;
 const folderName = (folder: ImageFolder) =>
@@ -34,12 +37,14 @@ type Actions = {
 };
 export function MediaGallery({
   items,
+  allItems,
   folders,
   query,
   onQueryChange,
   ...actions
 }: Actions & {
   items: ProjectImage[];
+  allItems: ProjectImage[];
   folders: ImageFolder[];
   query: string;
   onQueryChange: (query: string) => void;
@@ -50,9 +55,15 @@ export function MediaGallery({
   const groups = useMemo(() => {
     const counts = new Map<string, number>();
     for (const item of items) counts.set(item.folder, (counts.get(item.folder) ?? 0) + 1);
+    const covers = new Map<string, ProjectImage>();
+    for (const item of allItems) if (!covers.has(item.folder)) covers.set(item.folder, item);
     const search = query.trim().replace(/\\/g, "/").toLocaleLowerCase();
     return folders
-      .map((folder) => ({ folder, count: counts.get(folder.path) ?? 0 }))
+      .map((folder) => ({
+        folder,
+        count: counts.get(folder.path) ?? 0,
+        cover: covers.get(folder.path),
+      }))
       .filter(
         ({ folder, count }) =>
           count ||
@@ -62,7 +73,7 @@ export function MediaGallery({
             .toLocaleLowerCase()
             .includes(search),
       );
-  }, [folders, items, query]);
+  }, [folders, items, allItems, query]);
   const selectFolder = (path: string | null) => {
     setSelectedPath(path);
     requestAnimationFrame(() =>
@@ -147,11 +158,12 @@ export function MediaGallery({
             gap: 2,
           }}
         >
-          {groups.map(({ folder, count }) => (
+          {groups.map(({ folder, count, cover }) => (
             <CatalogCardSlot
               key={folder.path}
               cardKey={folder.path}
               kind="media"
+              height={260}
               label={`查看文件夹 ${folderName(folder)}`}
               onSelect={() => selectFolder(folder.path)}
             >
@@ -168,9 +180,20 @@ export function MediaGallery({
                   onClick={() => selectFolder(folder.path)}
                   aria-label={`查看文件夹 ${folderName(folder)}`}
                   title={folder.path}
-                  sx={{ height: "100%" }}
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "stretch",
+                  }}
                 >
-                  <Stack spacing={1} sx={{ p: 2, height: "100%", boxSizing: "border-box" }}>
+                  <MediaImagePreview
+                    key={cover?.path ?? folder.path}
+                    item={cover}
+                    height={112}
+                    fit="cover"
+                  />
+                  <Stack spacing={1} sx={{ p: 2, flex: 1, minHeight: 0, boxSizing: "border-box" }}>
                     <Stack
                       direction="row"
                       sx={{ alignItems: "center", justifyContent: "space-between" }}
@@ -215,6 +238,7 @@ export function MediaGallery({
 }
 function FolderImages({ items, readOnly, onCopy, onDelete }: Actions & { items: ProjectImage[] }) {
   const [page, setPage] = useState(1);
+  const [viewing, setViewing] = useState<string | null>(null);
   const pages = Math.ceil(items.length / 12);
   const current = Math.min(page, pages);
   return (
@@ -223,10 +247,16 @@ function FolderImages({ items, readOnly, onCopy, onDelete }: Actions & { items: 
         {items.slice((current - 1) * 12, current * 12).map((item) => (
           <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={item.path}>
             <Card variant="outlined" data-page-motion="tile">
-              <ImagePreview item={item} />
+              <CardActionArea
+                aria-label={`查看图片 ${mediaImageName(item)}`}
+                onClick={() => setViewing(item.path)}
+                sx={{ cursor: "zoom-in" }}
+              >
+                <MediaImagePreview item={item} />
+              </CardActionArea>
               <CardContent>
                 <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-                  {item.path.split(/[\\/]/).at(-1)}
+                  {mediaImageName(item)}
                 </Typography>
                 <Stack
                   direction="row"
@@ -274,35 +304,9 @@ function FolderImages({ items, readOnly, onCopy, onDelete }: Actions & { items: 
           sx={{ alignSelf: "center" }}
         />
       )}
-    </Stack>
-  );
-}
-function ImagePreview({ item }: { item: ProjectImage }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <Box
-      sx={{
-        height: 180,
-        bgcolor: "action.hover",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      {failed ? (
-        <Typography color="text.secondary" variant="body2">
-          当前格式无法预览
-        </Typography>
-      ) : (
-        <Box
-          component="img"
-          alt=""
-          loading="lazy"
-          src={`/api/media/file?scope=project&path=${encodeURIComponent(item.path)}`}
-          onError={() => setFailed(true)}
-          sx={{ width: "100%", height: "100%", objectFit: "contain" }}
-        />
+      {viewing && (
+        <MediaImageViewer items={items} initialPath={viewing} onClose={() => setViewing(null)} />
       )}
-    </Box>
+    </Stack>
   );
 }

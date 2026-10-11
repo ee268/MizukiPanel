@@ -59,6 +59,7 @@ export default function MediaPage() {
             <MediaUpload controller={media} readOnly={readOnly} />
             <MediaGallery
               items={media.visibleItems}
+              allItems={media.data.media}
               folders={media.data?.folders ?? []}
               query={media.query}
               readOnly={readOnly}
