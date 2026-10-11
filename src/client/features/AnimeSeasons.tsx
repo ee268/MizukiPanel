@@ -4,6 +4,8 @@ import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
+import SearchOutlined from "@mui/icons-material/SearchOutlined";
+import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import {
   Alert,
   Autocomplete,
@@ -33,6 +35,8 @@ import { useLiveProjectDocument } from "../workspace/WorkspaceSessionProvider";
 import { useFeaturePagination } from "./useFeaturePagination";
 import { FeaturePagination } from "./FeaturePagination";
 import { SyntaxEditor } from "../components/SyntaxEditor";
+import { BangumiSearchDialog } from "./BangumiSearchDialog";
+import { bangumiSubjectMarker } from "../../shared/bangumi-search";
 import {
   animeSeasonId,
   animeSeasonMonths,
@@ -62,6 +66,8 @@ export function AnimeSeasons({
   const [listLoaded, setListLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const editor = useRef<ReactCodeMirrorRef>(null);
   const currentYear = String(new Date().getFullYear());
   const [newYear, setNewYear] = useState(currentYear);
   const [newMonth, setNewMonth] = useState<number>(1);
@@ -69,6 +75,7 @@ export function AnimeSeasons({
   const transition = useRef<Animation | null>(null);
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const detailId = document?.id ?? newId;
+  useEffect(() => setSearchOpen(false), [detailId]);
   useEffect(() => {
     const element = detail.current;
     if (!detailId || !element || reducedMotion || !element.animate) return;
@@ -89,6 +96,17 @@ export function AnimeSeasons({
   const readOnly = report.readOnly || Boolean(document?.readOnly);
   const validYear = /^[1-9]\d{3}$/.test(newYear);
   const duplicate = seasons.some((item) => item.id === `${newYear}/${newMonth}月.md`);
+  function insertSubject(id: number) {
+    const view = editor.current?.view;
+    if (!view || !detailId || readOnly || busy) return;
+    view.dispatch({
+      ...view.state.replaceSelection(bangumiSubjectMarker(id)),
+      userEvent: "input.complete",
+      scrollIntoView: true,
+    });
+    setSearchOpen(false);
+    requestAnimationFrame(() => view.focus());
+  }
   const yearOptions = [
     ...new Set([
       ...groups.map((group) => group.year),
@@ -320,9 +338,29 @@ export function AnimeSeasons({
           >
             {document || newId ? (
               <>
-                <Typography sx={{ mb: 2 }}>{document?.id ?? newId}</Typography>
+                <Stack
+                  direction="row"
+                  sx={{
+                    mb: 2,
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 1,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Typography>{detailId}</Typography>
+                  <Button
+                    startIcon={<SearchOutlined />}
+                    onClick={() => setSearchOpen(true)}
+                    disabled={readOnly || busy}
+                  >
+                    搜索动画
+                  </Button>
+                </Stack>
                 <SyntaxEditor
                   key={detailId}
+                  editorRef={editor}
+                  initialCursorAtEnd
                   language="markdown"
                   label="季度 Markdown"
                   value={content}
@@ -364,6 +402,13 @@ export function AnimeSeasons({
           </Paper>
         </Grid>
       </Grid>
+      {searchOpen && (
+        <BangumiSearchDialog
+          onClose={() => setSearchOpen(false)}
+          onInsert={insertSubject}
+          disabled={readOnly || busy}
+        />
+      )}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>新建季度内容</DialogTitle>
         <DialogContent>

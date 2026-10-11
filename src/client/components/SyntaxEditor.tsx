@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, type Ref } from "react";
 import { Box, Typography, useTheme } from "@mui/material";
-import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import CodeMirror, { EditorView, type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { syntaxLanguages, type SyntaxLanguage } from "./syntax-languages";
 
 interface SyntaxEditorProps {
@@ -13,6 +13,8 @@ interface SyntaxEditorProps {
   height?: string;
   minHeight?: string;
   maxHeight?: string;
+  editorRef?: Ref<ReactCodeMirrorRef>;
+  initialCursorAtEnd?: boolean;
 }
 
 export function SyntaxEditor({
@@ -25,6 +27,8 @@ export function SyntaxEditor({
   height = "auto",
   minHeight = "140px",
   maxHeight = "280px",
+  editorRef,
+  initialCursorAtEnd = false,
 }: SyntaxEditorProps) {
   const theme = useTheme();
   const editorTheme = useMemo(
@@ -97,6 +101,8 @@ export function SyntaxEditor({
         }}
       >
         <CodeMirror
+          ref={editorRef}
+          selection={initialCursorAtEnd ? { anchor: value.length } : undefined}
           value={value}
           onChange={onChange}
           theme={theme.palette.mode}

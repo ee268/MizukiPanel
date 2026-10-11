@@ -14,7 +14,7 @@ import { SettingsValidationError } from "../shared/panel-settings";
 
 export class ApiError extends Error {
   constructor(
-    public status: 400 | 401 | 403 | 404 | 409 | 500,
+    public status: 400 | 401 | 403 | 404 | 409 | 429 | 500 | 502 | 504,
     message: string,
   ) {
     super(message);
