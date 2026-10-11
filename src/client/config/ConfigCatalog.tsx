@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type CompositionEvent } from "react";
 import { keyframes } from "@emotion/react";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import CloseOutlined from "@mui/icons-material/CloseOutlined";
@@ -98,6 +98,21 @@ export function ConfigCatalog({
   onQueryChange: (value: string) => void;
   onSelect: (key: string) => void;
 }) {
+  const [inputValue, setInputValue] = useState(query);
+  const composing = useRef(false);
+  useEffect(() => {
+    if (!composing.current) setInputValue(query);
+  }, [query]);
+  function changeInput(value: string) {
+    // Keep the native input in sync immediately; router updates are asynchronous.
+    setInputValue(value);
+    if (!composing.current) onQueryChange(value);
+  }
+  function clearSearch() {
+    composing.current = false;
+    setInputValue("");
+    onQueryChange("");
+  }
   const matches = filterConfigGroups(groups, query);
   const count = matches.reduce((total, group) => total + group.items.length, 0);
   return (
@@ -115,24 +130,29 @@ export function ConfigCatalog({
         <TextField
           fullWidth
           placeholder="搜索配置名称、英文名称或分类…"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
+          value={inputValue}
+          onChange={(event) => changeInput(event.target.value)}
           aria-label="搜索站点配置"
           slotProps={{
-            htmlInput: { "aria-label": "搜索站点配置" },
+            htmlInput: {
+              "aria-label": "搜索站点配置",
+              onCompositionStart: () => {
+                composing.current = true;
+              },
+              onCompositionEnd: (event: CompositionEvent<HTMLInputElement>) => {
+                composing.current = false;
+                changeInput(event.currentTarget.value);
+              },
+            },
             input: {
               startAdornment: (
                 <InputAdornment position="start">
                   <SearchOutlined />
                 </InputAdornment>
               ),
-              endAdornment: query ? (
+              endAdornment: inputValue ? (
                 <InputAdornment position="end">
-                  <IconButton
-                    aria-label="清除配置搜索"
-                    onClick={() => onQueryChange("")}
-                    edge="end"
-                  >
+                  <IconButton aria-label="清除配置搜索" onClick={clearSearch} edge="end">
                     <CloseOutlined />
                   </IconButton>
                 </InputAdornment>
@@ -179,7 +199,7 @@ export function ConfigCatalog({
         <Stack spacing={2} sx={{ minHeight: 280, alignItems: "center", justifyContent: "center" }}>
           <SearchOutlined sx={{ fontSize: 48, color: "text.disabled" }} />
           <Typography color="text.secondary">没有找到匹配的配置</Typography>
-          <Button onClick={() => onQueryChange("")}>清除搜索</Button>
+          <Button onClick={clearSearch}>清除搜索</Button>
         </Stack>
       )}
     </Stack>

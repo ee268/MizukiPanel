@@ -20,7 +20,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { useBlocker, useSearchParams } from "react-router-dom";
+import { useBlocker, useLocation, useNavigationType, useSearchParams } from "react-router-dom";
 import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { ConfigCatalog } from "../config/ConfigCatalog";
 import { configDetailLayouts, type ConfigDetailLayout } from "../config/catalog";
@@ -48,7 +48,36 @@ export default function ConfigPage() {
   const noticeDuration = useNoticeDuration(5000);
   const configs = useConfigs();
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get("q") ?? "";
+  const location = useLocation();
+  const navigationType = useNavigationType();
+  const urlQuery = searchParams.get("q") ?? "";
+  const [query, setQuery] = useState(urlQuery);
+  const pendingQuery = useRef<string | null>(null);
+  useEffect(() => {
+    // Ignore older acknowledgements from our own search updates, but honor history navigation.
+    if (
+      navigationType !== "POP" &&
+      pendingQuery.current !== null &&
+      urlQuery !== pendingQuery.current
+    )
+      return;
+    pendingQuery.current = null;
+    setQuery(urlQuery);
+  }, [location.key, navigationType, urlQuery]);
+  function changeQuery(value: string) {
+    setQuery(value);
+    if (value === urlQuery && pendingQuery.current === null) return;
+    pendingQuery.current = value;
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (value) next.set("q", value);
+        else next.delete("q");
+        return next;
+      },
+      { replace: true },
+    );
+  }
   const catalogScroll = useRef(0);
   const catalogVisible = useRef(!configs.selected);
   const restoringScroll = useRef(false);
@@ -202,17 +231,7 @@ export default function ConfigPage() {
           <ConfigCatalog
             groups={configs.groups}
             query={query}
-            onQueryChange={(value) =>
-              setSearchParams(
-                (previous) => {
-                  const next = new URLSearchParams(previous);
-                  if (value) next.set("q", value);
-                  else next.delete("q");
-                  return next;
-                },
-                { replace: true },
-              )
-            }
+            onQueryChange={changeQuery}
             onSelect={(key) => {
               catalogScroll.current = window.scrollY;
               configs.select(key);
