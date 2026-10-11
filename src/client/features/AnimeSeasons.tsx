@@ -5,6 +5,7 @@ import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import SaveOutlined from "@mui/icons-material/SaveOutlined";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
+import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import {
   Alert,
@@ -36,6 +37,7 @@ import { useFeaturePagination } from "./useFeaturePagination";
 import { FeaturePagination } from "./FeaturePagination";
 import { SyntaxEditor } from "../components/SyntaxEditor";
 import { BangumiSearchDialog } from "./BangumiSearchDialog";
+import { BangumiSettingsDialog } from "./BangumiSettingsDialog";
 import { bangumiSubjectMarker } from "../../shared/bangumi-search";
 import {
   animeSeasonId,
@@ -67,6 +69,7 @@ export function AnimeSeasons({
   const [busy, setBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchSettingsOpen, setSearchSettingsOpen] = useState(false);
   const editor = useRef<ReactCodeMirrorRef>(null);
   const currentYear = String(new Date().getFullYear());
   const [newYear, setNewYear] = useState(currentYear);
@@ -349,13 +352,22 @@ export function AnimeSeasons({
                   }}
                 >
                   <Typography>{detailId}</Typography>
-                  <Button
-                    startIcon={<SearchOutlined />}
-                    onClick={() => setSearchOpen(true)}
-                    disabled={readOnly || busy}
-                  >
-                    搜索动画
-                  </Button>
+                  <Stack direction="row" sx={{ gap: 1, flexWrap: "wrap" }}>
+                    <Button
+                      startIcon={<SearchOutlined />}
+                      onClick={() => setSearchOpen(true)}
+                      disabled={readOnly || busy}
+                    >
+                      搜索动画
+                    </Button>
+                    <Button
+                      startIcon={<SettingsOutlined />}
+                      onClick={() => setSearchSettingsOpen(true)}
+                      disabled={busy}
+                    >
+                      搜索设置
+                    </Button>
+                  </Stack>
                 </Stack>
                 <SyntaxEditor
                   key={detailId}
@@ -402,6 +414,12 @@ export function AnimeSeasons({
           </Paper>
         </Grid>
       </Grid>
+      {searchSettingsOpen && (
+        <BangumiSettingsDialog
+          onClose={() => setSearchSettingsOpen(false)}
+          onSaved={() => notify("搜索设置已保存。")}
+        />
+      )}
       {searchOpen && (
         <BangumiSearchDialog
           onClose={() => setSearchOpen(false)}

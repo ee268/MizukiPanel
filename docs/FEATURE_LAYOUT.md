@@ -21,3 +21,11 @@
 搜索使用已登录面板的 `GET /api/feature/anime-search?keyword=...&offset=...`，服务端调用 Bangumi 的 `POST https://api.bgm.tv/v0/search/subjects`，固定动画类型 `filter.type: [2]`、匹配排序和每次请求 20 条，设置包含维护者、应用版本与项目主页的 User-Agent。Bangumi 搜索接口没有日期排序参数，因此统一排序在面板内完成。普通搜索不需要 Bangumi Access Token；面板登录凭据不会转发给 Bangumi。关键词最多 200 个字符，单次接口请求最长等待 15 秒。接口失败、超时、限流和空结果均在弹窗内提示，读取过程失败可以重新搜索。再次搜索或关闭弹窗会取消原请求，旧结果不会覆盖新搜索。
 
 接口依据提供的《Bangumi 条目搜索接口使用指南》，并核对 [官方 OpenAPI 定义](https://github.com/bangumi/api/blob/master/open-api/v0.yaml) 和 [User-Agent 建议](https://github.com/bangumi/api/blob/master/docs-raw/user%20agent.md)。普通动画名称搜索已进行线上实测；错误分支和取消请求通过模拟响应验证。
+
+“搜索动画”右侧提供“搜索设置”入口，管理 Bangumi BaseURL、启用代理、跟随系统代理与手动 HTTP/HTTPS 代理地址。默认 BaseURL 为 `https://api.bgm.tv`，默认关闭代理并保留跟随系统代理的选择；支持根地址、反向代理路径与 `/v0` 后缀，自动拼接条目搜索路径，避免重复版本前缀。BaseURL 不接受登录凭据、查询参数或片段；代理地址可包含 HTTP 代理认证信息。
+
+设置复用本机 `bangumi` 分组，存储于面板状态目录的 `settings.json`，保存时使用版本检查、文件锁、原子替换与设置备份，不写入 Mizuki 项目。支持恢复默认、取消输入和保存失败时保留输入；未来版本或损坏设置保持只读。设置可以通过原有偏好导入／导出功能转移。下一次搜索读取已保存的配置；项目处于只读状态也可以管理这些本机设置。
+
+关闭代理时为搜索请求指定直连 Agent，避免继承 Node 的全局代理。手动代理只作用于 Bangumi 搜索请求，不修改面板全局网络配置。跟随系统时优先读取 `HTTP_PROXY`、`HTTPS_PROXY`（含小写形式与 `ALL_PROXY` 回退）和 `NO_PROXY`；没有代理环境变量时，Windows 使用当前用户的 Internet 选项解析目标 URL，包含手动代理、PAC、自动检测及绕过规则，短时缓存 5 秒。其他平台使用代理环境变量。系统返回直连时直接访问；无法读取系统代理时提示检查配置或改用手动代理。代理连接保持 TLS 校验，搜索请求保留 15 秒超时和取消能力。封面仍由浏览器加载，使用浏览器自身的网络环境。
+
+代理实现使用 [Undici ProxyAgent](https://github.com/nodejs/undici/blob/v7.30.0/docs/docs/api/ProxyAgent.md) 与 [EnvHttpProxyAgent](https://github.com/nodejs/undici/blob/v7.30.0/docs/docs/api/EnvHttpProxyAgent.md)；Windows 代理解析依据 [GetSystemWebProxy 文档](https://learn.microsoft.com/en-us/dotnet/api/system.net.webrequest.getsystemwebproxy)。Windows 配置读取通过隐藏的 PowerShell 子进程进行，目标地址由子进程环境传入，不拼接到命令文本。

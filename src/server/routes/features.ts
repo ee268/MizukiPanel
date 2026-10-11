@@ -19,6 +19,7 @@ import {
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
 import { BangumiSearchError, searchBangumiAnime } from "../../lib/server/bangumi-search";
+import { readBangumiNetworkSettings, BangumiNetworkError } from "../../lib/server/bangumi-network";
 
 export function registerFeatureRoutes(app: Hono) {
   app.get("/api/feature/anime-search", async (context) => {
@@ -27,10 +28,16 @@ export function registerFeatureRoutes(app: Hono) {
     if (!/^\d+$/.test(offset)) throw new ApiError(400, "搜索分页参数无效");
     try {
       return context.json(
-        await searchBangumiAnime(keyword, Number(offset), context.req.raw.signal),
+        await searchBangumiAnime(
+          keyword,
+          Number(offset),
+          context.req.raw.signal,
+          await readBangumiNetworkSettings(),
+        ),
       );
     } catch (error) {
       if (error instanceof BangumiSearchError) throw new ApiError(error.status, error.message);
+      if (error instanceof BangumiNetworkError) throw new ApiError(502, error.message);
       throw error;
     }
   });

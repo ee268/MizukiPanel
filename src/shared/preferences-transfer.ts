@@ -33,6 +33,7 @@ export const groupLabels: Record<string, string> = {
   access: "只读偏好",
   articleTemplate: "文章模板",
   media: "媒体",
+  bangumi: "动画搜索",
 };
 export function exportPreferenceGroups(
   scope: SettingsScope,
@@ -109,6 +110,12 @@ export function preferenceDiff(before: PreferenceGroups, after: PreferenceGroups
   );
 }
 const fieldLabels: Record<string, Record<string, string>> = {
+  bangumi: {
+    baseUrl: "Bangumi BaseURL",
+    proxyEnabled: "启用代理",
+    followSystemProxy: "跟随系统代理",
+    proxyUrl: "代理地址",
+  },
   session: {
     idleEnabled: "闲置自动退出",
     idleMinutes: "闲置分钟数",

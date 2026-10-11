@@ -1,6 +1,13 @@
 import { defaultArticleFrontmatter, validTemplateField } from "./article-template";
 import { validMediaFolder } from "../media-settings";
 import { commitTypes, validCommitScope, validPreviewPath } from "../task-settings";
+import {
+  bangumiNetworkProblem,
+  defaultBangumiNetworkSettings,
+  validBangumiBaseUrl,
+  validBangumiProxyUrl,
+  type BangumiNetworkSettings,
+} from "../bangumi-settings";
 export const settingsSchemaVersion = 1;
 export type SettingsScope = "browser" | "machine" | "project";
 export interface AppearanceSettings {
@@ -138,6 +145,12 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
   },
   machine: {
+    bangumi: {
+      baseUrl: { default: defaultBangumiNetworkSettings.baseUrl, valid: validBangumiBaseUrl },
+      proxyEnabled: flag(defaultBangumiNetworkSettings.proxyEnabled),
+      followSystemProxy: flag(defaultBangumiNetworkSettings.followSystemProxy),
+      proxyUrl: { default: "", valid: validBangumiProxyUrl },
+    },
     session: {
       idleEnabled: flag(false),
       idleMinutes: number(30, 5, 240),
@@ -296,6 +309,13 @@ export function patchSettings(
   for (const [key, value] of Object.entries(fields)) {
     if (!Object.hasOwn(definition, key) || !definition[key].valid(value))
       throw new SettingsValidationError(`设置字段 ${group}.${key} 无效。`);
+  }
+  if (scope === "machine" && group === "bangumi") {
+    const problem = bangumiNetworkProblem({
+      ...document.values[group],
+      ...fields,
+    } as unknown as BangumiNetworkSettings);
+    if (problem) throw new SettingsValidationError(problem);
   }
   return {
     ...document,

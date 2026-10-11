@@ -1,6 +1,11 @@
 import type { BangumiAnime, BangumiSearchPage } from "../../shared/bangumi-search";
+import {
+  bangumiSearchEndpoint,
+  defaultBangumiNetworkSettings,
+  type BangumiNetworkSettings,
+} from "../../shared/bangumi-settings";
+import { bangumiDispatcher, BangumiNetworkError } from "./bangumi-network";
 
-const endpoint = "https://api.bgm.tv/v0/search/subjects";
 const userAgent = "ee268/MizukiPanel/0.1.0 (https://github.com/ee268/MizukiPanel)";
 const pageSize = 20;
 
@@ -34,23 +39,28 @@ export async function searchBangumiAnime(
   keyword: string,
   offset = 0,
   signal?: AbortSignal,
+  settings: BangumiNetworkSettings = defaultBangumiNetworkSettings,
 ): Promise<BangumiSearchPage> {
   const query = keyword.trim();
   if (!query || query.length > 200)
     throw new BangumiSearchError(400, "请输入 1–200 个字符的动画名称");
   if (!Number.isSafeInteger(offset) || offset < 0)
     throw new BangumiSearchError(400, "搜索分页参数无效");
-  const url = new URL(endpoint);
+  const url = bangumiSearchEndpoint(settings.baseUrl);
   url.searchParams.set("limit", String(pageSize));
   url.searchParams.set("offset", String(offset));
   const timeout = AbortSignal.timeout(15_000);
+  const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
-    const response = await fetch(url, {
+    const dispatcher = await bangumiDispatcher(settings, url, requestSignal);
+    const options: RequestInit & { dispatcher: typeof dispatcher } = {
       method: "POST",
       headers: { "Content-Type": "application/json", "User-Agent": userAgent },
       body: JSON.stringify({ keyword: query, sort: "match", filter: { type: [2] } }),
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-    });
+      signal: requestSignal,
+      dispatcher,
+    };
+    const response = await fetch(url, options);
     if (!response.ok) {
       if (response.status === 429)
         throw new BangumiSearchError(429, "Bangumi 请求过于频繁，请稍后重试");
@@ -89,6 +99,7 @@ export async function searchBangumiAnime(
   } catch (error) {
     if (error instanceof BangumiSearchError) throw error;
     if (timeout.aborted) throw new BangumiSearchError(504, "Bangumi 搜索超时，请重试");
+    if (error instanceof BangumiNetworkError) throw new BangumiSearchError(502, error.message);
     throw new BangumiSearchError(502, "无法连接 Bangumi，请检查网络后重试");
   }
 }
