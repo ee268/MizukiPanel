@@ -157,6 +157,7 @@ const fieldLabels: Record<string, Record<string, string>> = {
   access: { readOnly: "项目只读" },
   articleTemplate: { body: "模板正文", frontmatter: "默认 Frontmatter", fileName: "文件命名规则" },
   media: {
+    storageFolder: "默认存储文件夹",
     scope: "默认上传范围",
     folder: "上传目录",
     naming: "文件命名",

@@ -18,6 +18,7 @@ import {
 } from "./media";
 import { processImage } from "./image-processing";
 import type { ProjectReport } from "./project";
+import { assertProjectMediaLocation, assertProjectMediaDirectory } from "./project-media";
 
 type Prepared = {
   overview: MediaPreparation;
@@ -73,6 +74,7 @@ async function available(
   articleId?: string,
 ) {
   const target = mediaTarget(report, scope, mediaPath, articleId);
+  if (scope === "project") await assertProjectMediaLocation(report, mediaPath);
   if (
     target.article &&
     !(await lstat(await assertManagedRealPath(target.root, target.article))).isFile()
@@ -111,7 +113,7 @@ export async function prepareMedia(
     input.name.includes("/") ||
     input.name.includes("\\") ||
     input.name.length > 180 ||
-    !validMediaFolder(input.folder)
+    (input.scope !== "project" && !validMediaFolder(input.folder))
   )
     throw new MediaError("图片文件名或子目录无效。");
   validateMediaPath(input.name);
@@ -123,7 +125,13 @@ export async function prepareMedia(
       : policy.naming === "date"
         ? `${localCalendarDate()}-${input.name}`
         : input.name;
-  const originalPath = input.folder ? `${input.folder}/${name}` : name;
+  if (input.scope === "project") await assertProjectMediaDirectory(report, input.folder);
+  const originalPath =
+    input.scope === "project"
+      ? path.join(input.folder, name)
+      : input.folder
+        ? `${input.folder}/${name}`
+        : name;
   const originalAvailable = await available(report, input.scope, originalPath, input.articleId);
   const processed = await processImage(input.bytes, policy);
   const processedPath =
@@ -137,6 +145,10 @@ export async function prepareMedia(
     originalName: input.name,
     originalSize: input.bytes.length,
     originalPath,
+    publicReference:
+      input.scope === "project"
+        ? (await assertProjectMediaLocation(report, originalPath)).publicReference
+        : true,
     originalReference: mediaTarget(report, input.scope, originalPath, input.articleId).reference,
     processedSize: processed.bytes?.length ?? null,
     processedPath,
@@ -210,7 +222,12 @@ export async function commitMedia(
     if (!bytes || !mediaPath) throw new MediaError("处理后的图片不可用，尚未上传任何文件。");
     const reference = await uploadMedia(report, item.scope, mediaPath, bytes, item.articleId);
     preparations.delete(token);
-    return { reference, size: bytes.length, fileName: path.posix.basename(mediaPath) };
+    return {
+      reference,
+      size: bytes.length,
+      fileName: path.basename(mediaPath),
+      publicReference: item.overview.publicReference,
+    };
   } finally {
     item.busy = false;
   }

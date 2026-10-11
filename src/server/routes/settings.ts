@@ -14,6 +14,7 @@ import { workspaceSession, readWorkspaceHistory } from "../../lib/server/workspa
 import { updateLogRetention } from "../../lib/server/task-preferences";
 import { validatePreferenceGroups } from "../../shared/preferences-transfer";
 import { readProjectBangumiBaseUrl } from "../../lib/server/bangumi-project";
+import { assertProjectMediaDirectory } from "../../lib/server/project-media";
 
 export function registerSettingsRoutes(app: Hono, stateDir?: string) {
   app.post("/api/settings/import", async (context) => {
@@ -31,6 +32,20 @@ export function registerSettingsRoutes(app: Hono, stateDir?: string) {
         : undefined;
     if (body.scope === "project" && key !== body.projectKey)
       throw new ApiError(409, "当前项目已切换，请重新预览。");
+    if (
+      body.scope === "project" &&
+      typeof groups.media?.storageFolder === "string" &&
+      groups.media.storageFolder
+    ) {
+      try {
+        await assertProjectMediaDirectory(
+          await currentProject(stateDir),
+          groups.media.storageFolder,
+        );
+      } catch (error) {
+        mapError(error);
+      }
+    }
     const saved = await savePanelSettingsGroups(
       { scope: body.scope, groups, version: body.version as string | null, projectKey: key },
       stateDir,
@@ -88,9 +103,17 @@ export function registerSettingsRoutes(app: Hono, stateDir?: string) {
     try {
       let projectKey: string | undefined;
       if (body.scope === "project") {
-        projectKey = await settingsProjectKey((await currentProject(stateDir)).root);
+        const report = await currentProject(stateDir);
+        projectKey = await settingsProjectKey(report.root);
         if (projectKey !== body.projectKey)
           throw new ApiError(409, "当前项目已切换，请重新读取项目设置。");
+        if (
+          body.group === "media" &&
+          record(body.fields) &&
+          typeof body.fields.storageFolder === "string" &&
+          body.fields.storageFolder
+        )
+          await assertProjectMediaDirectory(report, body.fields.storageFolder);
       }
       if (
         body.scope === "machine" &&

@@ -19,8 +19,12 @@ import { assertManagedRealPath, resolveManagedPath } from "./path-guard";
 import { defaultStateDir } from "./workspace";
 import { validateArticleId } from "./articles";
 import { encodeMediaPath } from "../../shared/media-settings";
+import { MediaError, projectMediaTarget } from "./media-paths";
+import { imageExtensions } from "../../shared/project-media";
+import { assertProjectMediaLocation, deleteProjectImage } from "./project-media";
+export { MediaError } from "./media-paths";
 
-export type MediaScope = "public" | "article";
+export type MediaScope = "public" | "article" | "project";
 
 export interface MediaItem {
   scope: MediaScope;
@@ -29,13 +33,6 @@ export interface MediaItem {
   modified: string;
   reference: string;
   referencedBy: string[];
-}
-
-export class MediaError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MediaError";
-  }
 }
 
 export const MEDIA_BYTE_LIMIT = 20 * 1024 * 1024;
@@ -131,6 +128,11 @@ export function mediaTarget(
   mediaPath: string,
   articleId?: string,
 ) {
+  if (scope === "project") {
+    if (!imageExtensions.has(path.extname(mediaPath).toLowerCase()))
+      throw new MediaError("图片格式不受支持。");
+    return projectMediaTarget(report, mediaPath);
+  }
   const base = roots(report);
   mediaPath = validateMediaPath(mediaPath);
   if (scope === "public") {
@@ -287,6 +289,8 @@ export async function uploadMedia(
   articleId?: string,
 ) {
   writable(report);
+  if (scope === "project") await assertProjectMediaLocation(report, mediaPath);
+  validateMediaPath(path.basename(mediaPath));
   const target = mediaTarget(report, scope, mediaPath, articleId);
   validateMediaBytes(mediaPath, bytes);
   if (
@@ -321,22 +325,48 @@ export async function readMedia(
   scope: MediaScope,
   mediaPath: string,
 ): Promise<{ bytes: Buffer; type: string }> {
+  if (scope === "project") {
+    if (!imageExtensions.has(path.extname(mediaPath).toLowerCase()))
+      throw new MediaError("仅允许读取图片文件。");
+    const target = await assertProjectMediaLocation(report, mediaPath);
+    return readImageFile(await assertManagedRealPath(target.root, target.relative), true);
+  }
   const base = roots(report);
   mediaPath = validateMediaPath(mediaPath);
   const relative =
     scope === "public" ? `${base.images}/${mediaPath}` : `${base.posts}/${mediaPath}`;
   const filename = await assertManagedRealPath(base.root, relative);
+  return readImageFile(filename);
+}
+
+export async function readImageFile(
+  filename: string,
+  sourceImage = false,
+): Promise<{ bytes: Buffer; type: string }> {
   if (!(await lstat(filename)).isFile()) throw new MediaError("媒体目标不是普通文件");
   const bytes = await readFile(filename);
-  const extension = detectMediaFormat(bytes);
+  const extension =
+    detectMediaFormat(bytes) ??
+    (sourceImage && imageExtensions.has(path.extname(filename).toLowerCase())
+      ? path.extname(filename).toLowerCase()
+      : null);
   if (!extension) throw new MediaError("媒体内容格式不受支持");
   const types: Record<string, string> = {
     ".png": "image/png",
     ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
     ".gif": "image/gif",
     ".webp": "image/webp",
     ".avif": "image/avif",
     ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".bmp": "image/bmp",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".apng": "image/apng",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".jxl": "image/jxl",
   };
   return { bytes, type: types[extension] };
 }
@@ -346,6 +376,7 @@ export async function deleteMedia(
   scope: MediaScope,
   mediaPath: string,
 ): Promise<string> {
+  if (scope === "project") return deleteProjectImage(report, mediaPath);
   const base = writable(report);
   mediaPath = validateMediaPath(mediaPath);
   const all = await listMedia(report);

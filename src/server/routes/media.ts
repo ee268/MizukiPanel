@@ -20,6 +20,11 @@ import {
   commitMedia,
 } from "../../lib/server/media-preparation";
 import { record } from "../../shared/panel-settings";
+import {
+  scanProjectMedia,
+  projectMediaFolders,
+  deleteProjectImage,
+} from "../../lib/server/project-media";
 
 export function registerMediaRoutes(app: Hono, stateDir?: string) {
   const limit = bodyLimit({
@@ -30,6 +35,12 @@ export function registerMediaRoutes(app: Hono, stateDir?: string) {
   app.use("/api/media/*", limit);
   app.get("/api/media", async (context) => {
     const report = await currentProject();
+    if (context.req.query("view") === "project") {
+      const preferences = await mediaPreferences(report, stateDir);
+      const scan = await scanProjectMedia(report);
+      const folders = await projectMediaFolders(report, preferences.values, scan);
+      return context.json({ report, media: scan.media, ...folders, preferences });
+    }
     const [media, articles] = await Promise.all([listMedia(report), listArticles(report)]);
     return context.json({
       report,
@@ -37,6 +48,12 @@ export function registerMediaRoutes(app: Hono, stateDir?: string) {
       articles: articles.filter((item) => !item.error).map(({ id, title }) => ({ id, title })),
       preferences: await mediaPreferences(report, stateDir),
     });
+  });
+
+  app.get("/api/media/folders", async (context) => {
+    const report = await currentProject();
+    const preferences = await mediaPreferences(report, stateDir);
+    return context.json(await projectMediaFolders(report, preferences.values));
   });
 
   app.post("/api/media", async (context) => {
@@ -68,7 +85,11 @@ export function registerMediaRoutes(app: Hono, stateDir?: string) {
       const form = await context.req.formData();
       const file = form.get("file");
       const scope = form.get("scope");
-      if (!(file instanceof File) || !file.name || (scope !== "public" && scope !== "article"))
+      if (
+        !(file instanceof File) ||
+        !file.name ||
+        (scope !== "public" && scope !== "article" && scope !== "project")
+      )
         throw new MediaError("请选择图片和有效的资源范围。");
       if (file.size > MEDIA_BYTE_LIMIT) throw new MediaError("单个图片不能超过 20 MB");
       const settingsVersion = form.get("settingsVersion");
@@ -140,11 +161,17 @@ export function registerMediaRoutes(app: Hono, stateDir?: string) {
 
   app.delete("/api/media", async (context) => {
     const body = await context.req.json<{ scope?: MediaScope; path?: string }>();
-    if ((body.scope !== "public" && body.scope !== "article") || !body.path)
+    if (
+      (body.scope !== "public" && body.scope !== "article" && body.scope !== "project") ||
+      typeof body.path !== "string"
+    )
       throw new ApiError(400, "媒体删除参数无效");
     try {
       return context.json({
-        trash: await deleteMedia(await currentProject(), body.scope, body.path),
+        trash:
+          body.scope === "project"
+            ? await deleteProjectImage(await currentProject(), body.path, stateDir)
+            : await deleteMedia(await currentProject(), body.scope, body.path),
       });
     } catch (error) {
       mapError(error);
@@ -154,7 +181,7 @@ export function registerMediaRoutes(app: Hono, stateDir?: string) {
   app.get("/api/media/file", async (context) => {
     const scope = context.req.query("scope");
     const mediaPath = context.req.query("path");
-    if ((scope !== "public" && scope !== "article") || !mediaPath)
+    if ((scope !== "public" && scope !== "article" && scope !== "project") || !mediaPath)
       throw new ApiError(400, "媒体参数无效");
     try {
       const media = await readMedia(await currentProject(), scope, mediaPath);

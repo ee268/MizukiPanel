@@ -1,5 +1,6 @@
 import { defaultArticleFrontmatter, validTemplateField } from "./article-template";
 import { validMediaFolder } from "../media-settings";
+import { validMediaStorageFolder } from "../project-media";
 import { commitTypes, validCommitScope, validPreviewPath } from "../task-settings";
 import {
   bangumiNetworkProblem,
@@ -188,6 +189,7 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
       fileName: { default: "", valid: (value) => validTemplateField("fileName", value) },
     },
     media: {
+      storageFolder: { default: "", valid: validMediaStorageFolder },
       scope: choice("public", ["public", "article"]),
       folder: {
         default: "",

@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   FormControlLabel,
   MenuItem,
   Stack,
@@ -7,6 +8,10 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import { errorMessage } from "../shared/errors";
+import type { ImageFolder } from "../../shared/project-media";
 import type { useScopedSettings } from "./useScopedSettings";
 import { ScopedCard } from "./WorkspaceSettingsForms";
 export function MediaSettingsForm({
@@ -17,6 +22,32 @@ export function MediaSettingsForm({
   projectRoot: string;
 }) {
   const value = controller.value;
+  const [directories, setDirectories] = useState<{
+    folders: ImageFolder[];
+    defaultFolder: string;
+    fallbackFolder: string;
+    warnings: string[];
+  } | null>(null);
+  const [directoryError, setDirectoryError] = useState("");
+  useEffect(() => {
+    const request = new AbortController();
+    setDirectories(null);
+    setDirectoryError("");
+    if (projectRoot)
+      void api<{
+        folders: ImageFolder[];
+        defaultFolder: string;
+        fallbackFolder: string;
+        warnings: string[];
+      }>("/api/media/folders", { signal: request.signal })
+        .then((result) => {
+          if (!request.signal.aborted) setDirectories(result);
+        })
+        .catch((error) => {
+          if (!request.signal.aborted) setDirectoryError(errorMessage(error, "图片文件夹读取失败"));
+        });
+    return () => request.abort();
+  }, [projectRoot]);
   const select = (label: string, key: string, items: [string, string][], helperText?: string) => (
     <TextField
       fullWidth
@@ -43,21 +74,27 @@ export function MediaSettingsForm({
             {projectRoot}
           </Typography>
         )}
-        {select(
-          "默认上传范围",
-          "scope",
-          [
-            ["public", "公共图片 /images/"],
-            ["article", "文章相对资源"],
-          ],
-          "下次打开媒体管理时填入，可在上传表单临时调整。",
-        )}
-        <TextField
-          fullWidth
-          label="默认子目录"
-          value={value.folder}
-          onChange={(event) => controller.change({ folder: event.target.value })}
-          helperText="相对于公共图片目录或所选文章目录，留空不创建子目录；使用 / 分隔。"
+        {directoryError && <Alert severity="warning">{directoryError}</Alert>}
+        {directories?.warnings.map((warning) => (
+          <Alert severity="warning" key={warning}>
+            {warning}
+          </Alert>
+        ))}
+        <Autocomplete
+          freeSolo
+          options={directories?.folders.map((folder) => folder.path) ?? []}
+          inputValue={String(value.storageFolder ?? "")}
+          onInputChange={(_, storageFolder) =>
+            controller.change({ storageFolder, scope: "public", folder: "", alt: "filename" })
+          }
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="默认存储文件夹（绝对路径）"
+              placeholder={directories?.fallbackFolder}
+              helperText={`选择项目内的图片文件夹，也可填写新文件夹绝对路径；留空使用${directories?.fallbackFolder ? ` ${directories.fallbackFolder}` : "公共图片目录"}。`}
+            />
+          )}
         />
         {select(
           "文件命名",
@@ -77,16 +114,7 @@ export function MediaSettingsForm({
             ["markdown", "Markdown 图片语法"],
             ["html", "HTML img 标签"],
           ],
-          "公共图片使用 /images/ 路径；文章图片插入时使用相对于当前文章的路径。",
-        )}
-        {select(
-          "默认替代文字",
-          "alt",
-          [
-            ["filename", "文件名（不含扩展名）"],
-            ["empty", "留空"],
-          ],
-          "上传和插入前可编辑；装饰性图片可留空。",
+          "公共目录图片复制站点引用；源码和文档目录图片复制实际文件路径。替代文字自动使用文件名。",
         )}
         <FormControlLabel
           control={

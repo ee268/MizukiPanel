@@ -1,4 +1,5 @@
 export interface MediaSettings {
+  storageFolder: string;
   scope: "public" | "article";
   folder: string;
   naming: "original" | "date" | "unique";
@@ -55,6 +56,7 @@ export function imageReference(
   return `![${alt.replace(/([\\\[\]])/g, "\\$1").replace(/[\r\n]+/g, " ")}](${reference.replaceAll(" ", "%20").replaceAll("(", "%28").replaceAll(")", "%29")})`;
 }
 export interface MediaPreparation {
+  publicReference?: boolean;
   token: string;
   expiresAt: string;
   originalName: string;

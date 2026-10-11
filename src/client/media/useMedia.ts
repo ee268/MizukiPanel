@@ -1,18 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
-import type { MediaItem } from "../types";
-import type { MediaData, MediaScope } from "./types";
+import { matchesProjectImage, type ProjectImage } from "../../shared/project-media";
+import type { MediaData } from "./types";
 import { imageReference, mediaAlt, type MediaPreparation } from "../../shared/media-settings";
 
 export function useMedia() {
   const [data, setData] = useState<MediaData | null>(null);
-  const [scope, setScope] = useState<MediaScope>("public");
   const [query, setQuery] = useState("");
-  const [articleId, setArticleId] = useState("");
   const [folder, setFolder] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [alt, setAlt] = useState("");
+  const alt = mediaAlt(file?.name ?? "", "filename");
   const [preparation, setPreparation] = useState<MediaPreparation | null>(null);
   const [variant, setVariant] = useState<"original" | "processed" | "">("");
   const [uploaded, setUploaded] = useState<{
@@ -20,8 +18,9 @@ export function useMedia() {
     size: number;
     fileName: string;
     alt: string;
+    publicReference: boolean;
   } | null>(null);
-  const [deleting, setDeleting] = useState<MediaItem | null>(null);
+  const [deleting, setDeleting] = useState<ProjectImage | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -29,15 +28,11 @@ export function useMedia() {
   const generation = useRef(0);
   const load = useCallback(async () => {
     try {
-      const next = await api<MediaData>("/api/media");
+      const next = await api<MediaData>("/api/media?view=project");
       setData(next);
-      setArticleId((current) =>
-        next.articles.some((item) => item.id === current) ? current : next.articles[0]?.id || "",
-      );
       if (!initialized.current) {
         initialized.current = true;
-        setScope(next.preferences.values.scope);
-        setFolder(next.preferences.values.folder);
+        setFolder(next.defaultFolder);
       }
       return next;
     } catch (cause) {
@@ -58,12 +53,8 @@ export function useMedia() {
     setError("");
   };
   const visibleItems = useMemo(
-    () =>
-      data?.media.filter(
-        (item) =>
-          item.scope === scope && item.path.toLowerCase().includes(query.trim().toLowerCase()),
-      ) ?? [],
-    [data, scope, query],
+    () => data?.media.filter((item) => matchesProjectImage(item, query)) ?? [],
+    [data, query],
   );
   async function prepare(event?: FormEvent) {
     event?.preventDefault();
@@ -74,8 +65,7 @@ export function useMedia() {
     setPreparation(null);
     setVariant("");
     const form = new FormData();
-    form.set("scope", scope);
-    form.set("articleId", articleId);
+    form.set("scope", "project");
     form.set("folder", folder);
     form.set("file", file);
     form.set("projectKey", data.preferences.projectKey);
@@ -107,10 +97,12 @@ export function useMedia() {
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ reference: string; size: number; fileName: string }>(
-        "/api/media/commit",
-        json("POST", { token: preparation.token, variant }),
-      );
+      const result = await api<{
+        reference: string;
+        size: number;
+        fileName: string;
+        publicReference: boolean;
+      }>("/api/media/commit", json("POST", { token: preparation.token, variant }));
       setUploaded({ ...result, alt });
       setNotice(`上传成功：${result.reference}`);
       setFile(null);
@@ -138,7 +130,7 @@ export function useMedia() {
       setBusy(false);
     }
   }
-  async function copy(reference: string) {
+  async function copy(reference: string, publicReference = true) {
     try {
       const policy = data?.preferences.values;
       let decoded = reference;
@@ -149,8 +141,10 @@ export function useMedia() {
       }
       const result = imageReference(
         reference,
-        mediaAlt(decoded, policy?.alt ?? "filename"),
-        policy?.referenceFormat === "auto" || !policy ? "path" : policy.referenceFormat,
+        mediaAlt(decoded, "filename"),
+        !publicReference || policy?.referenceFormat === "auto" || !policy
+          ? "path"
+          : policy.referenceFormat,
       );
       await navigator.clipboard.writeText(result);
       setNotice(`已复制：${result}`);
@@ -160,9 +154,7 @@ export function useMedia() {
   }
   return {
     data,
-    scope,
     query,
-    articleId,
     folder,
     file,
     alt,
@@ -179,20 +171,11 @@ export function useMedia() {
     upload,
     remove,
     copy,
-    setAlt,
     setVariant,
     setQuery,
     setDeleting,
     setError,
     setNotice,
-    setScope: (value: MediaScope) => {
-      invalidate();
-      setScope(value);
-    },
-    setArticleId: (value: string) => {
-      invalidate();
-      setArticleId(value);
-    },
     setFolder: (value: string) => {
       invalidate();
       setFolder(value);
@@ -201,7 +184,6 @@ export function useMedia() {
       invalidate();
       setFile(value);
       setUploaded(null);
-      setAlt(mediaAlt(value?.name ?? "", data?.preferences.values.alt ?? "filename"));
       if (value && value.size > 20 * 1024 * 1024) setError("单张图片不能超过 20 MB。");
     },
     refresh: async () => {
@@ -211,9 +193,7 @@ export function useMedia() {
     resetDefaults: () => {
       invalidate();
       if (data) {
-        setScope(data.preferences.values.scope);
-        setFolder(data.preferences.values.folder);
-        setAlt(mediaAlt(file?.name ?? "", data.preferences.values.alt));
+        setFolder(data.defaultFolder);
       }
     },
   };

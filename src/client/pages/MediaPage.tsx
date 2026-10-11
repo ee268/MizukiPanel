@@ -20,7 +20,7 @@ export default function MediaPage() {
         <Box data-page-motion="heading">
           <Typography variant="h4">媒体管理</Typography>
           <Typography color="text.secondary" sx={{ mt: 1 }}>
-            管理公共图片和与文章同目录的相对资源。
+            按文件夹管理项目中的图片，上传到所选绝对路径；自动排除构建和依赖目录。
           </Typography>
         </Box>
 
@@ -29,17 +29,22 @@ export default function MediaPage() {
             {media.error}
           </Alert>
         )}
+        {!media.data && !media.error && <Alert severity="info">正在扫描项目图片和文件夹…</Alert>}
         {readOnly && <Alert severity="warning">当前工作区只读，媒体写入已禁用。</Alert>}
+        {media.data?.warnings.map((warning) => (
+          <Alert severity="warning" key={warning}>
+            {warning}
+          </Alert>
+        ))}
 
         <MediaUpload controller={media} readOnly={readOnly} />
         <MediaGallery
           items={media.visibleItems}
-          scope={media.scope}
+          folders={media.data?.folders ?? []}
           query={media.query}
           readOnly={readOnly}
-          onScopeChange={media.setScope}
           onQueryChange={media.setQuery}
-          onCopy={media.copy}
+          onCopy={(item) => void media.copy(item.reference, item.publicReference)}
           onDelete={media.setDeleting}
         />
 

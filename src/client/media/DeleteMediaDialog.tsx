@@ -6,10 +6,10 @@ import {
   DialogContentText,
   DialogTitle,
 } from "@mui/material";
-import type { MediaItem } from "../types";
+import type { ProjectImage } from "../../shared/project-media";
 
 interface DeleteMediaDialogProps {
-  item: MediaItem | null;
+  item: ProjectImage | null;
   busy: boolean;
   onClose: () => void;
   onConfirm: () => void;

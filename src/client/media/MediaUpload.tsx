@@ -1,11 +1,11 @@
 import CloudUploadOutlined from "@mui/icons-material/CloudUploadOutlined";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   FormControlLabel,
   Grid,
-  MenuItem,
   Paper,
   Radio,
   RadioGroup,
@@ -29,7 +29,7 @@ export function MediaUpload({
   readOnly: boolean;
 }) {
   const prepared = media.preparation;
-  const disabled = readOnly || media.busy || !media.data;
+  const disabled = readOnly || media.busy || !media.data || media.data.preferences.readOnly;
   const reference =
     media.variant === "processed" ? prepared?.processedReference : prepared?.originalReference;
   const path = media.variant === "processed" ? prepared?.processedPath : prepared?.originalPath;
@@ -48,42 +48,20 @@ export function MediaUpload({
         <Box component="form" onSubmit={media.prepare}>
           <Box component="fieldset" disabled={disabled} sx={{ p: 0, m: 0, border: 0, minWidth: 0 }}>
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <TextField
-                  fullWidth
-                  select
-                  label="存储位置"
-                  value={media.scope}
-                  onChange={(event) => media.setScope(event.target.value as "public" | "article")}
-                >
-                  <MenuItem value="public">公共图片 /images/</MenuItem>
-                  <MenuItem value="article">文章相对资源</MenuItem>
-                </TextField>
-              </Grid>
-              {media.scope === "article" && (
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <TextField
-                    fullWidth
-                    required
-                    select
-                    label="所属文章"
-                    value={media.articleId}
-                    onChange={(event) => media.setArticleId(event.target.value)}
-                  >
-                    {media.data?.articles.map((article) => (
-                      <MenuItem value={article.id} key={article.id}>
-                        {article.title} · {article.id}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-              )}
-              <Grid size={{ xs: 12, md: 3 }}>
-                <TextField
-                  fullWidth
-                  label="子目录（可留空）"
-                  value={media.folder}
-                  onChange={(event) => media.setFolder(event.target.value)}
+              <Grid size={{ xs: 12, md: 8 }}>
+                <Autocomplete
+                  freeSolo
+                  options={media.data?.folders.map((folder) => folder.path) ?? []}
+                  inputValue={media.folder}
+                  onInputChange={(_, value) => media.setFolder(value)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      required
+                      label="存储位置（绝对路径）"
+                      helperText="选择已有图片文件夹，或填写项目内的新文件夹绝对路径。"
+                    />
+                  )}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -108,23 +86,12 @@ export function MediaUpload({
                   />
                 </Button>
               </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  label="替代文字"
-                  value={media.alt}
-                  onChange={(event) => media.setAlt(event.target.value)}
-                  helperText="用于复制图片引用；装饰性图片可留空。"
-                />
-              </Grid>
             </Grid>
             <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", gap: 1 }}>
               <Button
                 type="submit"
                 variant="outlined"
-                disabled={
-                  disabled || !media.file || (media.scope === "article" && !media.articleId)
-                }
+                disabled={disabled || !media.file || !media.folder.trim()}
               >
                 {media.busy ? "正在处理…" : prepared ? "重新预览上传结果" : "预览上传结果"}
               </Button>
@@ -182,7 +149,11 @@ export function MediaUpload({
                   value={imageReference(
                     reference,
                     media.alt,
-                    prepared.referenceFormat === "html" ? "html" : "markdown",
+                    prepared.publicReference === false
+                      ? "path"
+                      : prepared.referenceFormat === "html"
+                        ? "html"
+                        : "markdown",
                   )}
                   slotProps={{ input: { readOnly: true } }}
                 />
@@ -198,6 +169,11 @@ export function MediaUpload({
                   }}
                 />
               </>
+            )}
+            {prepared.publicReference === false && (
+              <Alert severity="info">
+                此文件夹不是公共目录，复制的是本地路径；在 Mizuki 中使用时需按源码资源方式导入。
+              </Alert>
             )}
             <Typography variant="caption" color="text.secondary">
               预览有效至 {new Date(prepared.expiresAt).toLocaleTimeString()}
@@ -226,7 +202,11 @@ export function MediaUpload({
                 value={imageReference(
                   media.uploaded.reference,
                   media.uploaded.alt,
-                  media.data?.preferences.values.referenceFormat === "html" ? "html" : "markdown",
+                  !media.uploaded.publicReference
+                    ? "path"
+                    : media.data?.preferences.values.referenceFormat === "html"
+                      ? "html"
+                      : "markdown",
                 )}
                 slotProps={{ input: { readOnly: true } }}
               />

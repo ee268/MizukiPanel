@@ -1,94 +1,136 @@
+import { useState } from "react";
 import ContentCopyOutlined from "@mui/icons-material/ContentCopyOutlined";
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
+import ExpandMore from "@mui/icons-material/ExpandMore";
+import FolderOutlined from "@mui/icons-material/FolderOutlined";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
+  Box,
   Button,
   Card,
   CardActions,
   CardContent,
-  CardMedia,
   Chip,
   Grid,
+  Pagination,
   Paper,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
-import type { MediaItem } from "../types";
-import type { MediaScope } from "./types";
+import type { ProjectImage, ImageFolder } from "../../shared/project-media";
 
-function formatSize(bytes: number) {
-  return bytes < 1024 * 1024
-    ? `${(bytes / 1024).toFixed(1)} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-interface MediaGalleryProps {
-  items: MediaItem[];
-  scope: MediaScope;
-  query: string;
+type Actions = {
   readOnly: boolean;
-  onScopeChange: (scope: MediaScope) => void;
-  onQueryChange: (query: string) => void;
-  onCopy: (reference: string) => void;
-  onDelete: (item: MediaItem) => void;
-}
-
+  onCopy: (item: ProjectImage) => void;
+  onDelete: (item: ProjectImage) => void;
+};
 export function MediaGallery({
   items,
-  scope,
+  folders,
   query,
-  readOnly,
-  onScopeChange,
   onQueryChange,
-  onCopy,
-  onDelete,
-}: MediaGalleryProps) {
+  ...actions
+}: Actions & {
+  items: ProjectImage[];
+  folders: ImageFolder[];
+  query: string;
+  onQueryChange: (query: string) => void;
+}) {
+  const groups = folders
+    .map((folder) => ({ folder, images: items.filter((item) => item.folder === folder.path) }))
+    .filter((group) => group.images.length);
   return (
-    <>
-      <Paper variant="outlined">
+    <Stack spacing={2}>
+      <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
-          sx={{ px: 2, justifyContent: "space-between", alignItems: { sm: "center" } }}
+          spacing={2}
+          sx={{ justifyContent: "space-between", alignItems: { sm: "center" } }}
         >
-          <Tabs value={scope} onChange={(_, value: MediaScope) => onScopeChange(value)}>
-            <Tab value="public" label="公共图片" />
-            <Tab value="article" label="文章资源" />
-          </Tabs>
+          <Box>
+            <Typography variant="h6">公共图片</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {items.length} 张图片 · {groups.length} 个文件夹
+            </Typography>
+          </Box>
           <TextField
-            placeholder="筛选文件路径"
+            label="搜索图片或文件夹"
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            sx={{ my: 1, width: { sm: 280 } }}
+            sx={{ width: { xs: "100%", sm: 320 } }}
           />
         </Stack>
       </Paper>
-
+      {groups.map(({ folder, images }, index) => {
+        return (
+          <Accordion
+            key={`${folder.path}-${Boolean(query.trim())}`}
+            defaultExpanded={index === 0 || Boolean(query.trim())}
+            slotProps={{ transition: { unmountOnExit: true } }}
+            variant="outlined"
+            disableGutters
+          >
+            <AccordionSummary expandIcon={<ExpandMore />}>
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{ minWidth: 0, width: "100%", alignItems: "center" }}
+              >
+                <FolderOutlined color="primary" />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>
+                    {folder.relativePath === "." || !folder.relativePath
+                      ? "项目根目录"
+                      : folder.relativePath}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ overflowWrap: "anywhere" }}
+                  >
+                    {folder.path}
+                  </Typography>
+                </Box>
+                <Chip size="small" label={`${images.length} 张`} />
+              </Stack>
+            </AccordionSummary>
+            <AccordionDetails>
+              <FolderImages key={query} items={images} {...actions} />
+            </AccordionDetails>
+          </Accordion>
+        );
+      })}
+      {!items.length && <Alert severity="info">没有匹配的图片。</Alert>}
+    </Stack>
+  );
+}
+function FolderImages({ items, readOnly, onCopy, onDelete }: Actions & { items: ProjectImage[] }) {
+  const [page, setPage] = useState(1);
+  const pages = Math.ceil(items.length / 12);
+  const current = Math.min(page, pages);
+  return (
+    <Stack spacing={2}>
       <Grid container spacing={2}>
-        {items.map((item) => (
-          <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={`${item.scope}-${item.path}`}>
-            <Card data-page-motion="tile" variant="outlined">
-              <CardMedia
-                component="img"
-                image={`/api/media/file?scope=${item.scope}&path=${encodeURIComponent(item.path)}`}
-                sx={{ height: 180, objectFit: "contain", bgcolor: "grey.100" }}
-              />
+        {items.slice((current - 1) * 12, current * 12).map((item) => (
+          <Grid size={{ xs: 12, sm: 6, lg: 4, xl: 3 }} key={item.path}>
+            <Card variant="outlined" data-page-motion="tile">
+              <ImagePreview item={item} />
               <CardContent>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontFamily: "var(--mizuki-panel-font-mono)",
-                    overflowWrap: "anywhere",
-                    minHeight: 42,
-                  }}
-                >
-                  {item.path}
+                <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                  {item.path.split(/[\\/]/).at(-1)}
                 </Typography>
-                <Stack direction="row" sx={{ mt: 1, justifyContent: "space-between" }}>
+                <Stack
+                  direction="row"
+                  sx={{ mt: 1, justifyContent: "space-between", alignItems: "center" }}
+                >
                   <Typography variant="caption" color="text.secondary">
-                    {formatSize(item.size)}
+                    {item.size < 1048576
+                      ? `${(item.size / 1024).toFixed(1)} KB`
+                      : `${(item.size / 1048576).toFixed(1)} MB`}
                   </Typography>
                   <Chip
                     size="small"
@@ -101,15 +143,15 @@ export function MediaGallery({
                 <Button
                   size="small"
                   startIcon={<ContentCopyOutlined />}
-                  onClick={() => onCopy(item.reference)}
+                  onClick={() => onCopy(item)}
                 >
-                  复制引用
+                  {item.publicReference ? "复制引用" : "复制路径"}
                 </Button>
                 <Button
                   size="small"
                   color="error"
                   startIcon={<DeleteOutline />}
-                  disabled={Boolean(item.referencedBy.length) || readOnly}
+                  disabled={readOnly || Boolean(item.referencedBy.length)}
                   onClick={() => onDelete(item)}
                 >
                   删除
@@ -119,8 +161,43 @@ export function MediaGallery({
           </Grid>
         ))}
       </Grid>
-
-      {!items.length && <Alert severity="info">当前范围没有匹配的媒体。</Alert>}
-    </>
+      {pages > 1 && (
+        <Pagination
+          count={pages}
+          page={current}
+          onChange={(_, next) => setPage(next)}
+          sx={{ alignSelf: "center" }}
+        />
+      )}
+    </Stack>
+  );
+}
+function ImagePreview({ item }: { item: ProjectImage }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <Box
+      sx={{
+        height: 180,
+        bgcolor: "action.hover",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {failed ? (
+        <Typography color="text.secondary" variant="body2">
+          当前格式无法预览
+        </Typography>
+      ) : (
+        <Box
+          component="img"
+          alt=""
+          loading="lazy"
+          src={`/api/media/file?scope=project&path=${encodeURIComponent(item.path)}`}
+          onError={() => setFailed(true)}
+          sx={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      )}
+    </Box>
   );
 }

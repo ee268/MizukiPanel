@@ -108,6 +108,56 @@ it("previews and uploads the exact selected output through authenticated multipa
   ).toBe(32);
   expect((await commit({ token: preview.token, variant: "processed" })).status).toBe(409);
 });
+
+it("lists project-wide folders and commits an image to the chosen absolute directory", async () => {
+  const { root, app, headers, bytes, preferences, commit } = await fixture();
+  const folder = path.join(root, "public/assets/gallery");
+  await mkdir(folder, { recursive: true });
+  await writeFile(path.join(folder, "existing.png"), bytes);
+  await mkdir(path.join(root, "dist"));
+  await writeFile(path.join(root, "dist/generated.png"), bytes);
+  const library = await (await app.request(origin + "/api/media?view=project", { headers })).json();
+  expect(library.media).toHaveLength(1);
+  expect(library.media[0]).toMatchObject({
+    scope: "project",
+    path: path.join(folder, "existing.png"),
+    folder,
+  });
+  const directories = await (await app.request(origin + "/api/media/folders", { headers })).json();
+  expect(directories.folders.map((entry: { path: string }) => entry.path)).toContain(folder);
+  const pref = await preferences();
+  const form = new FormData();
+  form.set("file", new File([Uint8Array.from(bytes)], "new.png"));
+  form.set("scope", "project");
+  form.set("folder", folder);
+  form.set("projectKey", pref.projectKey);
+  form.set("settingsVersion", pref.settingsVersion ?? "");
+  const response = await app.request(origin + "/api/media/prepare", {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  expect(response.status).toBe(200);
+  const preview = await response.json();
+  expect(preview.originalPath).toBe(path.join(folder, "new.png"));
+  expect((await commit({ token: preview.token, variant: "original" })).status).toBe(201);
+  expect(await readFile(path.join(folder, "new.png"))).toEqual(bytes);
+  const file = await app.request(
+    origin +
+      "/api/media/file?scope=project&path=" +
+      encodeURIComponent(path.join(folder, "new.png")),
+    { headers },
+  );
+  expect(file.status).toBe(200);
+  expect(file.headers.get("content-type")).toBe("image/png");
+  const denied = await app.request(
+    origin +
+      "/api/media/file?scope=project&path=" +
+      encodeURIComponent(path.join(root, "dist/generated.png")),
+    { headers },
+  );
+  expect(denied.status).toBe(400);
+});
 it("protects resource limits, authentication, project binding, read-only state and malformed requests", async () => {
   const { root, app, headers, report, prepare, commit } = await fixture();
   expect((await app.request(origin + "/api/media")).status).toBe(401);
