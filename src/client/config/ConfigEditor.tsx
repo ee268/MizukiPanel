@@ -21,7 +21,6 @@ import {
 import { TypeScriptEditor } from "../components/TypeScriptEditor";
 import type { SiteConfigDocument } from "../types";
 import type { ConfigBackup } from "../../shared/config-backups";
-import type { ConfigDetailLayout } from "./catalog";
 import { ConfigIcon } from "./ConfigIcon";
 
 interface ConfigEditorProps {
@@ -35,7 +34,6 @@ interface ConfigEditorProps {
   onDiscard: () => void;
   onClear: () => void;
   onRestore: (id: string) => void;
-  layout?: ConfigDetailLayout;
 }
 
 export function ConfigEditor({
@@ -49,7 +47,6 @@ export function ConfigEditor({
   onDiscard,
   onClear,
   onRestore,
-  layout = "focus",
 }: ConfigEditorProps) {
   const [backupId, setBackupId] = useState("");
   const [tab, setTab] = useState("edit");
@@ -65,7 +62,7 @@ export function ConfigEditor({
     );
   const dirty = initializer !== document.initializer;
   return (
-    <Stack spacing={2.5} data-config-detail-layout={layout}>
+    <Stack spacing={2.5} data-config-detail-layout="tabs">
       <Paper variant="outlined" sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: 3 }}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
           <Avatar
@@ -104,30 +101,21 @@ export function ConfigEditor({
           </Alert>
         ))}
       </Paper>
-      {layout === "tabs" && (
-        <Tabs value={tab} onChange={(_, value: string) => setTab(value)} aria-label="配置详情分区">
-          <Tab
-            value="edit"
-            label="配置编辑"
-            id="config-edit-tab"
-            aria-controls="config-edit-panel"
-          />
-          <Tab
-            value="backups"
-            label={`配置备份（${backups.length}）`}
-            id="config-backups-tab"
-            aria-controls="config-backups-panel"
-          />
-        </Tabs>
-      )}
+      <Tabs value={tab} onChange={(_, value: string) => setTab(value)} aria-label="配置详情分区">
+        <Tab value="edit" label="配置编辑" id="config-edit-tab" aria-controls="config-edit-panel" />
+        <Tab
+          value="backups"
+          label={`配置备份（${backups.length}）`}
+          id="config-backups-tab"
+          aria-controls="config-backups-panel"
+        />
+      </Tabs>
       <Paper
+        data-config-save-bar
         variant="outlined"
         sx={{
           p: 1.5,
           borderRadius: 3,
-          position: "sticky",
-          top: "calc(var(--mizuki-panel-header-height, 65px) + 12px)",
-          zIndex: 2,
         }}
       >
         <Stack
@@ -162,32 +150,18 @@ export function ConfigEditor({
           </Typography>
         </Stack>
       </Paper>
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns:
-            layout === "workbench"
-              ? { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) minmax(260px, 340px)" }
-              : "minmax(0, 1fr)",
-          gridTemplateAreas:
-            layout === "workbench"
-              ? { xs: '"editor" "backups"', lg: '"editor backups"' }
-              : '"editor" "backups"',
-          gap: 2.5,
-          alignItems: "start",
-        }}
-      >
+      <Box sx={{ minWidth: 0 }}>
         <Paper
           id="config-edit-panel"
-          role={layout === "tabs" ? "tabpanel" : undefined}
-          aria-labelledby={layout === "tabs" ? "config-edit-tab" : undefined}
+          role="tabpanel"
+          aria-labelledby="config-edit-tab"
+          hidden={tab !== "edit"}
           variant="outlined"
           sx={{
             p: 2.5,
             borderRadius: 3,
             minWidth: 0,
-            gridArea: "editor",
-            display: layout === "tabs" && tab !== "edit" ? "none" : "block",
+            display: tab !== "edit" ? "none" : "block",
           }}
         >
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -202,17 +176,15 @@ export function ConfigEditor({
         </Paper>
         <Paper
           id="config-backups-panel"
-          role={layout === "tabs" ? "tabpanel" : undefined}
-          aria-labelledby={layout === "tabs" ? "config-backups-tab" : undefined}
+          role="tabpanel"
+          aria-labelledby="config-backups-tab"
+          hidden={tab !== "backups"}
           variant="outlined"
           sx={{
             p: 2.5,
             borderRadius: 3,
             minWidth: 0,
-            gridArea: "backups",
-            display: layout === "tabs" && tab !== "backups" ? "none" : "block",
-            position: layout === "workbench" ? { lg: "sticky" } : "static",
-            top: "calc(var(--mizuki-panel-header-height, 65px) + 88px)",
+            display: tab !== "backups" ? "none" : "block",
           }}
         >
           <Typography variant="h6">配置备份</Typography>
@@ -220,10 +192,7 @@ export function ConfigEditor({
             仅保留当前配置的最近 5 份备份。恢复前也会备份当前内容。
           </Typography>
           {backups.length ? (
-            <Stack
-              direction={layout === "workbench" ? "column" : { xs: "column", sm: "row" }}
-              spacing={2}
-            >
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <FormControl size="small" sx={{ flex: 1, minWidth: 0 }}>
                 <InputLabel id="config-backup-label">选择备份</InputLabel>
                 <Select

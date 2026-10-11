@@ -1,8 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
-import CenterFocusStrongOutlined from "@mui/icons-material/CenterFocusStrongOutlined";
-import ViewColumnOutlined from "@mui/icons-material/ViewColumnOutlined";
-import TabOutlined from "@mui/icons-material/TabOutlined";
 import {
   Alert,
   Box,
@@ -15,26 +12,16 @@ import {
   DialogTitle,
   Snackbar,
   Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import { useBlocker, useLocation, useNavigationType, useSearchParams } from "react-router-dom";
 import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { ConfigCatalog } from "../config/ConfigCatalog";
-import { configDetailLayouts, type ConfigDetailLayout } from "../config/catalog";
 import { useConfigs } from "../config/useConfigs";
 
 const ConfigEditor = lazy(() =>
   import("../config/ConfigEditor").then((module) => ({ default: module.ConfigEditor })),
 );
-const layoutStorageKey = "mizuki-panel.config-detail-layout";
-const layoutIcons = {
-  focus: <CenterFocusStrongOutlined />,
-  workbench: <ViewColumnOutlined />,
-  tabs: <TabOutlined />,
-};
 
 function LoadingDetails() {
   return (
@@ -83,16 +70,6 @@ export default function ConfigPage() {
   const restoringScroll = useRef(false);
   catalogVisible.current = !configs.selected;
   const previousSelected = useRef(configs.selected);
-  const [layout, setLayout] = useState<ConfigDetailLayout>(() => {
-    try {
-      const saved = localStorage.getItem(layoutStorageKey);
-      if (configDetailLayouts.some((item) => item.value === saved))
-        return saved as ConfigDetailLayout;
-    } catch {
-      /* The layout remains available when browser storage is disabled. */
-    }
-    return "focus";
-  });
   const dirty = Boolean(configs.document && configs.initializer !== configs.document.initializer);
   const blocker = useBlocker(({ currentLocation, nextLocation }) => {
     const currentKey = new URLSearchParams(currentLocation.search).get("key");
@@ -126,56 +103,19 @@ export default function ConfigPage() {
     window.addEventListener("scroll", rememberScroll, { passive: true });
     return () => window.removeEventListener("scroll", rememberScroll);
   }, []);
-  function changeLayout(next: ConfigDetailLayout | null) {
-    if (!next) return;
-    setLayout(next);
-    try {
-      localStorage.setItem(layoutStorageKey, next);
-    } catch {
-      /* Keep the selection for this visit. */
-    }
-  }
   const selectedValid = configs.configs.some((item) => item.key === configs.selected);
   return (
-    <Container maxWidth={configs.selected && layout === "focus" ? "lg" : false} sx={{ py: 4 }}>
+    <Container maxWidth={false} sx={{ py: 4 }}>
       <Stack spacing={3}>
         {configs.selected ? (
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            spacing={2}
-            sx={{ alignItems: { sm: "center" }, justifyContent: "space-between" }}
+          <Button
+            startIcon={<ArrowBackOutlined />}
+            onClick={configs.close}
+            disabled={configs.busy || configs.backingUp}
+            sx={{ alignSelf: "flex-start" }}
           >
-            <Button
-              startIcon={<ArrowBackOutlined />}
-              onClick={configs.close}
-              disabled={configs.busy || configs.backingUp}
-              sx={{ alignSelf: "flex-start" }}
-            >
-              返回配置目录
-            </Button>
-            <Stack spacing={0.75} sx={{ minWidth: 0 }}>
-              <Typography variant="caption" color="text.secondary">
-                详情布局
-              </Typography>
-              <ToggleButtonGroup
-                size="small"
-                exclusive
-                value={layout}
-                onChange={(_, value: ConfigDetailLayout | null) => changeLayout(value)}
-                aria-label="配置详情布局"
-                sx={{ flexWrap: "wrap" }}
-              >
-                {configDetailLayouts.map((item) => (
-                  <Tooltip key={item.value} title={item.description}>
-                    <ToggleButton value={item.value} aria-label={item.label} sx={{ gap: 0.75 }}>
-                      {layoutIcons[item.value]}
-                      {item.label}
-                    </ToggleButton>
-                  </Tooltip>
-                ))}
-              </ToggleButtonGroup>
-            </Stack>
-          </Stack>
+            返回配置目录
+          </Button>
         ) : (
           <Box data-page-motion="heading">
             <Typography variant="h4" component="h1">
@@ -209,7 +149,6 @@ export default function ConfigPage() {
           ) : configs.indexLoading || selectedValid ? (
             <Suspense fallback={<LoadingDetails />}>
               <ConfigEditor
-                layout={layout}
                 document={configs.document}
                 initializer={configs.initializer}
                 busy={configs.busy}
