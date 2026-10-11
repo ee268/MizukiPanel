@@ -14,6 +14,7 @@ import {
   saveAnimeSeason,
   saveFeatureData,
   saveFeatureText,
+  setFeatureEnabled,
 } from "../../lib/server/features";
 import { ApiError, mapError } from "../errors";
 import { currentProject } from "../project";
@@ -22,6 +23,23 @@ export function registerFeatureRoutes(app: Hono) {
   app.get("/api/features", async (context) =>
     context.json(await featureIndex(await currentProject())),
   );
+
+  app.put("/api/feature/enabled", async (context) => {
+    const body = await context.req.json<{ key?: string; enabled?: boolean; version?: string }>();
+    if (
+      typeof body.key !== "string" ||
+      typeof body.enabled !== "boolean" ||
+      typeof body.version !== "string"
+    )
+      throw new ApiError(400, "页面开关保存参数不完整");
+    try {
+      return context.json(
+        await setFeatureEnabled(await currentProject(), body.key, body.enabled, body.version),
+      );
+    } catch (error) {
+      mapError(error);
+    }
+  });
 
   app.get("/api/feature/data", async (context) => {
     const key = context.req.query("key");

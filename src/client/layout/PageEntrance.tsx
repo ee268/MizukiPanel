@@ -23,8 +23,7 @@ const entrances: Record<string, Record<string, Motion>> = {
   },
   "/features": {
     heading: { from: "translateY(-6px)", duration: 220 },
-    navigation: { from: "translateY(12px)", duration: 300, delay: 30 },
-    content: { duration: 300, delay: 110 },
+    controls: { from: "translateY(-8px)", duration: 240, delay: 30 },
   },
   "/media": {
     heading: { duration: 200 },

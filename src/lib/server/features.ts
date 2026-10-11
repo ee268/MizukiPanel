@@ -15,10 +15,11 @@ import {
 } from "./storage";
 import {
   parseConfigInitializer,
+  patchConfigBoolean,
   replaceConfigInitializer,
   type ConfigValue,
 } from "./config-format";
-import { readConfig } from "./configs";
+import { readConfig, saveConfig } from "./configs";
 import { animeSeasonAuthor, removeAnimeSeasonFlags } from "./anime-season-format";
 import { groupAnimeSeasons } from "../../shared/anime-seasons";
 
@@ -319,6 +320,7 @@ export async function featureIndex(report: ProjectReport) {
   const navText = JSON.stringify(nav.effectiveValue);
   return {
     report,
+    siteConfigVersion: site.version,
     modules: modules.map((item) => {
       const anime =
         siteObject.anime && typeof siteObject.anime === "object" && !Array.isArray(siteObject.anime)
@@ -356,6 +358,31 @@ export async function featureIndex(report: ProjectReport) {
     dataResources: FEATURE_DATA,
     textResources: Object.entries(textResources).map(([key, value]) => ({ key, ...value })),
   };
+}
+
+export async function setFeatureEnabled(
+  report: ProjectReport,
+  key: string,
+  enabled: boolean,
+  expectedVersion: string,
+) {
+  const module = modules.find((item) => item.key === key);
+  if (!module?.switchKey) throw new FeatureError("该特色页面未提供启用开关");
+  if (typeof enabled !== "boolean") throw new FeatureError("页面开关必须为布尔值");
+  if (report.readOnly || report.mode === "blocked")
+    throw new FeatureError("当前工作区只读，无法修改页面开关");
+  const current = await readConfig(report, "siteConfig");
+  if (current.version !== expectedVersion)
+    throw new StorageConflict("站点配置已在其他位置修改，请刷新后重试");
+  const initializer = patchConfigBoolean(
+    current.initializer,
+    ["featurePages", module.switchKey],
+    enabled,
+  );
+  if (initializer === current.initializer)
+    return { key, enabled, siteConfigVersion: current.version };
+  const saved = await saveConfig(report, "siteConfig", initializer, expectedVersion);
+  return { key, enabled, siteConfigVersion: saved.config.version };
 }
 
 export async function readFeatureData(report: ProjectReport, key: string) {

@@ -280,6 +280,51 @@ export function createOverrideSource(initializer: string): string {
   return `${importLine}export default ${initializer.trim()};\n`;
 }
 
+// Patch a single switch without reserializing comments, identifiers or unrelated settings.
+export function patchConfigBoolean(
+  initializer: string,
+  keys: readonly string[],
+  value: boolean,
+): string {
+  if (!keys.length) throw new ConfigValidationError("缺少配置字段路径");
+  const prefix = "export default ";
+  const source = `${prefix}${initializer};`;
+  const located = locate(source, null);
+  let node = unwrap(located.node);
+  for (let index = 0; index < keys.length; index++) {
+    if (!ts.isObjectLiteralExpression(node))
+      throw new ConfigValidationError(
+        `${keys.slice(0, index).join(".")} 必须是对象字面量，请在站点配置中编辑`,
+      );
+    const matches = node.properties.filter(
+      (property) =>
+        property.name && propertyName(property.name, located.sourceFile) === keys[index],
+    );
+    if (matches.length > 1) throw new ConfigValidationError("配置字段重复，无法修改页面开关");
+    const property = matches[0];
+    if (!property) {
+      const nested = keys
+        .slice(index + 1)
+        .reduceRight((text, key) => `{ ${JSON.stringify(key)}: ${text} }`, String(value));
+      const offset = node.getStart(located.sourceFile) + 1 - prefix.length;
+      return (
+        initializer.slice(0, offset) +
+        ` ${JSON.stringify(keys[index])}: ${nested},` +
+        initializer.slice(offset)
+      );
+    }
+    if (!ts.isPropertyAssignment(property))
+      throw new ConfigValidationError("页面开关必须是显式配置字段，请在站点配置中编辑");
+    if (index === keys.length - 1) {
+      const start = property.initializer.getStart(located.sourceFile) - prefix.length;
+      const end = property.initializer.getEnd() - prefix.length;
+      return initializer.slice(0, start) + String(value) + initializer.slice(end);
+    }
+    node = unwrap(property.initializer);
+  }
+  throw new ConfigValidationError("无法修改页面开关");
+}
+
 export function deepMergeConfig(base: ConfigValue, override: ConfigValue): ConfigValue {
   if (override === null) return null;
   if (

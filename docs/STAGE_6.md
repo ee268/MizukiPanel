@@ -15,12 +15,13 @@
 - 季度追番：仅在当前内容源存在 `animes/` 目录时显示，替代本地追番入口；本地模式检测 `src/content/animes/`，独立模式检测内容仓库的 `animes/`。空目录保留季度编辑器，支持新建及删除最后一条后的继续管理。管理 `animes/<年>/<季度>月.md`，支持创建、编辑和移入回收目录。
 - 新建季度通过年份和月份选择，月份限定 1、4、7、10 月，已有季度禁止重复创建。模板自动生成 `cover: http:://example.com`、`title: YYYY年M月新番`、`date: YYYY/MM/01`，`author` 沿用最近有作者的季度文件；没有历史作者时为空，可在编辑器中填写。模板不含 `comments`、`copyright`，保存时也移除这两个顶层字段，保留正文及其他元数据。
 - 相册：管理 `images/albums/<id>/info.json`，支持本地/外链模式、隐藏、布局、封面、照片、密码字段、图片上传和可恢复删除。
-- 页面状态：读取 `siteConfig.featurePages` 和 `navBarConfig`，提示页面关闭或缺少导航入口。
+- 页面目录使用搜索栏和紧凑卡片网格，支持联想搜索、中文输入法、滚动入场和按需挂载；打开过的编辑器在返回目录后保留草稿与撤销记录，详见 [特色页面布局](FEATURE_LAYOUT.md)。
+- 页面状态：读取 `siteConfig.featurePages` 和 `navBarConfig`，卡片开关直接保存对应字段，自动备份并校验配置版本；关于页保持常开。关闭页面仍可编辑，详情提示缺少导航入口。
 - 外部数据源：Memos、Bangumi 和 Bilibili 模式只显示来源状态并引导到站点配置，不修改未生效的本地数据。
 
 ## 安全与校验
 
-- 本地模式写入 Mizuki 仓库；独立模式写入内容仓库的 `spec/`、`data/`、`animes/` 和 `images/albums/`。
+- 本地模式写入 Mizuki 仓库；独立模式写入内容仓库的 `spec/`、`data/`、`animes/` 和 `images/albums/`，页面开关写入 `overrides/siteConfig.ts`。
 - 所有写入复用路径守卫、版本哈希、原子替换和备份。
 - 校验重复 ID、日期、HTTP(S) URL、站点相对路径、季度文件名和相册字段。
 - TypeScript 数据出现代码表达式时切换为只读，避免把表达式错误转换为字符串。
