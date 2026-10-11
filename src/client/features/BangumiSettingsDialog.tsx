@@ -19,7 +19,14 @@ import { errorMessage } from "../shared/errors";
 import { useScopedSettings } from "../settings/useScopedSettings";
 import { useUnsavedSessionRecovery } from "../auth/useSessionRecovery";
 import type { SettingsOverview, SettingsSnapshot } from "../../shared/panel-settings";
-import { bangumiNetworkProblem, type BangumiNetworkSettings } from "../../shared/bangumi-settings";
+import {
+  bangumiNetworkProblem,
+  bangumiProxyMode,
+  bangumiProxyFields,
+  defaultBangumiNetworkSettings,
+  type BangumiNetworkSettings,
+  type BangumiProjectBaseUrl,
+} from "../../shared/bangumi-settings";
 
 export function BangumiSettingsDialog({
   onClose,
@@ -29,6 +36,10 @@ export function BangumiSettingsDialog({
   onSaved: () => void;
 }) {
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
+  const [projectBaseUrl, setProjectBaseUrl] = useState<BangumiProjectBaseUrl>({
+    baseUrl: defaultBangumiNetworkSettings.baseUrl,
+    source: "fallback",
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reload, setReload] = useState(0);
@@ -40,7 +51,15 @@ export function BangumiSettingsDialog({
     setError("");
     void api<SettingsOverview>("/api/settings", { signal: request.signal })
       .then((result) => {
-        if (!request.signal.aborted) setSnapshot(result.machine);
+        if (!request.signal.aborted) {
+          setSnapshot(result.machine);
+          setProjectBaseUrl(
+            result.bangumiDefault ?? {
+              baseUrl: defaultBangumiNetworkSettings.baseUrl,
+              source: "fallback",
+            },
+          );
+        }
       })
       .catch((cause) => {
         if (!request.signal.aborted) setError(errorMessage(cause, "搜索设置读取失败"));
@@ -84,6 +103,7 @@ export function BangumiSettingsDialog({
         snapshot && (
           <SettingsForm
             snapshot={snapshot}
+            projectBaseUrl={projectBaseUrl}
             onClose={onClose}
             onSaved={onSaved}
             onSaving={setSaving}
@@ -102,12 +122,14 @@ export function BangumiSettingsDialog({
 
 function SettingsForm({
   snapshot,
+  projectBaseUrl,
   onClose,
   onSaved,
   onSaving,
   onReload,
 }: {
   snapshot: SettingsSnapshot;
+  projectBaseUrl: BangumiProjectBaseUrl;
   onClose: () => void;
   onSaved: () => void;
   onSaving: (saving: boolean) => void;
@@ -115,6 +137,7 @@ function SettingsForm({
 }) {
   const controller = useScopedSettings("machine", "bangumi", snapshot, undefined, () => {});
   const values = controller.value as unknown as BangumiNetworkSettings;
+  const proxyMode = bangumiProxyMode(values);
   const problem = bangumiNetworkProblem(values);
   const locked = controller.readOnly || controller.saving;
   useUnsavedSessionRecovery("搜索设置", controller.dirty, {
@@ -160,20 +183,43 @@ function SettingsForm({
           )}
           <Box component="fieldset" disabled={locked} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
             <Stack spacing={2.5}>
+              <FormControlLabel
+                label="跟随季度追番 BaseURL"
+                control={
+                  <Switch
+                    checked={values.followProjectBaseUrl}
+                    onChange={(_, followProjectBaseUrl) =>
+                      controller.change({ followProjectBaseUrl })
+                    }
+                  />
+                }
+              />
               <TextField
                 label="Bangumi BaseURL"
-                value={values.baseUrl}
+                value={values.followProjectBaseUrl ? projectBaseUrl.baseUrl : values.baseUrl}
+                disabled={values.followProjectBaseUrl}
                 onChange={(event) => controller.change({ baseUrl: event.target.value })}
-                helperText="例如 https://api.bgm.tv，支持镜像路径与 /v0 后缀。"
+                helperText={
+                  values.followProjectBaseUrl
+                    ? projectBaseUrl.source === "project"
+                      ? "跟随当前项目的季度追番地址，切换项目后自动更新。"
+                      : "暂使用 Bangumi 官方地址。"
+                    : "支持镜像路径与 /v0 后缀。"
+                }
                 fullWidth
                 slotProps={{ htmlInput: { maxLength: 2000 } }}
               />
+              {values.followProjectBaseUrl && projectBaseUrl.warning && (
+                <Alert severity="info">{projectBaseUrl.warning}</Alert>
+              )}
               <FormControlLabel
-                label="启用代理"
+                label="自定义代理"
                 control={
                   <Switch
-                    checked={values.proxyEnabled}
-                    onChange={(_, proxyEnabled) => controller.change({ proxyEnabled })}
+                    checked={proxyMode === "custom"}
+                    onChange={(_, enabled) =>
+                      controller.change(bangumiProxyFields(enabled ? "custom" : "off"))
+                    }
                   />
                 }
               />
@@ -181,19 +227,25 @@ function SettingsForm({
                 label="跟随系统代理"
                 control={
                   <Switch
-                    checked={values.followSystemProxy}
-                    disabled={!values.proxyEnabled}
-                    onChange={(_, followSystemProxy) => controller.change({ followSystemProxy })}
+                    checked={proxyMode === "system"}
+                    onChange={(_, enabled) =>
+                      controller.change(bangumiProxyFields(enabled ? "system" : "off"))
+                    }
                   />
                 }
               />
-              {values.proxyEnabled && values.followSystemProxy && (
+              {proxyMode === "system" && (
                 <Typography variant="body2" color="text.secondary">
                   使用面板进程的代理环境变量或 Windows
                   系统代理；系统未配置代理、或命中绕过规则时直接连接。
                 </Typography>
               )}
-              {values.proxyEnabled && !values.followSystemProxy && (
+              {proxyMode === "off" && (
+                <Typography variant="body2" color="text.secondary">
+                  自定义代理与跟随系统代理互斥，均关闭时直接连接。
+                </Typography>
+              )}
+              {proxyMode === "custom" && (
                 <TextField
                   label="HTTP/HTTPS 代理地址"
                   value={values.proxyUrl}

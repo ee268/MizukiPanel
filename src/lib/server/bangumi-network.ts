@@ -6,6 +6,8 @@ import {
 } from "../../shared/bangumi-settings";
 import { readPanelSettings } from "./panel-settings";
 import { windowsSystemProxy } from "./system-proxy";
+import { readProjectBangumiBaseUrl } from "./bangumi-project";
+import { workspaceSession } from "./workspace-session";
 
 export class BangumiNetworkError extends Error {}
 let direct = new Agent();
@@ -30,7 +32,11 @@ export async function readBangumiNetworkSettings(
   const snapshot = await readPanelSettings("machine", undefined, stateDir);
   if (snapshot.readOnly)
     throw new BangumiNetworkError("搜索设置不可读取，请先修复面板的本机设置。");
-  return snapshot.document.values.bangumi as unknown as BangumiNetworkSettings;
+  const settings = snapshot.document.values.bangumi as unknown as BangumiNetworkSettings;
+  if (!settings.followProjectBaseUrl) return settings;
+  const session = workspaceSession(stateDir);
+  const root = (await session.active()) ? (await session.currentReport()).root : undefined;
+  return { ...settings, baseUrl: (await readProjectBangumiBaseUrl(root)).baseUrl };
 }
 
 export async function bangumiDispatcher(

@@ -1,6 +1,6 @@
 import { createServer, request as httpRequest, type Server } from "node:http";
 import { connect, type AddressInfo } from "node:net";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
@@ -8,13 +8,26 @@ import {
   defaultBangumiNetworkSettings,
   bangumiSearchEndpoint,
   bangumiNetworkProblem,
+  bangumiProxyMode,
+  bangumiProxyFields,
 } from "../src/shared/bangumi-settings";
 import { searchBangumiAnime } from "../src/lib/server/bangumi-search";
-import { bangumiDispatcher, closeBangumiAgents } from "../src/lib/server/bangumi-network";
+import {
+  bangumiDispatcher,
+  closeBangumiAgents,
+  readBangumiNetworkSettings,
+} from "../src/lib/server/bangumi-network";
 import { windowsSystemProxy } from "../src/lib/server/system-proxy";
 import { createApp } from "../src/server/app";
 import { loginCookie } from "./auth-fixture";
-import { emptyDocument, patchSettings } from "../src/shared/panel-settings";
+import { emptyDocument, parseSettings, patchSettings } from "../src/shared/panel-settings";
+import {
+  readProjectBangumiBaseUrl,
+  projectBangumiBaseUrl,
+} from "../src/lib/server/bangumi-project";
+import { workspaceSession } from "../src/lib/server/workspace-session";
+import { savePanelSettings } from "../src/lib/server/panel-settings";
+import type { ProjectReport } from "../src/lib/server/project";
 
 vi.mock("../src/lib/server/system-proxy", () => ({ windowsSystemProxy: vi.fn() }));
 const servers: Server[] = [];
@@ -33,6 +46,7 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
   vi.unstubAllEnvs();
   vi.resetAllMocks();
+  vi.restoreAllMocks();
 });
 async function listen(server: Server) {
   servers.push(server);
@@ -250,6 +264,32 @@ it("persists settings through the authenticated API and immediately uses the sav
   };
   const initial = await (await app.request(`${origin}/api/settings`, { headers })).json();
   expect(initial.machine.document.values.bangumi).toEqual(defaultBangumiNetworkSettings);
+  const project = path.join(state, "project");
+  await mkdir(path.join(project, "public/js"), { recursive: true });
+  await writeFile(
+    path.join(project, "public/js/bgm-card.js"),
+    `const BGM_BASE_URL = "${fixtureData.endpoint}/project/v0/subjects/";`,
+  );
+  const session = workspaceSession(state);
+  vi.spyOn(session, "active").mockResolvedValue(project);
+  vi.spyOn(session, "currentReport").mockResolvedValue({
+    root: project,
+    requestedPath: project,
+    mode: "local",
+    readOnly: false,
+    contentRoot: null,
+    mappings: [],
+    warnings: [],
+  });
+  const overview = await (await app.request(`${origin}/api/settings`, { headers })).json();
+  expect(overview.bangumiDefault).toEqual({
+    baseUrl: fixtureData.endpoint + "/project",
+    source: "project",
+  });
+  expect(
+    (await app.request(`${origin}/api/feature/anime-search?keyword=动画`, { headers })).status,
+  ).toBe(200);
+  expect(fixtureData.received[0].url).toContain("/project/v0/search/subjects");
   const payload = {
     scope: "machine",
     group: "bangumi",
@@ -257,6 +297,7 @@ it("persists settings through the authenticated API and immediately uses the sav
     fields: {
       ...defaultBangumiNetworkSettings,
       baseUrl: fixtureData.endpoint + "/mirror",
+      followProjectBaseUrl: false,
       proxyEnabled: true,
       followSystemProxy: false,
       proxyUrl: fixtureData.proxy,
@@ -281,5 +322,124 @@ it("persists settings through the authenticated API and immediately uses the sav
   expect(result.status).toBe(200);
   expect(await result.json()).toMatchObject({ data: [{ id: 123 }] });
   expect(fixtureData.hops()).toBeGreaterThan(0);
-  expect(fixtureData.received[0].url).toContain("/mirror/v0/search/subjects");
+  expect(fixtureData.received.at(-1)?.url).toContain("/mirror/v0/search/subjects");
+});
+
+it("extracts the quarterly renderer's literal BaseURL without evaluating scripts", () => {
+  expect(
+    projectBangumiBaseUrl(
+      '(() => { const BGM_BASE_URL = "https://mirror.example/bgm/v0/subjects/"; })()',
+    ),
+  ).toBe("https://mirror.example/bgm");
+  expect(projectBangumiBaseUrl("const BGM_BASE_URL = `https://mirror.example/v0`;")).toBe(
+    "https://mirror.example/v0",
+  );
+  for (const source of [
+    '// const BGM_BASE_URL = "https://fake.example";',
+    "const BGM_BASE_URL = getUrl();",
+    'const BGM_BASE_URL = "file:///outside";',
+    'const BGM_BASE_URL = "https://user:pass@mirror.example";',
+    'const BGM_BASE_URL = "https://mirror.example?q=1";',
+    'const BGM_BASE_URL = "https://one.example"; function other() { const BGM_BASE_URL = "https://two.example"; }',
+    'const BGM_BASE_URL = "https://mirror.example"; const broken = ;',
+  ])
+    expect(projectBangumiBaseUrl(source)).toBeNull();
+});
+
+it("migrates previous defaults to project following while retaining custom URLs and proxy behavior", () => {
+  for (const baseUrl of ["https://api.bgm.tv", "https://custom.example"]) {
+    const document = emptyDocument("machine");
+    document.values.bangumi = {
+      baseUrl,
+      proxyEnabled: true,
+      followSystemProxy: true,
+      proxyUrl: "",
+    };
+    const parsed = parseSettings(JSON.stringify(document), "machine");
+    expect(parsed.document.values.bangumi.followProjectBaseUrl).toBe(
+      baseUrl === "https://api.bgm.tv",
+    );
+    expect(parsed.document.values.bangumi.baseUrl).toBe(baseUrl);
+    expect(
+      bangumiProxyMode(
+        parsed.document.values.bangumi as unknown as typeof defaultBangumiNetworkSettings,
+      ),
+    ).toBe("system");
+  }
+  for (const mode of ["off", "custom", "system"] as const) {
+    const settings = { ...defaultBangumiNetworkSettings, ...bangumiProxyFields(mode) };
+    expect(bangumiProxyMode(settings)).toBe(mode);
+    expect(
+      [bangumiProxyMode(settings) === "custom", bangumiProxyMode(settings) === "system"].filter(
+        Boolean,
+      ).length,
+    ).toBe(mode === "off" ? 0 : 1);
+  }
+});
+
+it("follows current project and script changes, preserves an override, and restores project defaults", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "mizuki-bgm-project-"));
+  roots.push(root);
+  const state = path.join(root, "state");
+  await mkdir(state);
+  const projects = [path.join(root, "first"), path.join(root, "second")];
+  for (const [index, project] of projects.entries()) {
+    await mkdir(path.join(project, "public/js"), { recursive: true });
+    await writeFile(
+      path.join(project, "public/js/bgm-card.js"),
+      `const BGM_BASE_URL = "https://mirror${index}.example/v0/subjects/";`,
+    );
+  }
+  let current = projects[0];
+  const report = (): ProjectReport => ({
+    root: current,
+    requestedPath: current,
+    mode: "local",
+    readOnly: true,
+    contentRoot: null,
+    mappings: [],
+    warnings: [],
+  });
+  const session = workspaceSession(state);
+  vi.spyOn(session, "active").mockImplementation(async () => current);
+  vi.spyOn(session, "currentReport").mockImplementation(async () => report());
+  expect((await readBangumiNetworkSettings(state)).baseUrl).toBe("https://mirror0.example");
+  current = projects[1];
+  expect((await readBangumiNetworkSettings(state)).baseUrl).toBe("https://mirror1.example");
+  const script = path.join(current, "public/js/bgm-card.js");
+  await writeFile(script, 'const BGM_BASE_URL = "https://updated.example/v0/subjects/";');
+  expect((await readBangumiNetworkSettings(state)).baseUrl).toBe("https://updated.example");
+  expect(await readProjectBangumiBaseUrl(current)).toEqual({
+    baseUrl: "https://updated.example",
+    source: "project",
+  });
+  const custom = await savePanelSettings(
+    {
+      scope: "machine",
+      group: "bangumi",
+      version: null,
+      fields: { followProjectBaseUrl: false, baseUrl: "https://custom.example" },
+    },
+    state,
+  );
+  expect((await readBangumiNetworkSettings(state)).baseUrl).toBe("https://custom.example");
+  await savePanelSettings(
+    {
+      scope: "machine",
+      group: "bangumi",
+      version: custom.version,
+      fields: defaultBangumiNetworkSettings,
+    },
+    state,
+  );
+  expect((await readBangumiNetworkSettings(state)).baseUrl).toBe("https://updated.example");
+  expect(await readFile(script, "utf8")).toBe(
+    'const BGM_BASE_URL = "https://updated.example/v0/subjects/";',
+  );
+  await rm(script);
+  expect(await readProjectBangumiBaseUrl(current)).toMatchObject({
+    baseUrl: "https://api.bgm.tv",
+    source: "fallback",
+    warning: expect.any(String),
+  });
 });

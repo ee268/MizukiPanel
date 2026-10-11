@@ -1,5 +1,6 @@
 export interface BangumiNetworkSettings {
   baseUrl: string;
+  followProjectBaseUrl: boolean;
   proxyEnabled: boolean;
   followSystemProxy: boolean;
   proxyUrl: string;
@@ -7,10 +8,27 @@ export interface BangumiNetworkSettings {
 
 export const defaultBangumiNetworkSettings: BangumiNetworkSettings = {
   baseUrl: "https://api.bgm.tv",
+  followProjectBaseUrl: true,
   proxyEnabled: false,
   followSystemProxy: true,
   proxyUrl: "",
 };
+
+export interface BangumiProjectBaseUrl {
+  baseUrl: string;
+  source: "project" | "fallback";
+  warning?: string;
+}
+
+// The persisted enable flag gates the old system preference as well, so existing
+// settings keep their routing behavior while the UI exposes mutually exclusive modes.
+export type BangumiProxyMode = "off" | "custom" | "system";
+export function bangumiProxyMode(settings: BangumiNetworkSettings): BangumiProxyMode {
+  return !settings.proxyEnabled ? "off" : settings.followSystemProxy ? "system" : "custom";
+}
+export function bangumiProxyFields(mode: BangumiProxyMode) {
+  return { proxyEnabled: mode !== "off", followSystemProxy: mode === "system" };
+}
 
 function httpUrl(value: unknown, proxy: boolean): boolean {
   if (typeof value !== "string" || !value.trim() || value.length > 2000) return false;

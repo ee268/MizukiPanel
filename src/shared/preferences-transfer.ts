@@ -112,6 +112,7 @@ export function preferenceDiff(before: PreferenceGroups, after: PreferenceGroups
 const fieldLabels: Record<string, Record<string, string>> = {
   bangumi: {
     baseUrl: "Bangumi BaseURL",
+    followProjectBaseUrl: "跟随季度追番 BaseURL",
     proxyEnabled: "启用代理",
     followSystemProxy: "跟随系统代理",
     proxyUrl: "代理地址",

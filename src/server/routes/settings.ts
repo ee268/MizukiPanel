@@ -13,6 +13,7 @@ import { articleProjectKey } from "../../lib/server/article-template";
 import { workspaceSession, readWorkspaceHistory } from "../../lib/server/workspace-session";
 import { updateLogRetention } from "../../lib/server/task-preferences";
 import { validatePreferenceGroups } from "../../shared/preferences-transfer";
+import { readProjectBangumiBaseUrl } from "../../lib/server/bangumi-project";
 
 export function registerSettingsRoutes(app: Hono, stateDir?: string) {
   app.post("/api/settings/import", async (context) => {
@@ -68,7 +69,12 @@ export function registerSettingsRoutes(app: Hono, stateDir?: string) {
         warnings.push(`项目设置暂不可读取：${errorMessage(error)}`);
       }
     }
-    return context.json({ machine, project, warnings });
+    return context.json({
+      machine,
+      project,
+      warnings,
+      bangumiDefault: await readProjectBangumiBaseUrl(project?.root),
+    });
   });
   app.patch("/api/settings", async (context) => {
     const body: unknown = await context.req.json().catch(() => null);

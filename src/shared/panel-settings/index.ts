@@ -7,6 +7,7 @@ import {
   validBangumiBaseUrl,
   validBangumiProxyUrl,
   type BangumiNetworkSettings,
+  type BangumiProjectBaseUrl,
 } from "../bangumi-settings";
 export const settingsSchemaVersion = 1;
 export type SettingsScope = "browser" | "machine" | "project";
@@ -67,6 +68,7 @@ export interface SettingsSnapshot {
 }
 export interface SettingsOverview {
   machine: SettingsSnapshot;
+  bangumiDefault?: BangumiProjectBaseUrl;
   project: {
     key: string;
     articleKey: string;
@@ -147,6 +149,7 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
   machine: {
     bangumi: {
       baseUrl: { default: defaultBangumiNetworkSettings.baseUrl, valid: validBangumiBaseUrl },
+      followProjectBaseUrl: flag(defaultBangumiNetworkSettings.followProjectBaseUrl),
       proxyEnabled: flag(defaultBangumiNetworkSettings.proxyEnabled),
       followSystemProxy: flag(defaultBangumiNetworkSettings.followSystemProxy),
       proxyUrl: { default: "", valid: validBangumiProxyUrl },
@@ -275,6 +278,15 @@ export function parseSettings(raw: string | null, scope: SettingsScope): Setting
         warnings.push(`${group}.${key} 无效，已使用默认值。`);
       values[group][key] = field.valid(stored[key]) ? stored[key] : field.default;
     }
+  }
+  // Previously stored mirrors are explicit overrides. The previous official
+  // default becomes project-following without overwriting the original file.
+  if (scope === "machine" && record(value.values.bangumi)) {
+    const legacy = value.values.bangumi;
+    if (!Object.hasOwn(legacy, "followProjectBaseUrl"))
+      values.bangumi.followProjectBaseUrl =
+        !validBangumiBaseUrl(legacy.baseUrl) ||
+        legacy.baseUrl === defaultBangumiNetworkSettings.baseUrl;
   }
   const future = (value.schemaVersion as number) > settingsSchemaVersion;
   if (future) warnings.unshift("设置来自更新版本，当前只读，请升级面板后修改。");
