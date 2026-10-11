@@ -608,6 +608,7 @@ export async function commitSelected(
   await readLogRetention(stateDir);
   const runtime = begin(report, "commit", stateDir);
   let paths: string[] = [],
+    stageAll = false,
     added = false,
     hadHead = false;
   try {
@@ -618,9 +619,11 @@ export async function commitSelected(
     if (!(await ref(report, ["branch", "--show-current"])))
       throw new PublishError("游离 HEAD 不能创建提交");
     hadHead = Boolean(await ref(report, ["rev-parse", "--verify", "HEAD"]));
-    paths = selectedPaths(findSelected(report, changes, selected));
+    const chosen = findSelected(report, changes, selected);
+    paths = selectedPaths(chosen);
+    stageAll = chosen.length === changes.length;
     added = true;
-    await git(report, ["add", "-A", "--", ...paths]);
+    await git(report, stageAll ? ["add", "."] : ["add", "-A", "--", ...paths]);
     const cached = (await git(report, ["diff", "--cached", "--name-only", "-z"]))
       .split("\0")
       .filter(Boolean)
@@ -637,8 +640,8 @@ export async function commitSelected(
       await git(
         report,
         hadHead
-          ? ["restore", "--staged", "--", ...paths]
-          : ["rm", "--cached", "-r", "--ignore-unmatch", "--", ...paths],
+          ? ["restore", "--staged", "--", ...(stageAll ? ["."] : paths)]
+          : ["rm", "--cached", "-r", "--ignore-unmatch", "--", ...(stageAll ? ["."] : paths)],
         { allowFailure: true },
       );
     finish(runtime, cause);

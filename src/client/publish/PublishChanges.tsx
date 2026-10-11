@@ -71,7 +71,7 @@ export function PublishChanges({
         <Box>
           <Typography variant="h6">选择提交内容</Typography>
           <Typography variant="body2" color="text.secondary">
-            从 Mizuki 项目工作区中选择文件，只提交勾选的修改。
+            默认选中全部文件；可取消勾选，只提交需要的修改。
           </Typography>
         </Box>
         <FormControlLabel

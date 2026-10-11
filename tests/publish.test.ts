@@ -91,6 +91,30 @@ it("commits only selected project files and leaves other changes untouched", asy
   expect(publishOperationStatus(report).state).toBe("succeeded");
 });
 
+it("stages all selected changes with git add . from the project root, honoring ignored files", async () => {
+  const { root, report } = await fixture();
+  await writeFile(path.join(root, "README.md"), "# Updated\n");
+  await rm(path.join(root, "src/content/posts/one.md"));
+  await writeFile(path.join(root, "src/content/posts/new.md"), "# New\n");
+  await writeFile(path.join(root, ".gitignore"), "ignored.txt\n");
+  await writeFile(path.join(root, "ignored.txt"), "Keep ignored\n");
+  const overview = await publishOverview(report);
+  await commitSelected(
+    report,
+    overview.changes.map((change) => change.path),
+    "docs: commit all changes",
+  );
+  expect(git(root, "show", "--format=", "--name-only", "HEAD").split("\n")).toEqual([
+    ".gitignore",
+    "README.md",
+    "src/content/posts/new.md",
+    "src/content/posts/one.md",
+  ]);
+  expect(git(root, "status", "--porcelain")).toBe("");
+  expect(await readFile(path.join(root, "ignored.txt"), "utf8")).toBe("Keep ignored\n");
+  expect(publishOperationStatus(report).logs.join("\n")).toContain('$ git "add" "."');
+});
+
 it("paginates a fixed history snapshot and reads full commit details without modifying Git", async () => {
   const { root, report } = await fixture();
   for (let index = 0; index < 23; index++)
@@ -331,11 +355,16 @@ it("keeps build available without Git and reports failed build output", async ()
 it("restores staging after a failed commit while preserving working files", async () => {
   const { root, report } = await fixture();
   await writeFile(path.join(root, "README.md"), "# Keep my edit\n");
+  await writeFile(path.join(root, "src/content/posts/new.md"), "# Keep my new file\n");
   git(root, "config", "user.name", "");
   git(root, "config", "user.email", "");
-  await expect(commitSelected(report, ["README.md"], "docs: change")).rejects.toThrow();
+  const paths = (await publishOverview(report)).changes.map((change) => change.path);
+  await expect(commitSelected(report, paths, "docs: change")).rejects.toThrow();
   expect(git(root, "diff", "--cached", "--name-only")).toBe("");
   expect(await readFile(path.join(root, "README.md"), "utf8")).toBe("# Keep my edit\n");
+  expect(await readFile(path.join(root, "src/content/posts/new.md"), "utf8")).toBe(
+    "# Keep my new file\n",
+  );
   expect(publishOperationStatus(report).state).toBe("failed");
 });
 

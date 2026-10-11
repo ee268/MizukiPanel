@@ -33,6 +33,7 @@ export function usePublish() {
     detailRequest = useRef(0);
   const overviewRef = useRef<PublishOverview | null>(null);
   const busyRef = useRef(false);
+  const selectionTouched = useRef(false);
   const [detailTitle, setDetailTitle] = useState("");
   const [detail, setDetail] = useState<PublishCommitDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -64,7 +65,9 @@ export function usePublish() {
       const available = new Set(
         next.changes.filter((c) => !c.conflict && !c.staged).map((c) => c.path),
       );
-      setSelected((current) => current.filter((p) => available.has(p)));
+      setSelected((current) =>
+        selectionTouched.current ? current.filter((p) => available.has(p)) : [...available],
+      );
       setError("");
       await refreshLogs();
     } catch (cause) {
@@ -131,11 +134,13 @@ export function usePublish() {
   );
   const allSelected = selectable.length > 0 && selectable.every((c) => selected.includes(c.path));
   function toggle(path: string) {
+    selectionTouched.current = true;
     setSelected((current) =>
       current.includes(path) ? current.filter((p) => p !== path) : [...current, path],
     );
   }
   function toggleAll() {
+    selectionTouched.current = allSelected;
     setSelected(allSelected ? [] : selectable.map((c) => c.path));
   }
   async function showDetail(title: string, url: string, file = false) {
@@ -196,6 +201,7 @@ export function usePublish() {
         json("POST", { paths: selected, message: commitMessage }),
       );
       if (alive.current) {
+        selectionTouched.current = false;
         setSelected([]);
         setCommitDescription("");
         setHistoryPage(1);
