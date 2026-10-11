@@ -1,5 +1,5 @@
 import type { AppearanceSettings, EditorSettings } from "../../shared/panel-settings";
-import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import type { EditorFontMode } from "../../shared/editor-fonts";
 import { panelFontFamilies } from "../font-families";
 
 export function defaultEditorMode(

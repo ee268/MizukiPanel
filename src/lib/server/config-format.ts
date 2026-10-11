@@ -1,7 +1,6 @@
+import type { ConfigValue } from "../../shared/config";
+export type { ConfigValue } from "../../shared/config";
 import ts from "typescript";
-
-export type ConfigValue =
-  null | boolean | number | string | ConfigValue[] | { [key: string]: ConfigValue };
 
 export class ConfigValidationError extends Error {
   constructor(message: string) {

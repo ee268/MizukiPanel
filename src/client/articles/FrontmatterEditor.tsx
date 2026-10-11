@@ -12,7 +12,7 @@ import {
   Typography,
 } from "@mui/material";
 import { createFrontmatterRow, type FrontmatterRow } from "./types";
-import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import type { EditorFontMode } from "../../shared/editor-fonts";
 import { useArticleFonts } from "./useArticleFonts";
 
 interface FrontmatterEditorProps {

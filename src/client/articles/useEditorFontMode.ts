@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import type { EditorFontMode } from "../../shared/editor-fonts";
 
 export function useEditorFontMode(projectRoot: string): EditorFontMode {
   const [mode, setMode] = useState<EditorFontMode>("system");

@@ -1,30 +1,8 @@
+import type { ProjectReport, SourceMapping, ContentMode } from "../../shared/project";
+export type { ProjectReport, SourceMapping, ContentMode } from "../../shared/project";
 import { access, readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { assertManagedRealPath, resolveManagedPath } from "./path-guard";
-
-export type ContentMode = "local" | "external" | "blocked";
-
-export interface SourceMapping {
-  key: "posts" | "spec" | "data" | "images" | "animes" | "config";
-  label: string;
-  sourcePath: string;
-  resolvedPath?: string;
-  exists: boolean;
-  note?: string;
-}
-
-export interface ProjectReport {
-  requestedPath: string;
-  root: string;
-  mode: ContentMode;
-  readOnly: boolean;
-  contentRoot: string | null;
-  warnings: string[];
-  mappings: SourceMapping[];
-  detectedReadOnly?: boolean;
-  preferenceReadOnly?: boolean;
-  settingsReadOnly?: boolean;
-}
 
 export class ProjectError extends Error {
   constructor(message: string) {

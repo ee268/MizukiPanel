@@ -1,3 +1,4 @@
+import { readWorkspaceHistory } from "./workspace-history";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -77,7 +78,6 @@ export async function savePanelSettingsGroups(
     Object.hasOwn(input.groups, "workspace") &&
     next.values.workspace.defaultProject
   ) {
-    const { readWorkspaceHistory } = await import("./workspace-session");
     const history = await readWorkspaceHistory(stateDir);
     if (!Object.hasOwn(history.document.projects, String(next.values.workspace.defaultProject)))
       throw new SettingsValidationError("默认项目必须来自已连接过的项目记录。");

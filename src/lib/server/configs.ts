@@ -1,3 +1,5 @@
+import type { ConfigDescriptor } from "../../shared/config";
+export type { ConfigDescriptor } from "../../shared/config";
 import { readFile } from "node:fs/promises";
 import type { ProjectReport } from "./project";
 import { assertManagedRealPath } from "./path-guard";
@@ -19,14 +21,6 @@ import {
   type ConfigValue,
   ConfigValidationError,
 } from "./config-format";
-
-export interface ConfigDescriptor {
-  key: string;
-  label: string;
-  group: string;
-  file: string;
-  exportName: string;
-}
 
 export const CONFIGS: readonly ConfigDescriptor[] = [
   {

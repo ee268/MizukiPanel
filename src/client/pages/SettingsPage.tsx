@@ -1,5 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { useEffect, useLayoutEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -18,53 +17,12 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
-import { useBlocker, useSearchParams } from "react-router-dom";
-import type { SettingsOverview } from "../../shared/panel-settings";
-import { api } from "../api";
+import { useSearchParams } from "react-router-dom";
 import { settingsSections } from "../settings/sections";
-import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
-import { usePersonalDrafts } from "../settings/usePersonalDrafts";
-import { useProjectTemplate } from "../settings/useProjectTemplate";
-import { useScopedSettings } from "../settings/useScopedSettings";
-import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
-import { SettingsModule } from "../settings/SettingsModule";
+import { useSettingsController } from "../settings/useSettingsController";
+import { useSettingsLeave } from "../settings/useSettingsLeave";
+import { SettingsSections } from "../settings/SettingsSections";
 import { ContentLoading } from "../components/ContentLoading";
-import { useSessionRecovery } from "../auth/useSessionRecovery";
-import { sessionLifecycle } from "../auth/session-lifecycle";
-import { exportPreferenceGroups, type PreferenceGroups } from "../../shared/preferences-transfer";
-import { defaultValues } from "../../shared/panel-settings";
-
-const AppearanceSettingsForms = lazy(() =>
-  import("../settings/AppearanceSettingsForms").then((m) => ({
-    default: m.AppearanceSettingsForms,
-  })),
-);
-const EditorSettingsForms = lazy(() =>
-  import("../settings/EditorSettingsForms").then((m) => ({ default: m.EditorSettingsForms })),
-);
-const ProjectTemplateForm = lazy(() =>
-  import("../settings/ProjectTemplateForm").then((m) => ({ default: m.ProjectTemplateForm })),
-);
-const WorkspaceSettingsForms = lazy(() =>
-  import("../settings/WorkspaceSettingsForms").then((m) => ({ default: m.WorkspaceSettingsForms })),
-);
-const MediaSettingsForm = lazy(() =>
-  import("../settings/MediaSettingsForm").then((m) => ({ default: m.MediaSettingsForm })),
-);
-const TaskSettingsForms = lazy(() =>
-  import("../settings/TaskSettingsForms").then((m) => ({ default: m.TaskSettingsForms })),
-);
-const MaintenanceSettingsForms = lazy(() =>
-  import("../settings/MaintenanceSettingsForms").then((m) => ({
-    default: m.MaintenanceSettingsForms,
-  })),
-);
-const PreferenceTransferForm = lazy(() =>
-  import("../settings/PreferenceTransferForm").then((m) => ({ default: m.PreferenceTransferForm })),
-);
-const SessionSettingsForm = lazy(() =>
-  import("../settings/SessionSettingsForm").then((m) => ({ default: m.SessionSettingsForm })),
-);
 
 export default function SettingsPage() {
   const theme = useTheme();
@@ -86,254 +44,11 @@ export default function SettingsPage() {
     );
     return () => window.cancelAnimationFrame(frame);
   }, [sectionId]);
-  const preferences = usePersonalSettings();
-  const controller = usePersonalDrafts();
-  const [overview, setOverview] = useState<SettingsOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const workspace = useWorkspaceSession();
-  const refreshWorkspace = () => {
-    workspace.notify();
-    void workspace.refresh().catch((cause) => setServerError(cause.message));
-  };
-  const machine = useScopedSettings(
-    "machine",
-    "workspace",
-    overview?.machine ?? null,
-    undefined,
-    (settings) => {
-      setOverview((current) => (current ? { ...current, machine: settings } : current));
-      refreshWorkspace();
-    },
-  );
-  const access = useScopedSettings(
-    "project",
-    "access",
-    overview?.project?.settings ?? null,
-    overview?.project?.key,
-    (settings) => {
-      setOverview((current) =>
-        current?.project
-          ? {
-              ...current,
-              project: {
-                ...current.project,
-                settings,
-                readOnlyInfo: {
-                  detected: current.project.readOnlyInfo?.detected ?? false,
-                  settings: settings.readOnly,
-                  preference: settings.document.values.access.readOnly === true,
-                },
-              },
-            }
-          : current,
-      );
-      refreshWorkspace();
-    },
-  );
-  const template = useProjectTemplate(overview?.project ?? null, (key, settings) =>
-    setOverview((current) =>
-      current?.project?.key === key
-        ? { ...current, project: { ...current.project, settings } }
-        : current,
-    ),
-  );
-  const media = useScopedSettings(
-    "project",
-    "media",
-    overview?.project?.settings ?? null,
-    overview?.project?.key,
-    (settings) => {
-      setOverview((current) =>
-        current?.project ? { ...current, project: { ...current.project, settings } } : current,
-      );
-      refreshWorkspace();
-    },
-  );
-  const saveProjectSnapshot = (settings: NonNullable<SettingsOverview["project"]>["settings"]) => {
-    setOverview((current) =>
-      current?.project ? { ...current, project: { ...current.project, settings } } : current,
-    );
-    refreshWorkspace();
-  };
-  const previewSettings = useScopedSettings(
-    "project",
-    "preview",
-    overview?.project?.settings ?? null,
-    overview?.project?.key,
-    saveProjectSnapshot,
-  );
-  const publishSettings = useScopedSettings(
-    "project",
-    "publish",
-    overview?.project?.settings ?? null,
-    overview?.project?.key,
-    saveProjectSnapshot,
-  );
-  const retention = useScopedSettings(
-    "machine",
-    "logs",
-    overview?.machine ?? null,
-    undefined,
-    (settings) => setOverview((current) => (current ? { ...current, machine: settings } : current)),
-  );
-  const maintenance = useScopedSettings(
-    "machine",
-    "maintenance",
-    overview?.machine ?? null,
-    undefined,
-    (settings) => setOverview((current) => (current ? { ...current, machine: settings } : current)),
-  );
-  const sessionSettings = useScopedSettings(
-    "machine",
-    "session",
-    overview?.machine ?? null,
-    undefined,
-    (settings) => {
-      setOverview((current) => (current ? { ...current, machine: settings } : current));
-      void api("/api/session").catch(() => {});
-    },
-  );
-  const scoped = [
-    machine,
-    access,
-    media,
-    previewSettings,
-    publishSettings,
-    retention,
-    maintenance,
-    sessionSettings,
-  ];
-  const dirty = controller.dirty || template.dirty || scoped.some((item) => item.dirty);
-  const saving = controller.saving || template.saving || scoped.some((item) => item.saving);
-  useSessionRecovery({
-    label: "未保存设置",
-    prepare: () => document.activeElement instanceof HTMLElement && document.activeElement.blur(),
-    save: async () => {
-      if (dirty) throw new Error("设置仍有未保存修改，请下载修改副本后登录。");
-    },
-    snapshot: () => {
-      if (!dirty) return null;
-      return {
-        format: "mizuki-panel-preferences",
-        schemaVersion: 1,
-        scopes: {
-          browser: exportPreferenceGroups(
-            "browser",
-            Object.fromEntries(
-              Object.entries(controller.drafts).map(([group, draft]) => [group, draft.value]),
-            ) as unknown as PreferenceGroups,
-          ),
-          machine: exportPreferenceGroups("machine", {
-            ...defaultValues("machine"),
-            workspace: machine.value,
-            logs: retention.value,
-            maintenance: maintenance.value,
-            session: sessionSettings.value,
-          }),
-          ...(overview?.project
-            ? {
-                project: exportPreferenceGroups("project", {
-                  ...defaultValues("project"),
-                  access: access.value,
-                  media: media.value,
-                  preview: previewSettings.value,
-                  publish: publishSettings.value,
-                  articleTemplate: template.value as unknown as Record<string, unknown>,
-                }),
-              }
-            : {}),
-        },
-      };
-    },
-  });
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) =>
-      dirty && currentLocation.pathname !== nextLocation.pathname,
-  );
-  const [serverError, setServerError] = useState("");
-  const [reload, setReload] = useState(0);
-  const [leaveError, setLeaveError] = useState("");
+  const state = useSettingsController();
+  const leave = useSettingsLeave(state);
+  const { warnings, preferences, serverError, loading, overview, controller, reloadSettings } =
+    state;
   const [recoverOpen, setRecoverOpen] = useState(false);
-  const [logoutOpen, setLogoutOpen] = useState(false);
-  const allowLogout = useRef(false);
-  useEffect(() => {
-    const abort = new AbortController();
-    setLoading(true);
-    setServerError("");
-    void api<SettingsOverview>("/api/settings", { signal: abort.signal })
-      .then((value) => {
-        if (!abort.signal.aborted) setOverview(value);
-      })
-      .catch((cause) => {
-        if (!abort.signal.aborted)
-          setServerError(cause instanceof Error ? cause.message : "设置状态读取失败。");
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) setLoading(false);
-      });
-    return () => abort.abort();
-  }, [reload, workspace.data?.version]);
-  useEffect(() => {
-    if (!dirty) return;
-    const unload = (event: BeforeUnloadEvent) => {
-      if (sessionLifecycle.canNavigate()) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    const logout = (event: MouseEvent) => {
-      if (allowLogout.current) {
-        allowLogout.current = false;
-        return;
-      }
-      if (
-        event.target instanceof Element &&
-        event.target.closest('button[aria-label="退出登录"]')
-      ) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        setLogoutOpen(true);
-      }
-    };
-    window.addEventListener("beforeunload", unload);
-    document.addEventListener("click", logout, true);
-    return () => {
-      window.removeEventListener("beforeunload", unload);
-      document.removeEventListener("click", logout, true);
-    };
-  }, [dirty]);
-  function leave() {
-    setLeaveError("");
-    if (logoutOpen) {
-      // Commit the chosen save/discard before logout can trigger a native unload.
-      flushSync(() => setLogoutOpen(false));
-      allowLogout.current = true;
-      document.querySelector<HTMLButtonElement>('button[aria-label="退出登录"]')?.click();
-    } else if (blocker.state === "blocked") blocker.proceed();
-  }
-  async function saveAndLeave() {
-    if (
-      (controller.dirty && !(await controller.save())) ||
-      (template.dirty && !(await template.save())) ||
-      !(await saveScoped())
-    )
-      setLeaveError("部分设置尚未保存。已保存范围保留，失败范围的输入仍保留，请继续编辑处理提示。");
-    else leave();
-  }
-  async function saveScoped() {
-    for (const item of scoped) if (item.dirty && !(await item.save())) return false;
-    return true;
-  }
-  const cancelLeave = () => {
-    setLeaveError("");
-    setLogoutOpen(false);
-    if (blocker.state === "blocked") blocker.reset();
-  };
-  const warnings = [
-    ...preferences.snapshot.warnings.map((warning) => `浏览器偏好：${warning}`),
-    ...(overview?.warnings ?? []),
-    ...(overview?.machine.warnings ?? []).map((warning) => `本机面板：${warning}`),
-    ...(overview?.project?.settings.warnings ?? []).map((warning) => `当前项目：${warning}`),
-  ];
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Stack spacing={3}>
@@ -360,10 +75,7 @@ export default function SettingsPage() {
           </Alert>
         )}
         {serverError && (
-          <Alert
-            severity="warning"
-            action={<Button onClick={() => setReload((value) => value + 1)}>重试</Button>}
-          >
+          <Alert severity="warning" action={<Button onClick={() => reloadSettings()}>重试</Button>}>
             本机/项目设置暂不可读取：{serverError}。仍可调整浏览器外观。
           </Alert>
         )}
@@ -419,126 +131,7 @@ export default function SettingsPage() {
                 ))}
               </Tabs>
             </Paper>
-            <Box data-page-motion="content" sx={{ minWidth: 0 }}>
-              {settingsSections.map((item) => (
-                <Box
-                  key={item.id}
-                  role="tabpanel"
-                  id={`settings-panel-${item.id}`}
-                  aria-labelledby={`settings-tab-${item.id}`}
-                  hidden={sectionId !== item.id}
-                  tabIndex={0}
-                >
-                  {(sectionId === item.id || visited.has(item.id)) && (
-                    <Suspense
-                      fallback={
-                        <ContentLoading
-                          heading={`正在展开${item.title}`}
-                          description="正在准备设置模块"
-                          kind="settings"
-                        />
-                      }
-                    >
-                      {item.id !== "appearance" && item.id !== "editor" && (
-                        <Box sx={{ mb: 3 }}>
-                          <Typography variant="h5" component="h2">
-                            {item.title}
-                          </Typography>
-                          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                            {item.description}
-                          </Typography>
-                        </Box>
-                      )}
-                      {item.id === "appearance" ? (
-                        <AppearanceSettingsForms controller={controller} />
-                      ) : item.id === "editor" ? (
-                        <EditorSettingsForms
-                          controller={controller}
-                          projectRoot={overview?.project?.root ?? ""}
-                          template={
-                            <SettingsModule label="新建文章模板" estimatedHeight={820}>
-                              <Suspense
-                                fallback={
-                                  <ContentLoading
-                                    heading="正在展开新建文章模板"
-                                    description="正在读取模板与预览区域"
-                                    kind="settings"
-                                    size="compact"
-                                  />
-                                }
-                              >
-                                <ProjectTemplateForm
-                                  controller={template}
-                                  onRefresh={() => setReload((value) => value + 1)}
-                                />
-                              </Suspense>
-                            </SettingsModule>
-                          }
-                        />
-                      ) : item.id === "workspace" ? (
-                        <WorkspaceSettingsForms
-                          controller={controller}
-                          machine={machine}
-                          access={access}
-                          project={overview?.project ?? null}
-                          dirty={dirty || saving}
-                          onRefresh={() => setReload((value) => value + 1)}
-                        />
-                      ) : item.id === "media" ? (
-                        <MediaSettingsForm
-                          controller={media}
-                          projectRoot={overview?.project?.root ?? ""}
-                        />
-                      ) : item.id === "preview" ? (
-                        <TaskSettingsForms
-                          preview={previewSettings}
-                          publish={publishSettings}
-                          retention={retention}
-                          controller={controller}
-                          projectRoot={overview?.project?.root ?? ""}
-                          active={sectionId === "preview"}
-                        />
-                      ) : (
-                        <Stack spacing={3}>
-                          <SessionSettingsForm controller={sessionSettings} />
-                          <MaintenanceSettingsForms
-                            controller={maintenance}
-                            active={sectionId === "maintenance"}
-                            revision={`${workspace.data?.version}:${workspace.data?.report?.readOnly}:${reload}`}
-                            disabled={dirty || saving}
-                            onRestored={() => {
-                              setReload((value) => value + 1);
-                              refreshWorkspace();
-                            }}
-                          />
-                          <SettingsModule label="偏好导入导出" estimatedHeight={520}>
-                            <Suspense
-                              fallback={
-                                <ContentLoading
-                                  heading="正在展开偏好导入导出"
-                                  description="正在准备迁移工具"
-                                  kind="settings"
-                                  size="compact"
-                                />
-                              }
-                            >
-                              <PreferenceTransferForm
-                                overview={overview}
-                                disabled={dirty || saving}
-                                onApplied={() => {
-                                  setReload((value) => value + 1);
-                                  refreshWorkspace();
-                                }}
-                              />
-                            </Suspense>
-                          </SettingsModule>
-                        </Stack>
-                      )}
-                    </Suspense>
-                  )}
-                </Box>
-              ))}
-            </Box>
+            <SettingsSections sectionId={sectionId} visited={visited} state={state} />
           </Box>
         )}
       </Stack>
@@ -549,44 +142,27 @@ export default function SettingsPage() {
         message={controller.notice}
         onClose={controller.clearNotice}
       />
-      <Dialog
-        open={blocker.state === "blocked" || logoutOpen}
-        onClose={cancelLeave}
-        aria-labelledby="settings-leave-title"
-      >
+      <Dialog open={leave.open} onClose={leave.cancelLeave} aria-labelledby="settings-leave-title">
         <DialogTitle id="settings-leave-title">设置尚未保存</DialogTitle>
         <DialogContent>
           <Typography>保存修改后离开，或放弃本次修改。继续编辑会保留当前输入。</Typography>
-          {leaveError && (
+          {leave.leaveError && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              {leaveError}
+              {leave.leaveError}
             </Alert>
           )}
         </DialogContent>
         <DialogActions sx={{ flexWrap: "wrap" }}>
-          <Button onClick={cancelLeave} disabled={saving}>
+          <Button onClick={leave.cancelLeave} disabled={leave.saving}>
             继续编辑
           </Button>
-          <Button
-            onClick={() => {
-              controller.cancelAll();
-              template.reset();
-              scoped.forEach((item) => item.reset());
-              leave();
-            }}
-            disabled={saving}
-          >
+          <Button onClick={leave.discardAndLeave} disabled={leave.saving}>
             放弃修改
           </Button>
           <Button
             variant="contained"
-            onClick={() => void saveAndLeave()}
-            disabled={
-              saving ||
-              (controller.dirty && preferences.snapshot.readOnly) ||
-              (template.dirty && template.base?.settings.readOnly) ||
-              scoped.some((item) => item.dirty && item.readOnly)
-            }
+            onClick={() => void leave.saveAndLeave()}
+            disabled={leave.saveDisabled}
           >
             保存并离开
           </Button>

@@ -1,3 +1,4 @@
+import { catalogCardStyles, catalogIconStyles } from "../components/catalog-styles";
 import InfoOutlined from "@mui/icons-material/InfoOutlined";
 import LinkOutlined from "@mui/icons-material/LinkOutlined";
 import MenuBookOutlined from "@mui/icons-material/MenuBookOutlined";
@@ -62,27 +63,7 @@ export default function FeatureCard({
     <Card
       data-feature-card={module.key}
       variant="outlined"
-      sx={(theme) => ({
-        height: "100%",
-        position: "relative",
-        borderRadius: "16px",
-        transition: theme.transitions.create(["transform", "box-shadow", "border-color"], {
-          duration: 220,
-        }),
-        "@media (hover: hover) and (pointer: fine)": {
-          "&:hover": {
-            transform: "translateY(-5px)",
-            borderColor: "color-mix(in srgb, var(--mui-palette-primary-main) 60%, transparent)",
-            boxShadow: `0 12px 30px color-mix(in srgb, var(--mui-palette-primary-${theme.palette.mode === "dark" ? "light" : "main"}) ${theme.palette.mode === "dark" ? "9%" : "12%"}, transparent)`,
-            "& .feature-card-icon": { transform: "rotate(-8deg) scale(1.08)" },
-          },
-        },
-        "@media (prefers-reduced-motion: reduce)": {
-          transition: "none",
-          "&:hover": { transform: "none" },
-          "& .feature-card-icon": { transition: "none", transform: "none !important" },
-        },
-      })}
+      sx={(theme) => ({ ...catalogCardStyles(theme, "feature-card-icon"), position: "relative" })}
     >
       <CardActionArea
         component={Link}
@@ -103,18 +84,7 @@ export default function FeatureCard({
         sx={{ height: "100%", p: 1.75 }}
       >
         <Stack spacing={1.25}>
-          <Avatar
-            className="feature-card-icon"
-            variant="rounded"
-            sx={(theme) => ({
-              width: 40,
-              height: 40,
-              borderRadius: "12px",
-              color: "primary.main",
-              bgcolor: "color-mix(in srgb, var(--mui-palette-primary-main) 10%, transparent)",
-              transition: theme.transitions.create("transform", { duration: 220 }),
-            })}
-          >
+          <Avatar className="feature-card-icon" variant="rounded" sx={catalogIconStyles}>
             <Icon sx={{ fontSize: 24 }} />
           </Avatar>
           <Stack spacing={0.25}>

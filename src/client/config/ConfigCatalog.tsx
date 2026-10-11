@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
-import SearchOutlined from "@mui/icons-material/SearchOutlined";
-import { Box, Button, Divider, Stack, Typography } from "@mui/material";
+import { CatalogSearchPanel, CatalogGrid, CatalogEmptyState } from "../components/CatalogLayout";
+import { Box, Divider, Stack, Typography } from "@mui/material";
 import type { ConfigDescriptor } from "../types";
 import { filterConfigGroups } from "./catalog";
 import { CatalogSearch } from "../components/CatalogSearch";
@@ -22,15 +22,8 @@ export function ConfigCatalog({
   const count = matches.reduce((total, group) => total + group.items.length, 0);
   return (
     <Stack spacing={4}>
-      <Box
-        data-page-motion="controls"
-        sx={{
-          position: "sticky",
-          top: "calc(var(--mizuki-panel-header-height, 65px) + 12px)",
-          zIndex: 2,
-          bgcolor: "background.default",
-          borderRadius: 2,
-        }}
+      <CatalogSearchPanel
+        summary={query ? `找到 ${count} 项配置` : `${count} 项配置 · 选择卡片开始编辑`}
       >
         <CatalogSearch
           options={Object.values(groups).flat()}
@@ -43,15 +36,7 @@ export function ConfigCatalog({
           clearLabel="清除配置搜索"
           suggestionsLabel="配置搜索建议"
         />
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          aria-live="polite"
-          sx={{ mt: 1, px: 0.5 }}
-        >
-          {query ? `找到 ${count} 项配置` : `${count} 项配置 · 选择卡片开始编辑`}
-        </Typography>
-      </Box>
+      </CatalogSearchPanel>
       {matches.map(({ group, items }) => (
         <Box component="section" key={group} aria-label={group}>
           <Divider textAlign="left" sx={{ mb: 2 }}>
@@ -59,16 +44,7 @@ export function ConfigCatalog({
               {group}
             </Typography>
           </Divider>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "minmax(0, 1fr)",
-                sm: "repeat(auto-fill, minmax(220px, 1fr))",
-              },
-              gap: 2,
-            }}
-          >
+          <CatalogGrid>
             {items.map((item) => (
               <CatalogCardSlot
                 key={item.key}
@@ -82,15 +58,11 @@ export function ConfigCatalog({
                 </Suspense>
               </CatalogCardSlot>
             ))}
-          </Box>
+          </CatalogGrid>
         </Box>
       ))}
       {!matches.length && (
-        <Stack spacing={2} sx={{ minHeight: 280, alignItems: "center", justifyContent: "center" }}>
-          <SearchOutlined sx={{ fontSize: 48, color: "text.disabled" }} />
-          <Typography color="text.secondary">没有找到匹配的配置</Typography>
-          <Button onClick={() => onQueryChange("")}>清除搜索</Button>
-        </Stack>
+        <CatalogEmptyState message="没有找到匹配的配置" onClear={() => onQueryChange("")} />
       )}
     </Stack>
   );

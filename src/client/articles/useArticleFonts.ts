@@ -1,4 +1,4 @@
-import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import type { EditorFontMode } from "../../shared/editor-fonts";
 import { defaultPersonalSettings } from "../../shared/panel-settings";
 import { useOptionalPersonalSettings } from "../settings/PersonalSettingsProvider";
 import { editorFontFamilies } from "./editor-preferences";

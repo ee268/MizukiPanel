@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Stack, TextField } from "@mui/material";
 import { splitArticleSource } from "../../lib/articles/article-source";
 import { replaceFrontmatterYaml } from "./frontmatter-repair";
-import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import type { EditorFontMode } from "../../shared/editor-fonts";
 import { useArticleFonts } from "./useArticleFonts";
 
 interface FrontmatterRepairProps {

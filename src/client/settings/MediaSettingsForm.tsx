@@ -13,7 +13,7 @@ import { api } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { ImageFolder } from "../../shared/project-media";
 import type { useScopedSettings } from "./useScopedSettings";
-import { ScopedCard } from "./WorkspaceSettingsForms";
+import { ScopedCard } from "./ScopedCard";
 import { ContentLoading } from "../components/ContentLoading";
 export function MediaSettingsForm({
   controller,

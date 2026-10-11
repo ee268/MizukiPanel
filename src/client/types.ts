@@ -1,46 +1,17 @@
-export interface SourceMapping {
-  key: string;
-  label: string;
-  sourcePath: string;
-  resolvedPath?: string;
-  exists: boolean;
-  note?: string;
-}
-
-export interface ProjectReport {
-  requestedPath: string;
-  root: string;
-  mode: "local" | "external" | "blocked";
-  readOnly: boolean;
-  contentRoot: string | null;
-  warnings: string[];
-  mappings: SourceMapping[];
-  detectedReadOnly?: boolean;
-  preferenceReadOnly?: boolean;
-  settingsReadOnly?: boolean;
-}
+import type { ProjectReport } from "../shared/project";
+export type { SourceMapping, ProjectReport } from "../shared/project";
+import type { ArticleListItem, FrontmatterEntry } from "../shared/article";
+export type { ArticleListItem, FrontmatterEntry } from "../shared/article";
+import type { ConfigValue, ConfigDescriptor } from "../shared/config";
+export type { ConfigValue, ConfigDescriptor } from "../shared/config";
+import type { FeatureDataDescriptor } from "../shared/features";
+export type { FeatureDataDescriptor } from "../shared/features";
 
 export interface GitStatus {
   branch: string | null;
   changes: Array<{ status: string; path: string }>;
   ahead: number;
   behind: number;
-}
-
-export interface ArticleListItem {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
-  published: string;
-  draft: boolean;
-  format: "md" | "mdx";
-  error: string | null;
-  alias: string;
-  permalink: string;
-  slug: string;
-  tags: string[];
-  category: string;
 }
 
 export interface DashboardDay {
@@ -74,12 +45,6 @@ export interface DashboardOverview {
   };
 }
 
-export interface FrontmatterEntry {
-  key: string;
-  value: string;
-  originalKey?: string;
-}
-
 export interface ArticleRecord extends ArticleListItem {
   source: string;
   version: string;
@@ -110,17 +75,6 @@ export interface PreviewStatus {
   warnings?: string[];
 }
 
-export type ConfigValue =
-  null | boolean | number | string | ConfigValue[] | { [key: string]: ConfigValue };
-
-export interface ConfigDescriptor {
-  key: string;
-  label: string;
-  group: string;
-  file: string;
-  exportName: string;
-}
-
 export interface SiteConfigDocument {
   report: ProjectReport;
   descriptor: ConfigDescriptor;
@@ -146,15 +100,6 @@ export interface FeatureModule {
   navigationConfigured: boolean;
   sourceMode?: string;
   sourceStatus?: string;
-}
-
-export interface FeatureDataDescriptor {
-  key: string;
-  module: string;
-  label: string;
-  file: string;
-  variable: string;
-  shape: "array" | "object";
 }
 
 export interface FeatureDataDocument {

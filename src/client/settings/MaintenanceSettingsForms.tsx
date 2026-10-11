@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 import type { ArchiveInventory, ArchiveItem, MaintenancePreview } from "../../shared/maintenance";
 import { api, json } from "../api";
-import { ScopedCard } from "./WorkspaceSettingsForms";
+import { ScopedCard } from "./ScopedCard";
 import type { useScopedSettings } from "./useScopedSettings";
 import { SettingsModule } from "./SettingsModule";
 import { ContentLoading } from "../components/ContentLoading";

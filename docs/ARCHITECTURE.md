@@ -30,9 +30,13 @@ MizukiPanel 是仅监听本机地址的 React 单页应用和 Hono API 服务。
 - `shared/`：不属于某个业务功能的客户端工具和事件约定。
 - `api.ts`：统一 HTTP 请求、响应解析和鉴权失败处理。
 - `auth/`：鉴权入口、会话活动报告、退出状态机与未保存输入恢复注册；401 先保留本地内容再跳转，瞬时错误不丢弃输入。
-- `types.ts`：客户端与 API 交换的数据结构。
+- `types.ts`：客户端类型入口；跨端重复使用的项目、文章、配置、特色页描述和字体类型统一来自 `src/shared/`。
 
 页面通过功能 Hook 读取和修改状态。组件接收明确的属性并负责渲染；网络请求集中在 Hook 或对应的功能模块内。客户端错误统一经 `shared/errors.ts` 转换为可显示文本。站点标题和头像变更通过 `shared/site-identity.ts` 中定义的事件通知界面刷新。
+
+设置页由 `useSettingsController` 管理设置快照与草稿，`useSettingsLeave` 管理保存/放弃及离页保护，`SettingsSections` 组合懒加载表单。页面只组合导航、状态提示及对话框；切换分类和滚动时保留已访问表单。
+
+配置与特色页共用 `CatalogLayout` 的搜索区域、网格与空状态，以及 `catalog-styles` 的卡片动效。领域模块保留各自的搜索字段、卡片动作和开关规则；文本查询的词项匹配由 `client/shared/search.ts` 统一处理。共享展示组件不读取领域 API。
 
 ### 导航与页面过渡
 
@@ -49,6 +53,10 @@ MizukiPanel 是仅监听本机地址的 React 单页应用和 Hono API 服务。
 3. `src/server/routes/` 将 HTTP 输入转换为领域服务调用，并返回 API 响应。
 
 文件读写、格式解析、Git 操作、预览进程和发布流程位于 `src/lib/server/`。路由层不重复实现这些规则。新增 API 时，应先把可独立验证的业务逻辑放入对应领域模块，再由路由完成参数读取和响应映射。
+
+`features.ts` 与 `publish.ts` 是领域的兼容导出入口，不承载业务实现。特色页的资源定义、开关目录、数据、正文、季度文件、相册、校验及存储分别位于 `features/`；发布的 Git 执行、运行状态、仓库概览、历史、提交、推送和构建分别位于 `publish/`。内部模块直接依赖所需模块，避免反向导入领域入口。
+
+`workspace-history.ts` 独立读取和校验最近项目记录。设置存储通过它验证默认项目，不依赖负责连接和任务协调的 `WorkspaceSession`，从而避免设置、会话和任务服务之间的循环依赖。
 
 ### 安全边界
 
@@ -87,6 +95,8 @@ MizukiPanel 是仅监听本机地址的 React 单页应用和 Hono API 服务。
 ```
 
 领域服务不应导入 React、Material UI 或路由组件。客户端不应导入 `src/lib/server/`。共享模块只放入已经出现跨功能复用的代码，避免形成无边界的工具集合。
+
+`tests/architecture.test.ts` 检查跨层依赖和特色页/发布服务可达依赖的运行时循环。字体等跨端类型也必须来自共享层，不能以 `import type` 绕过边界。
 
 ## 测试与验证
 

@@ -3,8 +3,8 @@ import { readConfig } from "./configs";
 import { assertManagedRealPath } from "./path-guard";
 import type { ProjectReport } from "./project";
 
-export type EditorFontMode = "custom" | "system";
-export type EditorFontName = "body" | "cjk" | "code";
+import type { EditorFontMode, EditorFontName } from "../../shared/editor-fonts";
+export type { EditorFontMode, EditorFontName } from "../../shared/editor-fonts";
 
 const fontFiles = {
   body: "src/assets/fonts/ZenMaruGothic-Medium.woff2",

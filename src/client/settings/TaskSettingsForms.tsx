@@ -11,7 +11,7 @@ import {
 import type { useScopedSettings } from "./useScopedSettings";
 import type { SettingsController } from "./SettingsCard";
 import { SettingsCard } from "./SettingsCard";
-import { ScopedCard } from "./WorkspaceSettingsForms";
+import { ScopedCard } from "./ScopedCard";
 import { commitTypes } from "../../shared/task-settings";
 import type { PreviewStatus } from "../types";
 import { api } from "../api";

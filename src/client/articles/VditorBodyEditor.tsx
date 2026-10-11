@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import type Vditor from "vditor";
 import type { ArticleRecord } from "../types";
-import type { EditorFontMode } from "../../lib/server/editor-fonts";
+import type { EditorFontMode } from "../../shared/editor-fonts";
 import { ImagePickerDialog } from "./ImagePickerDialog";
 import {
   replaceVditorBody,

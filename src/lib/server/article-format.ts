@@ -1,3 +1,5 @@
+import type { FrontmatterEntry } from "../../shared/article";
+export type { FrontmatterEntry } from "../../shared/article";
 import { Document, isMap, isScalar, isSeq, parseDocument, stringify } from "yaml";
 import { splitArticleSource } from "../articles/article-source";
 
@@ -32,12 +34,6 @@ export interface ArticleFields {
   comment: boolean;
   encrypted: boolean;
   hideHomeContent: boolean;
-}
-
-export interface FrontmatterEntry {
-  key: string;
-  value: string;
-  originalKey?: string;
 }
 
 function parse(source: string) {

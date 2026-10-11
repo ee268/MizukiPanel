@@ -1,3 +1,5 @@
+import type { ArticleListItem } from "../../shared/article";
+export type { ArticleListItem } from "../../shared/article";
 import { randomUUID } from "node:crypto";
 import { recordArchive } from "./archive-metadata";
 import { validatePostPath } from "../../shared/panel-settings/article-template";
@@ -23,21 +25,6 @@ import {
   type FrontmatterEntry,
 } from "./article-format";
 
-export interface ArticleListItem {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
-  published: string;
-  draft: boolean;
-  format: "md" | "mdx";
-  error: string | null;
-  alias: string;
-  permalink: string;
-  slug: string;
-  tags: string[];
-  category: string;
-}
 export interface ArticleRecord extends ArticleListItem {
   source: string;
   version: string;

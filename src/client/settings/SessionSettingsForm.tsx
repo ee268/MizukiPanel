@@ -1,7 +1,7 @@
 import { Alert, FormControlLabel, Stack, Switch, TextField, Typography } from "@mui/material";
 import { useSyncExternalStore } from "react";
 import type { useScopedSettings } from "./useScopedSettings";
-import { ScopedCard } from "./WorkspaceSettingsForms";
+import { ScopedCard } from "./ScopedCard";
 import { sessionLifecycle } from "../auth/session-lifecycle";
 export function SessionSettingsForm({
   controller,
