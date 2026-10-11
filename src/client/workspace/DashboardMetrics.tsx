@@ -1,5 +1,5 @@
 import ArticleOutlined from "@mui/icons-material/ArticleOutlined";
-import { ContentLoading } from "../components/ContentLoading";
+import { MetricSkeleton } from "./WorkspaceLoading";
 import CommitOutlined from "@mui/icons-material/CommitOutlined";
 import DescriptionOutlined from "@mui/icons-material/DescriptionOutlined";
 import NoteAddOutlined from "@mui/icons-material/NoteAddOutlined";
@@ -98,22 +98,6 @@ function MetricCard({ label, value, detail, icon }: MetricCardProps) {
   );
 }
 
-function MetricLoading() {
-  return (
-    <Card variant="outlined" sx={{ height: "100%" }}>
-      <CardContent>
-        <ContentLoading
-          heading="正在展开统计"
-          description="正在读取工作区数据"
-          kind="page"
-          size="inline"
-          framed={false}
-        />
-      </CardContent>
-    </Card>
-  );
-}
-
 interface DashboardMetricsProps {
   dashboard: DashboardOverview | null;
   loading: boolean;
@@ -156,7 +140,7 @@ export function DashboardMetrics({ dashboard, loading }: DashboardMetricsProps) 
       {loading || !dashboard
         ? Array.from({ length: 4 }, (_, index) => (
             <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={index}>
-              <MetricLoading />
+              <MetricSkeleton />
             </Grid>
           ))
         : metrics.map((metric) => (

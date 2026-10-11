@@ -23,7 +23,13 @@ const Context = createContext<{
   error: string;
   stale: boolean;
 } | null>(null);
-export function WorkspaceSessionProvider({ children }: { children: ReactNode }) {
+export function WorkspaceSessionProvider({
+  children,
+  loadingFallback,
+}: {
+  children: ReactNode;
+  loadingFallback?: ReactNode;
+}) {
   const [data, setData] = useState<WorkspaceData | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [outletVersion, setOutletVersion] = useState(0);
@@ -96,17 +102,17 @@ export function WorkspaceSessionProvider({ children }: { children: ReactNode }) 
         notify: () => channel.current?.postMessage("changed"),
       }}
     >
-      {initialized ? (
-        children
-      ) : (
-        <Stack sx={{ p: 4 }} spacing={2}>
-          <ContentLoading
-            heading="正在展开工作区"
-            description="正在读取项目连接与工作区状态"
-            kind="page"
-          />
-        </Stack>
-      )}
+      {initialized
+        ? children
+        : (loadingFallback ?? (
+            <Stack sx={{ p: 4 }} spacing={2}>
+              <ContentLoading
+                heading="正在展开工作区"
+                description="正在读取项目连接与工作区状态"
+                kind="page"
+              />
+            </Stack>
+          ))}
       <Dialog
         open={Boolean(pending && pending.version !== acknowledged)}
         aria-labelledby="workspace-changed-title"

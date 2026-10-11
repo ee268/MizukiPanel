@@ -1,6 +1,7 @@
 import { Box } from "@mui/material";
 import { useLocation } from "react-router-dom";
 import { ContentLoading } from "./ContentLoading";
+import { WorkspaceLoading } from "../workspace/WorkspaceLoading";
 
 const names: Record<string, string> = {
   "/": "工作区",
@@ -16,6 +17,13 @@ const names: Record<string, string> = {
 };
 export function RouteLoading({ fullPage = false }: { fullPage?: boolean }) {
   const { pathname } = useLocation();
+  if (pathname === "/") {
+    return (
+      <Box sx={{ minHeight: fullPage ? "100vh" : "60vh" }}>
+        <WorkspaceLoading />
+      </Box>
+    );
+  }
   const name = names[pathname] ?? names[`/${pathname.split("/")[1]}`] ?? "页面";
   return (
     <Box

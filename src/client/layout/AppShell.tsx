@@ -19,7 +19,7 @@ const collapsedDrawerWidth = 72;
 
 export default function AppShell() {
   return (
-    <WorkspaceSessionProvider>
+    <WorkspaceSessionProvider loadingFallback={<RouteLoading fullPage />}>
       <Shell />
     </WorkspaceSessionProvider>
   );
