@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ContentLoading } from "../components/ContentLoading";
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
 import AddOutlined from "@mui/icons-material/AddOutlined";
 import SortOutlined from "@mui/icons-material/SortOutlined";
@@ -7,10 +6,12 @@ import {
   Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  LinearProgress,
   List,
   ListItem,
   Menu,
@@ -192,12 +193,19 @@ export function BangumiSearchDialog({
         </Menu>
         <Box aria-busy={busy} aria-live="polite" sx={{ minHeight: 240 }}>
           {busy && (
-            <ContentLoading
-              heading="正在展开动画搜索"
-              description={loadedCount ? `正在读取搜索结果…已加载 ${loadedCount} 项` : "正在搜索…"}
-              kind="media"
-              size="compact"
-            />
+            <>
+              <LinearProgress aria-label="正在读取动画搜索结果" />
+              <Stack
+                direction="row"
+                spacing={1.5}
+                sx={{ p: 3, alignItems: "center", justifyContent: "center" }}
+              >
+                <CircularProgress size={20} aria-label="正在搜索动画" />
+                <Typography color="text.secondary">
+                  {loadedCount ? `正在读取搜索结果…已加载 ${loadedCount} 项` : "正在搜索…"}
+                </Typography>
+              </Stack>
+            </>
           )}
           {error && (
             <Alert

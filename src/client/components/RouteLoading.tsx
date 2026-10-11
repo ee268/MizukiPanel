@@ -1,4 +1,4 @@
-import { Box } from "@mui/material";
+import { Box, CircularProgress } from "@mui/material";
 import { useLocation } from "react-router-dom";
 import { ContentLoading } from "./ContentLoading";
 import { WorkspaceLoading } from "../workspace/WorkspaceLoading";
@@ -17,6 +17,13 @@ const names: Record<string, string> = {
 };
 export function RouteLoading({ fullPage = false }: { fullPage?: boolean }) {
   const { pathname } = useLocation();
+  if (pathname === "/login") {
+    return (
+      <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <CircularProgress aria-label="正在加载登录页面" />
+      </Box>
+    );
+  }
   if (pathname === "/") {
     return (
       <Box sx={{ minHeight: fullPage ? "100vh" : "60vh" }}>
