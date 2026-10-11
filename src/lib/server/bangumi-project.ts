@@ -56,6 +56,6 @@ export async function readProjectBangumiBaseUrl(root?: string): Promise<BangumiP
   }
   return {
     ...fallback,
-    warning: "未能读取季度追番的 BGM_BASE_URL，暂使用 Bangumi 官方地址；可关闭跟随并自定义。",
+    warning: "未能读取季度追番的 BGM_BASE_URL，暂使用 Bangumi 官方地址；可直接修改输入框中的地址。",
   };
 }

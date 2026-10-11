@@ -39,7 +39,9 @@ function httpUrl(value: unknown, proxy: boolean): boolean {
       Boolean(url.hostname) &&
       !url.search &&
       !url.hash &&
-      (proxy ? url.pathname === "/" : !url.username && !url.password)
+      (proxy
+        ? url.pathname === "/" && Number(url.port || (url.protocol === "https:" ? 443 : 80)) >= 1
+        : !url.username && !url.password)
     );
   } catch {
     return false;
@@ -49,11 +51,55 @@ export const validBangumiBaseUrl = (value: unknown): boolean => httpUrl(value, f
 export const validBangumiProxyUrl = (value: unknown): boolean =>
   value === "" || httpUrl(value, true);
 
+function proxyAddressUrl(address: string): URL | null {
+  const text = address.trim();
+  if (!text || text.length > 1900) return null;
+  const absolute = text.includes("://") ? text : `http://${text}`;
+  if (!httpUrl(absolute, true)) return null;
+  const authority = absolute.split("://")[1].split("/")[0].split("@").at(-1)!;
+  // URL removes explicit default ports (80/443), so also check the original host.
+  if (/:\d*$/.test(authority)) return null;
+  return new URL(absolute);
+}
+
+export function validBangumiProxyPort(port: string): boolean {
+  return /^\d+$/.test(port) && Number(port) >= 1 && Number(port) <= 65535;
+}
+
+export const validBangumiProxyAddress = (address: string): boolean =>
+  Boolean(proxyAddressUrl(address));
+
+export function bangumiProxyInputProblem(address: string, port: string): string | null {
+  if (!proxyAddressUrl(address)) return "请填写有效的 HTTP/HTTPS 代理地址，端口需在右侧单独填写。";
+  if (!validBangumiProxyPort(port)) return "代理端口必须是 1–65535 的整数。";
+  return null;
+}
+
+export function composeBangumiProxyUrl(address: string, port: string): string {
+  const problem = bangumiProxyInputProblem(address, port);
+  if (problem) throw new Error(problem);
+  const url = proxyAddressUrl(address)!;
+  url.port = String(Number(port));
+  return url.href.replace(/\/$/, "");
+}
+
+export function splitBangumiProxyUrl(proxyUrl: string): { address: string; port: string } {
+  if (!proxyUrl) return { address: "", port: "7890" };
+  try {
+    const url = new URL(proxyUrl);
+    const port = url.port || (url.protocol === "https:" ? "443" : "80");
+    url.port = "";
+    return { address: url.href.replace(/\/$/, ""), port };
+  } catch {
+    return { address: proxyUrl, port: "7890" };
+  }
+}
+
 export function bangumiNetworkProblem(settings: BangumiNetworkSettings): string | null {
   if (!validBangumiBaseUrl(settings.baseUrl))
     return "BaseURL 必须是 HTTP/HTTPS 地址，不能包含登录凭据、查询参数或片段。";
   if (!validBangumiProxyUrl(settings.proxyUrl))
-    return "代理地址必须是 HTTP/HTTPS 地址，例如 http://127.0.0.1:7890。";
+    return "代理地址必须是 HTTP/HTTPS 地址，端口为 1–65535，例如 http://127.0.0.1:7890。";
   if (settings.proxyEnabled && !settings.followSystemProxy && !settings.proxyUrl.trim())
     return "请填写代理地址，或启用跟随系统代理。";
   return null;

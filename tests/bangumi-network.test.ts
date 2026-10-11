@@ -10,6 +10,11 @@ import {
   bangumiNetworkProblem,
   bangumiProxyMode,
   bangumiProxyFields,
+  bangumiProxyInputProblem,
+  composeBangumiProxyUrl,
+  splitBangumiProxyUrl,
+  validBangumiProxyPort,
+  validBangumiProxyUrl,
 } from "../src/shared/bangumi-settings";
 import { searchBangumiAnime } from "../src/lib/server/bangumi-search";
 import {
@@ -141,6 +146,8 @@ it("rejects invalid BaseURLs, proxy schemes and missing manual proxy addresses",
     "socks5://127.0.0.1:7890",
     "http://127.0.0.1:7890/path",
     "http://example.com?token=1",
+    "http://127.0.0.1:0",
+    "http://127.0.0.1:65536",
   ])
     expect(bangumiNetworkProblem({ ...defaultBangumiNetworkSettings, proxyUrl })).not.toBeNull();
   expect(
@@ -159,6 +166,64 @@ it("rejects invalid BaseURLs, proxy schemes and missing manual proxy addresses",
       "test",
     ),
   ).toThrow("填写代理");
+});
+
+it.each(["", "0", "-1", "65536", "1.5", "1e3", "+80", " 80", "NaN"])(
+  "rejects invalid separately entered proxy port %s",
+  (port) => {
+    expect(validBangumiProxyPort(port)).toBe(false);
+    expect(bangumiProxyInputProblem("http://127.0.0.1", port)).toContain("1–65535");
+    expect(() => composeBangumiProxyUrl("http://127.0.0.1", port)).toThrow();
+  },
+);
+it.each([
+  ["127.0.0.1", "1", "http://127.0.0.1:1"],
+  ["https://proxy.example", "65535", "https://proxy.example:65535"],
+  ["http://user:pass@proxy.example", "7890", "http://user:pass@proxy.example:7890"],
+  ["http://[::1]", "8080", "http://[::1]:8080"],
+  ["http://proxy.example", "80", "http://proxy.example"],
+  ["https://proxy.example", "443", "https://proxy.example"],
+])(
+  "combines address %s and port %s for the existing proxy dispatcher",
+  (address, port, expected) => {
+    const proxyUrl = composeBangumiProxyUrl(address, port);
+    expect(proxyUrl).toBe(expected);
+    expect(validBangumiProxyUrl(proxyUrl)).toBe(true);
+    expect(splitBangumiProxyUrl(proxyUrl)).toEqual({
+      address: address.includes("://") ? address : `http://${address}`,
+      port,
+    });
+  },
+);
+it("rejects ports inside the address field and restores existing combined proxy settings", () => {
+  for (const address of [
+    "",
+    "http://127.0.0.1:7890",
+    "http://proxy.example:80",
+    "https://proxy.example:443",
+    "proxy.example:8080",
+    "http://proxy.example/path",
+    "socks5://127.0.0.1",
+    "https://proxy.example?q=1",
+  ])
+    expect(bangumiProxyInputProblem(address, "7890")).not.toBeNull();
+  expect(splitBangumiProxyUrl("http://user:pass@proxy.example:7890")).toEqual({
+    address: "http://user:pass@proxy.example",
+    port: "7890",
+  });
+  expect(splitBangumiProxyUrl("https://proxy.example:443")).toEqual({
+    address: "https://proxy.example",
+    port: "443",
+  });
+  expect(() =>
+    patchSettings(
+      emptyDocument("machine"),
+      "machine",
+      "bangumi",
+      { proxyUrl: "http://proxy.example:0" },
+      "test",
+    ),
+  ).toThrow();
 });
 it("routes through a configured HTTP proxy without changing the global dispatcher", async () => {
   const fixtureData = await fixture();

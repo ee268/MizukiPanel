@@ -9,11 +9,14 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  IconButton,
+  InputAdornment,
   Stack,
   Switch,
   TextField,
   Typography,
 } from "@mui/material";
+import { Add, Remove } from "@mui/icons-material";
 import { api } from "../api";
 import { errorMessage } from "../shared/errors";
 import { useScopedSettings } from "../settings/useScopedSettings";
@@ -23,6 +26,11 @@ import {
   bangumiNetworkProblem,
   bangumiProxyMode,
   bangumiProxyFields,
+  bangumiProxyInputProblem,
+  composeBangumiProxyUrl,
+  splitBangumiProxyUrl,
+  validBangumiProxyPort,
+  validBangumiProxyAddress,
   defaultBangumiNetworkSettings,
   type BangumiNetworkSettings,
   type BangumiProjectBaseUrl,
@@ -137,16 +145,30 @@ function SettingsForm({
 }) {
   const controller = useScopedSettings("machine", "bangumi", snapshot, undefined, () => {});
   const values = controller.value as unknown as BangumiNetworkSettings;
+  const initialProxy = splitBangumiProxyUrl(snapshot.document.values.bangumi.proxyUrl as string);
+  const [proxyInput, setProxyInput] = useState(() => splitBangumiProxyUrl(values.proxyUrl));
   const proxyMode = bangumiProxyMode(values);
-  const problem = bangumiNetworkProblem(values);
+  const proxyProblem = bangumiProxyInputProblem(proxyInput.address, proxyInput.port);
+  const problem = (proxyMode === "custom" ? proxyProblem : null) ?? bangumiNetworkProblem(values);
+  const dirty =
+    controller.dirty ||
+    (proxyMode === "custom" &&
+      (proxyInput.address !== initialProxy.address || proxyInput.port !== initialProxy.port));
   const locked = controller.readOnly || controller.saving;
-  useUnsavedSessionRecovery("搜索设置", controller.dirty, {
+  useUnsavedSessionRecovery("搜索设置", dirty, {
     kind: "bangumiSettings",
     values,
     baseVersion: snapshot.version,
+    proxyInput,
   });
+  function changeProxy(fields: Partial<typeof proxyInput>) {
+    const next = { ...proxyInput, ...fields };
+    setProxyInput(next);
+    if (!bangumiProxyInputProblem(next.address, next.port))
+      controller.change({ proxyUrl: composeBangumiProxyUrl(next.address, next.port) });
+  }
   async function save() {
-    if (problem || locked || !controller.dirty) return;
+    if (problem || locked || !dirty) return;
     onSaving(true);
     try {
       if (await controller.save()) {
@@ -183,29 +205,13 @@ function SettingsForm({
           )}
           <Box component="fieldset" disabled={locked} sx={{ border: 0, p: 0, m: 0, minWidth: 0 }}>
             <Stack spacing={2.5}>
-              <FormControlLabel
-                label="跟随季度追番 BaseURL"
-                control={
-                  <Switch
-                    checked={values.followProjectBaseUrl}
-                    onChange={(_, followProjectBaseUrl) =>
-                      controller.change({ followProjectBaseUrl })
-                    }
-                  />
-                }
-              />
               <TextField
                 label="Bangumi BaseURL"
                 value={values.followProjectBaseUrl ? projectBaseUrl.baseUrl : values.baseUrl}
-                disabled={values.followProjectBaseUrl}
-                onChange={(event) => controller.change({ baseUrl: event.target.value })}
-                helperText={
-                  values.followProjectBaseUrl
-                    ? projectBaseUrl.source === "project"
-                      ? "跟随当前项目的季度追番地址，切换项目后自动更新。"
-                      : "暂使用 Bangumi 官方地址。"
-                    : "支持镜像路径与 /v0 后缀。"
+                onChange={(event) =>
+                  controller.change({ baseUrl: event.target.value, followProjectBaseUrl: false })
                 }
+                helperText="默认使用当前 Mizuki 季度追番的地址，可直接修改；恢复默认可重新填入项目地址。"
                 fullWidth
                 slotProps={{ htmlInput: { maxLength: 2000 } }}
               />
@@ -246,15 +252,72 @@ function SettingsForm({
                 </Typography>
               )}
               {proxyMode === "custom" && (
-                <TextField
-                  label="HTTP/HTTPS 代理地址"
-                  value={values.proxyUrl}
-                  onChange={(event) => controller.change({ proxyUrl: event.target.value })}
-                  placeholder="http://127.0.0.1:7890"
-                  helperText="填写代理服务器地址和端口。"
-                  fullWidth
-                  slotProps={{ htmlInput: { maxLength: 2000 } }}
-                />
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    label="代理地址"
+                    value={proxyInput.address}
+                    onChange={(event) => changeProxy({ address: event.target.value })}
+                    placeholder="http://127.0.0.1"
+                    error={!validBangumiProxyAddress(proxyInput.address)}
+                    helperText="填写域名或 IP，不含端口；省略协议时使用 HTTP。"
+                    fullWidth
+                    sx={{ flex: 1 }}
+                    slotProps={{ htmlInput: { maxLength: 1900 } }}
+                  />
+                  <TextField
+                    label="代理端口"
+                    type="number"
+                    value={proxyInput.port}
+                    onChange={(event) => changeProxy({ port: event.target.value })}
+                    error={!validBangumiProxyPort(proxyInput.port)}
+                    helperText="1–65535 的整数"
+                    sx={{
+                      width: { xs: "100%", sm: 200 },
+                      "& input[type=number]": { MozAppearance: "textfield" },
+                      "& input::-webkit-inner-spin-button, & input::-webkit-outer-spin-button": {
+                        WebkitAppearance: "none",
+                        margin: 0,
+                      },
+                    }}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 65535, step: 1, inputMode: "numeric" },
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              aria-label="减少代理端口"
+                              disabled={
+                                locked ||
+                                !validBangumiProxyPort(proxyInput.port) ||
+                                Number(proxyInput.port) <= 1
+                              }
+                              onClick={() =>
+                                changeProxy({ port: String(Number(proxyInput.port) - 1) })
+                              }
+                            >
+                              <Remove fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              aria-label="增加代理端口"
+                              disabled={
+                                locked ||
+                                !validBangumiProxyPort(proxyInput.port) ||
+                                Number(proxyInput.port) >= 65535
+                              }
+                              onClick={() =>
+                                changeProxy({ port: String(Number(proxyInput.port) + 1) })
+                              }
+                            >
+                              <Add fontSize="small" />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
+                </Stack>
               )}
             </Stack>
           </Box>
@@ -262,7 +325,13 @@ function SettingsForm({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ gap: 1, flexWrap: "wrap" }}>
-        <Button onClick={() => controller.reset(true)} disabled={locked}>
+        <Button
+          onClick={() => {
+            controller.reset(true);
+            setProxyInput(splitBangumiProxyUrl(""));
+          }}
+          disabled={locked}
+        >
           恢复默认
         </Button>
         <Box sx={{ flex: 1 }} />
@@ -271,7 +340,7 @@ function SettingsForm({
         </Button>
         <Button
           variant="contained"
-          disabled={locked || !controller.dirty || controller.conflict || Boolean(problem)}
+          disabled={locked || !dirty || controller.conflict || Boolean(problem)}
           onClick={() => void save()}
         >
           {controller.saving ? "正在保存…" : "保存设置"}
