@@ -1,5 +1,7 @@
 import { defaultArticleFrontmatter, validTemplateField } from "./article-template";
 import { validMediaFolder } from "../media-settings";
+import { defaultAiWritingSettings, validAiBaseUrl, type AiWritingSettings } from "../ai-writing";
+import { containsApiCredential } from "../api-credentials";
 import { validMediaStorageFolder } from "../project-media";
 import { commitTypes, validCommitScope, validPreviewPath } from "../task-settings";
 import {
@@ -29,6 +31,7 @@ export interface PersonalSettings {
   navigation: NavigationSettings;
   notifications: { duration: number };
   editor: EditorSettings;
+  ai: AiWritingSettings;
   drafts: { enabled: boolean; delay: number };
   logs: { autoScroll: boolean; fontSize: number };
   workspace: {
@@ -116,6 +119,36 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     notifications: { duration: number(3500, 2000, 10000) },
     drafts: { enabled: flag(true), delay: number(2000, 1000, 10000) },
     logs: { autoScroll: flag(true), fontSize: number(12, 10, 24) },
+    ai: {
+      provider: choice(defaultAiWritingSettings.provider, ["openai", "anthropic"]),
+      openaiBaseUrl: { default: defaultAiWritingSettings.openaiBaseUrl, valid: validAiBaseUrl },
+      anthropicBaseUrl: {
+        default: defaultAiWritingSettings.anthropicBaseUrl,
+        valid: validAiBaseUrl,
+      },
+      openaiModel: {
+        default: "",
+        valid: (value) =>
+          typeof value === "string" &&
+          value.length <= 160 &&
+          !/[\x00-\x1f\x7f]/.test(value) &&
+          !containsApiCredential(value),
+      },
+      anthropicModel: {
+        default: "",
+        valid: (value) =>
+          typeof value === "string" &&
+          value.length <= 160 &&
+          !/[\x00-\x1f\x7f]/.test(value) &&
+          !containsApiCredential(value),
+      },
+      systemPrompt: {
+        default: defaultAiWritingSettings.systemPrompt,
+        valid: (value) =>
+          typeof value === "string" && value.length <= 8000 && !containsApiCredential(value),
+      },
+      maxTokens: number(defaultAiWritingSettings.maxTokens, 256, 16384),
+    },
     workspace: {
       afterConnect: choice("/", [
         "/",

@@ -18,6 +18,9 @@ import { DraftSettingsForm } from "./DraftSettingsForm";
 import { SettingsModule } from "./SettingsModule";
 import { ContentLoading } from "../components/ContentLoading";
 const EditorPreview = lazy(() => import("./EditorPreview"));
+const AiWritingSettingsForm = lazy(() =>
+  import("./AiWritingSettingsForm").then((module) => ({ default: module.AiWritingSettingsForm })),
+);
 
 export function EditorSettingsForms({
   controller,
@@ -205,6 +208,19 @@ export function EditorSettingsForms({
         </Stack>
       </SettingsCard>
       <DraftSettingsForm controller={controller} />
+      <SettingsModule label="AI 辅助写作" estimatedHeight={820}>
+        <Suspense
+          fallback={
+            <ContentLoading
+              heading="正在展开 AI 写作设置"
+              description="正在准备连接与提示词设置"
+              size="compact"
+            />
+          }
+        >
+          <AiWritingSettingsForm controller={controller} />
+        </Suspense>
+      </SettingsModule>
       {template}
       <SettingsModule label="编辑预览" estimatedHeight={620}>
         <Suspense

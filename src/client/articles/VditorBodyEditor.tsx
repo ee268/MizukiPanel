@@ -1,4 +1,6 @@
 import { Alert, Box, Button, Stack, useTheme } from "@mui/material";
+import AutoAwesomeOutlined from "@mui/icons-material/AutoAwesomeOutlined";
+import type { AiWritingApply, AiWritingContext } from "../../shared/ai-writing";
 import {
   forwardRef,
   useEffect,
@@ -31,6 +33,8 @@ import "./vditor-editor.css";
 const cdn = "/assets/vditor";
 export interface VditorBodyEditorHandle {
   flush: (force?: boolean) => void;
+  captureWritingContext: () => AiWritingContext;
+  applyWriting: (text: string, mode: AiWritingApply, context: AiWritingContext) => void;
 }
 interface VditorBodyEditorProps {
   onLoadEnd?: () => void;
@@ -47,6 +51,7 @@ interface VditorBodyEditorProps {
   sourceRevision?: number;
   onChange: (source: string) => void;
   onSave: () => void;
+  onAi?: () => void;
 }
 
 export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEditorProps>(
@@ -65,6 +70,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
       sourceRevision = 0,
       onChange,
       onSave,
+      onAi,
       onLoadEnd,
     },
     ref,
@@ -87,6 +93,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
     const imageRange = useRef<Range | null>(null);
     const restoredRevision = useRef(sourceRevision);
     const restoringSource = useRef(false);
+    const writingRange = useRef<Range | null>(null);
 
     function flush(force = false) {
       if (restoringSource.current) return;
@@ -103,7 +110,59 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
         ),
       );
     }
-    useImperativeHandle(ref, () => ({ flush }));
+    function currentBody() {
+      const value = editor.current?.getValue() ?? "";
+      return value === initial.current.value ? initial.current.body : value;
+    }
+    useImperativeHandle(ref, () => ({
+      flush,
+      captureWritingContext: () => {
+        const instance = editor.current;
+        if (!instance || !ready) throw new Error("编辑器尚未就绪。");
+        flush(true);
+        const selection = window.getSelection();
+        const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+        const mode = instance.getCurrentMode();
+        const editable =
+          mode === "ir"
+            ? instance.vditor.ir?.element
+            : mode === "sv"
+              ? instance.vditor.sv?.element
+              : instance.vditor.wysiwyg?.element;
+        writingRange.current =
+          range && editable?.contains(range.commonAncestorContainer) ? range.cloneRange() : null;
+        return {
+          body: currentBody(),
+          selection: writingRange.current ? instance.getSelection() : "",
+          canInsert: Boolean(writingRange.current),
+        };
+      },
+      applyWriting: (text, mode, context) => {
+        const instance = editor.current;
+        if (!instance || busy || readOnly) throw new Error("当前编辑器不可写入。");
+        if (currentBody() !== context.body)
+          throw new Error("正文已变化，请关闭后重新生成建议，避免覆盖新的修改。");
+        if (mode === "selection") {
+          const range = writingRange.current;
+          if (
+            !range?.commonAncestorContainer.isConnected ||
+            !host.current?.contains(range.commonAncestorContainer)
+          )
+            throw new Error("原光标位置已变化，请重新选择内容后生成。");
+          instance.focus();
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          instance.insertMD(text);
+        } else {
+          instance.setValue(
+            mode === "append" ? [context.body.trimEnd(), text].filter(Boolean).join("\n\n") : text,
+            false,
+          );
+        }
+        flush(true);
+      },
+    }));
 
     useEffect(() => {
       let disposed = false;
@@ -499,6 +558,17 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
           toolbar &&
           createPortal(
             <Box className="mizuki-vditor-save">
+              {onAi && (
+                <Button
+                  size="small"
+                  startIcon={<AutoAwesomeOutlined />}
+                  disabled={!ready || busy || readOnly}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={onAi}
+                >
+                  AI 写作
+                </Button>
+              )}
               <Button
                 size="small"
                 variant="contained"

@@ -6,6 +6,7 @@ import { ApiError, mapError } from "./errors";
 import { registerSecurityMiddleware, authorizeSession } from "./middleware";
 import { PanelSessions } from "../lib/server/panel-sessions";
 import { registerArticleRoutes } from "./routes/articles";
+import { registerAiWritingRoutes } from "./routes/ai-writing";
 import { registerAuthRoutes } from "./routes/auth";
 import { registerConfigRoutes } from "./routes/configs";
 import { registerFeatureRoutes } from "./routes/features";
@@ -75,6 +76,7 @@ export function createApp(options: AppOptions = {}) {
   registerSettingsRoutes(app, stateDir);
   registerMaintenanceRoutes(app, stateDir);
   registerArticleRoutes(app, stateDir);
+  registerAiWritingRoutes(app);
   registerConfigRoutes(app);
   registerFeatureRoutes(app);
   registerMediaRoutes(app, stateDir);

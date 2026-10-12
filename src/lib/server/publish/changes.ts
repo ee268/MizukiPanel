@@ -6,6 +6,8 @@ import { projectRuntime, appendLog, begin, finish } from "./runtime";
 import { git, changesFor, ref, pathInside, normalizeGitPath, MAX_DIFF_BYTES } from "./git";
 import type { ProjectReport } from "../project";
 import { PublishError } from "./errors";
+import { assertNoStagedApiKeys } from "./credentials";
+import { containsApiCredential } from "../../../shared/api-credentials";
 function findSelected(report: ProjectReport, changes: PublishChange[], selected: string[]) {
   if (
     !selected.length ||
@@ -33,6 +35,8 @@ function selectedPaths(changes: PublishChange[]) {
 }
 export function validateCommitMessage(message: string) {
   const normalized = message.replaceAll("\r\n", "\n").trim();
+  if (containsApiCredential(normalized))
+    throw new PublishError("提交说明含有疑似 API Key，请移除后重试。");
   if (!normalized || normalized.length > 5000 || normalized.includes("\0"))
     throw new PublishError("提交说明不能为空且不能超过 5000 个字符");
   const subject = normalized.split("\n", 1)[0];
@@ -105,6 +109,12 @@ export async function commitSelected(
       .map(normalizeGitPath);
     if (!cached.length || cached.some((entry) => !paths.includes(entry)))
       throw new PublishError("暂存结果与所选文件不一致，已取消提交");
+    const stagedFiles = (
+      await git(report, ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"])
+    )
+      .split("\0")
+      .filter(Boolean);
+    await assertNoStagedApiKeys(report, stagedFiles);
     await git(report, ["commit", "-m", subject], { timeout: 60_000, output: true });
     added = false;
     const sha = (await git(report, ["rev-parse", "HEAD"])).trim();

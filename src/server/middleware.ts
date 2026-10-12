@@ -74,6 +74,7 @@ export function registerSecurityMiddleware(
       !["GET", "HEAD"].includes(context.req.method) &&
       context.req.path.startsWith("/api/") &&
       !context.req.path.startsWith("/api/auth/") &&
+      context.req.path !== "/api/article/ai-writing" &&
       context.req.path !== "/api/workspace/select-directory"
       ? queue(proceed)
       : proceed();

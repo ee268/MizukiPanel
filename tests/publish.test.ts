@@ -379,3 +379,21 @@ it("bounds large historical diffs and keeps Git metadata read-only", async () =>
   expect(detail.diff).toContain("差异已截断");
   expect(git(root, "rev-parse", "HEAD")).toBe(head);
 }, 15000);
+
+it("blocks API keys in staged content and commit messages without exposing them in logs", async () => {
+  const { root, report } = await fixture();
+  const secret = "sk-" + "not-a-real-key".repeat(5);
+  const initial = git(root, "rev-parse", "HEAD");
+  await writeFile(path.join(root, "README.md"), `# Accidental credential\n${secret}\n`);
+  await expect(commitSelected(report, ["README.md"], "docs: update article")).rejects.toThrow(
+    "疑似 API Key",
+  );
+  expect(git(root, "rev-parse", "HEAD")).toBe(initial);
+  expect(git(root, "diff", "--cached", "--name-only")).toBe("");
+  expect(await readFile(path.join(root, "README.md"), "utf8")).toContain(secret);
+  expect(publishOperationStatus(report).logs.join("\n")).not.toContain(secret);
+  await expect(commitSelected(report, ["README.md"], `docs: ${secret}`)).rejects.toThrow(
+    "疑似 API Key",
+  );
+  expect(publishOperationStatus(report).logs.join("\n")).not.toContain(secret);
+});

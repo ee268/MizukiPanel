@@ -23,6 +23,7 @@ export const groupLabels: Record<string, string> = {
   navigation: "导航",
   notifications: "操作提示",
   editor: "编辑器",
+  ai: "AI 辅助写作",
   drafts: "草稿保存",
   logs: "运行日志",
   workspace: "工作区",

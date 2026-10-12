@@ -1,7 +1,10 @@
 import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import DriveFileRenameOutline from "@mui/icons-material/DriveFileRenameOutline";
 import OpenInNewOutlined from "@mui/icons-material/OpenInNewOutlined";
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import type { AiWritingContext } from "../../shared/ai-writing";
+import { containsApiCredential } from "../../shared/api-credentials";
+import { aiCredentials } from "../ai/credentials";
 import { flushSync } from "react-dom";
 import { Alert, Box, Button, Paper, Stack, Tab, Tabs, Typography } from "@mui/material";
 import type { ArticleRecord } from "../types";
@@ -15,6 +18,7 @@ import { ArticleLoading } from "./ArticleLoading";
 import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import "./editor-fonts.css";
 import { useSessionRecovery } from "../auth/useSessionRecovery";
+const AiWritingDialog = lazy(() => import("../ai/AiWritingDialog"));
 
 interface ArticleEditorProps {
   onLoadEnd?: () => void;
@@ -66,6 +70,12 @@ export function ArticleEditor({
   onSaveBody,
 }: ArticleEditorProps) {
   const vditorRef = useRef<VditorBodyEditorHandle>(null);
+  const [aiContext, setAiContext] = useState<AiWritingContext | null>(null);
+  const [aiError, setAiError] = useState("");
+  useEffect(() => {
+    setAiContext(null);
+    setAiError("");
+  }, [projectRoot, article?.id, article?.version]);
   const fontMode = useEditorFontMode(projectRoot);
   const activeMode = article?.error ? "frontmatter" : mode;
   useSessionRecovery({
@@ -111,6 +121,11 @@ export function ArticleEditor({
   if (!article) return <ArticleLoading />;
   return (
     <Stack spacing={2} onKeyDownCapture={handleSaveShortcut}>
+      {aiError && (
+        <Alert severity="error" onClose={() => setAiError("")}>
+          {aiError}
+        </Alert>
+      )}
       <Paper variant="outlined" sx={{ overflow: "clip" }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
@@ -175,6 +190,21 @@ export function ArticleEditor({
               sourceRevision={sourceRevision}
               onChange={onSourceChange}
               onSave={saveDocumentBody}
+              onAi={
+                temporary
+                  ? undefined
+                  : () => {
+                      try {
+                        let context: AiWritingContext | undefined;
+                        flushSync(() => {
+                          context = vditorRef.current?.captureWritingContext();
+                        });
+                        if (context) setAiContext(context);
+                      } catch (cause) {
+                        setAiError(cause instanceof Error ? cause.message : "无法读取当前正文。");
+                      }
+                    }
+              }
               onLoadEnd={onLoadEnd}
             />
           </Box>
@@ -207,6 +237,28 @@ export function ArticleEditor({
             </>
           ))}
       </Paper>
+      {aiContext && (
+        <Suspense fallback={null}>
+          <AiWritingDialog
+            context={aiContext}
+            title={article.title}
+            disabled={busy || readOnly}
+            onClose={() => setAiContext(null)}
+            onApply={(text, mode) => {
+              if (
+                containsApiCredential(text) ||
+                [aiCredentials.get("openai"), aiCredentials.get("anthropic")].some(
+                  (key) => key && text.includes(key),
+                )
+              )
+                throw new Error("建议中含有疑似 API Key，已阻止写入。");
+              if (!vditorRef.current) throw new Error("编辑器尚未就绪。");
+              flushSync(() => vditorRef.current!.applyWriting(text, mode, aiContext));
+              setAiContext(null);
+            }}
+          />
+        </Suspense>
+      )}
     </Stack>
   );
 }
