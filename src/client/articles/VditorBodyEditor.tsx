@@ -141,7 +141,7 @@ export const VditorBodyEditor = forwardRef<VditorBodyEditorHandle, VditorBodyEdi
         const instance = editor.current;
         if (!instance || busy || readOnly) throw new Error("当前编辑器不可写入。");
         if (currentBody() !== context.body)
-          throw new Error("正文已变化，请关闭后重新生成建议，避免覆盖新的修改。");
+          throw new Error("正文已变化，请重新生成修改，避免覆盖新的内容。");
         if (mode === "selection") {
           const range = writingRange.current;
           if (

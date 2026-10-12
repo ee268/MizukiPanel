@@ -122,3 +122,22 @@ it("blocks read-only requests and lets preference saves finish while generation 
   expect((await generating).status).toBe(200);
   expect((await post()).status).toBe(403);
 });
+it("authorizes model discovery and never exposes credentials in the response", async () => {
+  const { app, headers, workspace, input } = await fixture();
+  const fetcher = vi.fn(async () => new Response(JSON.stringify({ data: [{ id: "model" }] })));
+  vi.stubGlobal("fetch", fetcher);
+  const query = (overrides: Record<string, string> = {}) =>
+    app.request(origin + "/api/ai/models", {
+      method: "POST",
+      headers: { ...headers, "x-mizuki-workspace": workspace.version, ...overrides },
+      body: JSON.stringify({ settings: input.settings, apiKey: key }),
+    });
+  expect((await query({ cookie: "" })).status).toBe(401);
+  expect((await query({ origin: "http://wrong.invalid" })).status).toBe(403);
+  expect((await query({ "x-mizuki-workspace": "stale" })).status).toBe(409);
+  expect(fetcher).not.toHaveBeenCalled();
+  const response = await query();
+  expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(await response.text()).not.toContain(key);
+});

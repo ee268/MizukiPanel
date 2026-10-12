@@ -1,5 +1,6 @@
-import { Button, MenuItem, Stack, TextField } from "@mui/material";
-import type { AiWritingSettings } from "../../shared/ai-writing";
+import { Alert, Autocomplete, Button, MenuItem, Stack, TextField, Typography } from "@mui/material";
+import { configuredAiModels, type AiWritingSettings } from "../../shared/ai-writing";
+import { useAiModels } from "./useAiModels";
 import { aiCredentials } from "./credentials";
 import { useAiCredential } from "./useAiCredential";
 
@@ -7,13 +8,19 @@ export function AiConnectionFields({
   settings,
   onChange,
   disabled = false,
+  manageModels = false,
 }: {
   settings: AiWritingSettings;
   onChange: (fields: Partial<AiWritingSettings>) => void;
   disabled?: boolean;
+  manageModels?: boolean;
 }) {
   const key = useAiCredential(settings.provider);
   const openai = settings.provider === "openai";
+  const upstream = useAiModels(settings);
+  const options = [
+    ...new Set([...configuredAiModels(settings), ...upstream.models.map((model) => model.id)]),
+  ];
   return (
     <Stack spacing={2}>
       <TextField
@@ -37,15 +44,63 @@ export function AiConnectionFields({
         }
         helperText="支持服务根地址或 /v1 地址；使用 HTTPS 或本机 HTTP，不在地址中填写密钥。"
       />
-      <TextField
-        label="模型 ID"
-        value={openai ? settings.openaiModel : settings.anthropicModel}
+      <Autocomplete
+        freeSolo
+        options={options}
+        value={(openai ? settings.openaiModel : settings.anthropicModel) || null}
         disabled={disabled}
-        onChange={(event) =>
-          onChange({ [openai ? "openaiModel" : "anthropicModel"]: event.target.value })
+        onChange={(_, value) =>
+          onChange({ [openai ? "openaiModel" : "anthropicModel"]: value ?? "" })
         }
-        helperText="填写所选服务支持的模型名称；不同服务的模型分别记忆。"
+        onInputChange={(_, value, reason) => {
+          if (reason === "input") onChange({ [openai ? "openaiModel" : "anthropicModel"]: value });
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="模型 ID"
+            helperText="选择或输入模型；两家服务分别记忆，当前会话可随时切换。"
+          />
+        )}
       />
+      <Button
+        loading={upstream.loading}
+        disabled={disabled || !key}
+        onClick={() => void upstream.fetchModels()}
+        sx={{ alignSelf: "flex-start" }}
+      >
+        从上游获取模型列表
+      </Button>
+      {upstream.error && <Alert severity="warning">{upstream.error}</Alert>}
+      {upstream.models.length > 0 && (
+        <Typography variant="caption" color="text.secondary">
+          已获取 {upstream.models.length} 个模型，可在模型输入框中搜索选择。
+        </Typography>
+      )}
+      {manageModels && (
+        <Autocomplete
+          multiple
+          freeSolo
+          filterSelectedOptions
+          options={options}
+          value={openai ? settings.openaiModels : settings.anthropicModels}
+          disabled={disabled}
+          onChange={(_, value) =>
+            onChange({
+              [openai ? "openaiModels" : "anthropicModels"]: [
+                ...new Set(value.map((item) => item.trim()).filter(Boolean)),
+              ],
+            })
+          }
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="可切换模型"
+              helperText="输入模型 ID 后按 Enter 添加，或选择上游模型；最多 100 个。保存后在写作面板中切换。"
+            />
+          )}
+        />
+      )}
       <TextField
         label="API Key（本次会话）"
         type="password"

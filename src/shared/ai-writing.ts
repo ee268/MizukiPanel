@@ -6,6 +6,8 @@ export interface AiWritingSettings {
   anthropicBaseUrl: string;
   openaiModel: string;
   anthropicModel: string;
+  openaiModels: string[];
+  anthropicModels: string[];
   systemPrompt: string;
   maxTokens: number;
 }
@@ -15,8 +17,10 @@ export const defaultAiWritingSettings: AiWritingSettings = {
   anthropicBaseUrl: "https://api.anthropic.com",
   openaiModel: "",
   anthropicModel: "",
+  openaiModels: [],
+  anthropicModels: [],
   systemPrompt:
-    "你是文章写作助手。按用户要求输出可直接使用的 Markdown 正文，不添加无关解释。保留代码、链接、图片、HTML、MDX 和模板语法；不编造事实或引用，不输出 Frontmatter。",
+    "你是文章协作助手。先理解当前文章，再根据用户要求讨论或修改。保留代码、链接、图片、HTML、MDX 和模板语法；不编造事实或引用，不修改 Frontmatter。",
   maxTokens: 2048,
 };
 export const aiWritingActions = [
@@ -56,6 +60,28 @@ export interface AiWritingRequest {
   title: string;
   context: string;
   selection: string;
+  conversation?: { intent: "read" | "chat" | "edit"; messages: AiChatMessage[] };
+}
+export interface AiChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+export interface AiModel {
+  id: string;
+  name: string;
+}
+export function validAiModelId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= 160 &&
+    !/[\x00-\x1f\x7f]/.test(value) &&
+    !containsApiCredential(value)
+  );
+}
+export function configuredAiModels(settings: AiWritingSettings): string[] {
+  const selected = settings.provider === "openai" ? settings.openaiModel : settings.anthropicModel;
+  const models = settings.provider === "openai" ? settings.openaiModels : settings.anthropicModels;
+  return [...new Set([selected, ...(models ?? [])].map((value) => value.trim()).filter(Boolean))];
 }
 export interface AiWritingResult {
   text: string;
@@ -96,5 +122,10 @@ export function aiWritingEndpoint(settings: AiWritingSettings): URL {
     if (!prefix.endsWith("/v1")) prefix += "/v1";
     url.pathname = `${prefix}/${route}`;
   }
+  return url;
+}
+export function aiModelsEndpoint(settings: AiWritingSettings): URL {
+  const url = aiWritingEndpoint(settings);
+  url.pathname = url.pathname.replace(/\/(?:chat\/completions|messages)$/, "/models");
   return url;
 }

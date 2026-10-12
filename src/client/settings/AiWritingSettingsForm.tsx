@@ -15,6 +15,7 @@ export function AiWritingSettingsForm({ controller }: { controller: SettingsCont
           settings={settings}
           onChange={(fields) => controller.change("ai", fields)}
           disabled={disabled}
+          manageModels
         />
         <TextField
           label="自定义系统提示词"
@@ -36,7 +37,7 @@ export function AiWritingSettingsForm({ controller }: { controller: SettingsCont
           helperText="256—16384；实际支持的额度取决于模型。"
         />
         <Typography variant="body2" color="text.secondary">
-          保存只记忆服务、BaseURL、模型和写作偏好。正文仅在点击生成时发送给所选服务；采用建议后仍需保存文章。
+          保存只记忆服务、BaseURL、默认模型、可切换模型和提示词。新建对话会先阅读当前正文；修改完成后先查看差异，采用后仍需保存文章。会话和密钥仅保留在内存中。
         </Typography>
       </Stack>
     </SettingsCard>

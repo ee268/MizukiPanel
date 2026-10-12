@@ -1,6 +1,11 @@
 import { defaultArticleFrontmatter, validTemplateField } from "./article-template";
 import { validMediaFolder } from "../media-settings";
-import { defaultAiWritingSettings, validAiBaseUrl, type AiWritingSettings } from "../ai-writing";
+import {
+  defaultAiWritingSettings,
+  validAiBaseUrl,
+  validAiModelId,
+  type AiWritingSettings,
+} from "../ai-writing";
 import { containsApiCredential } from "../api-credentials";
 import { validMediaStorageFolder } from "../project-media";
 import { commitTypes, validCommitScope, validPreviewPath } from "../task-settings";
@@ -141,6 +146,22 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
           value.length <= 160 &&
           !/[\x00-\x1f\x7f]/.test(value) &&
           !containsApiCredential(value),
+      },
+      openaiModels: {
+        default: [],
+        valid: (value) =>
+          Array.isArray(value) &&
+          value.length <= 100 &&
+          value.every((item) => validAiModelId(item) && item.trim()) &&
+          new Set(value).size === value.length,
+      },
+      anthropicModels: {
+        default: [],
+        valid: (value) =>
+          Array.isArray(value) &&
+          value.length <= 100 &&
+          value.every((item) => validAiModelId(item) && item.trim()) &&
+          new Set(value).size === value.length,
       },
       systemPrompt: {
         default: defaultAiWritingSettings.systemPrompt,

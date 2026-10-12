@@ -18,7 +18,8 @@ import { ArticleLoading } from "./ArticleLoading";
 import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits";
 import "./editor-fonts.css";
 import { useSessionRecovery } from "../auth/useSessionRecovery";
-const AiWritingDialog = lazy(() => import("../ai/AiWritingDialog"));
+import { vditorBody } from "./vditor-source";
+const AiWritingPanel = lazy(() => import("../ai/AiWritingPanel"));
 
 interface ArticleEditorProps {
   onLoadEnd?: () => void;
@@ -72,10 +73,11 @@ export function ArticleEditor({
   const vditorRef = useRef<VditorBodyEditorHandle>(null);
   const [aiContext, setAiContext] = useState<AiWritingContext | null>(null);
   const [aiError, setAiError] = useState("");
+  const [aiOpenRevision, setAiOpenRevision] = useState(0);
   useEffect(() => {
     setAiContext(null);
     setAiError("");
-  }, [projectRoot, article?.id, article?.version]);
+  }, [projectRoot, article?.id]);
   const fontMode = useEditorFontMode(projectRoot);
   const activeMode = article?.error ? "frontmatter" : mode;
   useSessionRecovery({
@@ -199,7 +201,10 @@ export function ArticleEditor({
                         flushSync(() => {
                           context = vditorRef.current?.captureWritingContext();
                         });
-                        if (context) setAiContext(context);
+                        if (context) {
+                          setAiContext((existing) => existing ?? context!);
+                          setAiOpenRevision((value) => value + 1);
+                        }
                       } catch (cause) {
                         setAiError(cause instanceof Error ? cause.message : "无法读取当前正文。");
                       }
@@ -239,12 +244,21 @@ export function ArticleEditor({
       </Paper>
       {aiContext && (
         <Suspense fallback={null}>
-          <AiWritingDialog
-            context={aiContext}
+          <AiWritingPanel
+            initialContext={aiContext}
+            currentBody={vditorBody(source)}
+            openRevision={aiOpenRevision}
+            getContext={() => {
+              let context: AiWritingContext | undefined;
+              flushSync(() => {
+                context = vditorRef.current?.captureWritingContext();
+              });
+              if (!context) throw new Error("编辑器尚未就绪。");
+              return context;
+            }}
             title={article.title}
-            disabled={busy || readOnly}
-            onClose={() => setAiContext(null)}
-            onApply={(text, mode) => {
+            disabled={busy || readOnly || Boolean(article.error)}
+            onApply={(text, context) => {
               if (
                 containsApiCredential(text) ||
                 [aiCredentials.get("openai"), aiCredentials.get("anthropic")].some(
@@ -253,8 +267,7 @@ export function ArticleEditor({
               )
                 throw new Error("建议中含有疑似 API Key，已阻止写入。");
               if (!vditorRef.current) throw new Error("编辑器尚未就绪。");
-              flushSync(() => vditorRef.current!.applyWriting(text, mode, aiContext));
-              setAiContext(null);
+              flushSync(() => vditorRef.current!.applyWriting(text, "replace", context));
             }}
           />
         </Suspense>
