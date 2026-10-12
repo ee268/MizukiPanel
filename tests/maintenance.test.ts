@@ -16,6 +16,9 @@ import { readPanelSettings, savePanelSettings } from "../src/lib/server/panel-se
 import type { ProjectReport } from "../src/lib/server/project";
 import * as previewService from "../src/lib/server/preview";
 import { writeManagedFile, restoreManagedFile, contentVersion } from "../src/lib/server/storage";
+import { Hono } from "hono";
+import { registerMaintenanceRoutes } from "../src/server/routes/maintenance";
+import { ApiError } from "../src/server/errors";
 const roots: string[] = [];
 afterEach(async () => {
   vi.restoreAllMocks();
@@ -207,6 +210,71 @@ it("manually clears only selected older points, always protecting the latest poi
   const next = await store.cleanupPreview(null);
   const protectedId = (await store.inventory(null)).items.find((item) => item.protected)!.id;
   await expect(store.cleanup(next.token, [protectedId], null)).rejects.toThrow("明确选中");
+});
+it("isolates backup and recycle cleanup previews and rejects IDs from the other kind", async () => {
+  const { state, site, store } = await fixture();
+  await settingsBackups(state);
+  const trash = path.join(state, "trash/articles");
+  await mkdir(trash, { recursive: true });
+  for (let i = 0; i < 3; i++) {
+    const file = path.join(trash, `${i}.md`);
+    await writeFile(file, `recycled ${i}`);
+    await recordArchive(file, "trash", site, "src/content/posts/removed.md", {
+      domain: "article",
+      projectRoot: site,
+    });
+    const metadata = JSON.parse(await readFile(file + ".meta.json", "utf8"));
+    metadata.createdAt = new Date(Date.now() - (i + 1) * 86400000).toISOString();
+    await writeFile(file + ".meta.json", JSON.stringify(metadata));
+  }
+  const backups = await store.cleanupPreview(null, "backup"),
+    recycled = await store.cleanupPreview(null, "trash");
+  expect(backups.items.length).toBeGreaterThan(0);
+  expect(recycled.items).toHaveLength(2);
+  expect(backups.items.every((item) => item.kind === "backup")).toBe(true);
+  expect(recycled.items.every((item) => item.kind === "trash")).toBe(true);
+  expect(recycled.bytes).toBe(recycled.items.reduce((total, item) => total + item.bytes, 0));
+  await expect(store.cleanup(recycled.token, [backups.items[0].id], null)).rejects.toThrow(
+    "明确选中",
+  );
+  const backupIds = (await store.inventory(null)).items
+    .filter((item) => item.kind === "backup")
+    .map((item) => item.id);
+  const next = await store.cleanupPreview(null, "trash");
+  await store.cleanup(
+    next.token,
+    next.items.map((item) => item.id),
+    null,
+  );
+  const remaining = (await store.inventory(null)).items;
+  expect(remaining.filter((item) => item.kind === "backup").map((item) => item.id)).toEqual(
+    backupIds,
+  );
+  expect(remaining.filter((item) => item.kind === "trash")).toHaveLength(1);
+});
+it("validates cleanup kinds while preserving the legacy unfiltered request", async () => {
+  const { state } = await fixture();
+  await settingsBackups(state);
+  const app = new Hono();
+  registerMaintenanceRoutes(app, state);
+  app.onError((error, context) =>
+    context.json({ message: error.message }, error instanceof ApiError ? error.status : 500),
+  );
+  const post = (body?: string) =>
+    app.request("/api/maintenance/cleanup-preview", {
+      method: "POST",
+      body,
+      headers: { "content-type": "application/json" },
+    });
+  const backup = await post(JSON.stringify({ kind: "backup" }));
+  expect(backup.status).toBe(200);
+  expect(
+    (await backup.json()).items.every((item: { kind: string }) => item.kind === "backup"),
+  ).toBe(true);
+  expect((await (await post(JSON.stringify({ kind: "trash" }))).json()).items).toEqual([]);
+  expect((await (await post()).json()).items.length).toBeGreaterThan(0);
+  for (const invalid of ['{"kind":"all"}', '{"kind":null}', "null", "broken-json"])
+    expect((await post(invalid)).status).toBe(400);
 });
 it("keeps all recovery points when the retention rule is disabled", async () => {
   const { state, store } = await fixture();

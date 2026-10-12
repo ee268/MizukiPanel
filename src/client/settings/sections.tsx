@@ -39,7 +39,7 @@ export const settingsSections = [
   {
     id: "maintenance",
     title: "备份与维护",
-    description: "管理会话策略、备份与回收内容、手动清理规则及偏好导入导出。",
+    description: "管理会话策略、备份、独立回收站、手动清理规则及偏好导入导出。",
     icon: <RestoreOutlined />,
   },
 ] as const;

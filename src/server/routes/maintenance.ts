@@ -27,9 +27,25 @@ export function registerMaintenanceRoutes(app: Hono, stateDir: string) {
     if (!record(body) || typeof body.token !== "string") throw new ApiError(400, "恢复预览无效。");
     return c.json(await store.restore(body.token, await project()));
   });
-  app.post("/api/maintenance/cleanup-preview", async (c) =>
-    c.json(await store.cleanupPreview(await project())),
-  );
+  app.post("/api/maintenance/cleanup-preview", async (c) => {
+    const raw = await c.req.text();
+    let body: unknown = {};
+    if (raw.trim()) {
+      try {
+        body = JSON.parse(raw);
+      } catch {
+        throw new ApiError(400, "清理类型无效。");
+      }
+    }
+    if (
+      !record(body) ||
+      (body.kind !== undefined && body.kind !== "backup" && body.kind !== "trash")
+    )
+      throw new ApiError(400, "清理类型无效。");
+    return c.json(
+      await store.cleanupPreview(await project(), body.kind as "backup" | "trash" | undefined),
+    );
+  });
   app.post("/api/maintenance/cleanup", async (c) => {
     const body: unknown = await c.req.json().catch(() => null);
     if (

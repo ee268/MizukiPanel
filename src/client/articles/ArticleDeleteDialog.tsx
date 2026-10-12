@@ -74,7 +74,7 @@ export function ArticleDeleteDialog({
           />
           <DialogContentText>
             {recycle
-              ? "文章可在“设置 → 备份与维护 → 备份与回收”中恢复。"
+              ? "文章可在“设置 → 备份与维护 → 回收站”中恢复。"
               : "文章文件将永久删除，不会进入回收站。"}
           </DialogContentText>
         </Stack>

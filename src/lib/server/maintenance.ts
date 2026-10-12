@@ -500,14 +500,17 @@ export class MaintenanceStore {
       await rm(lockPath, { force: true });
     }
   }
-  async cleanupPreview(report: ProjectReport | null): Promise<MaintenancePreview> {
+  async cleanupPreview(
+    report: ProjectReport | null,
+    kind?: ArchiveItem["kind"],
+  ): Promise<MaintenancePreview> {
     const { entries } = await this.entries(report);
     const policy = await readPanelSettings("machine", undefined, this.stateDir);
     if (policy.readOnly) throw new MaintenanceError("保留设置不可读取，不能计算清理范围。");
     const { enabled, days, count } = policy.document.values.maintenance;
     const counts = new Map<string, number>();
     const candidates = entries.filter((entry) => {
-      if (!enabled || !entry.metadata) return false;
+      if (!enabled || !entry.metadata || (kind && entry.item.kind !== kind)) return false;
       const key = resourceKey(entry.metadata);
       const rank = (counts.get(key) ?? 0) + 1;
       counts.set(key, rank);
