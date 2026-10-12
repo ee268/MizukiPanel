@@ -1,45 +1,71 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { fitPanel, resizePanel, type PanelRect, type ResizeDirection } from "./panel-geometry";
+function viewportBounds() {
+  const header =
+    parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--mizuki-panel-header-height"),
+    ) || 65;
+  return {
+    left: 8,
+    top: Math.min(header + 8, window.innerHeight - 16),
+    right: window.innerWidth - 8,
+    bottom: window.innerHeight - 8,
+  };
+}
+function initialRect() {
+  const bounds = viewportBounds();
+  return fitPanel(
+    { left: bounds.right - 440 - 16, top: bounds.bottom - 680 - 80, width: 440, height: 680 },
+    bounds,
+  );
+}
 export function useFloatingPanel() {
   const element = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
-  const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
-  function clamp(left: number, top: number) {
-    const rect = element.current?.getBoundingClientRect();
-    const header =
-      parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue("--mizuki-panel-header-height"),
-      ) || 65;
-    return {
-      left: Math.max(8, Math.min(left, window.innerWidth - (rect?.width ?? 0) - 8)),
-      top: Math.max(header + 8, Math.min(top, window.innerHeight - (rect?.height ?? 0) - 8)),
-    };
-  }
+  const [rect, setRect] = useState(initialRect);
+  const gesture = useRef<{
+    x: number;
+    y: number;
+    rect: PanelRect;
+    direction?: ResizeDirection;
+  } | null>(null);
   useEffect(() => {
-    const resize = () =>
-      setPosition((current) => (current ? clamp(current.left, current.top) : null));
+    const resize = () => {
+      gesture.current = null;
+      setRect((current) => fitPanel(current, viewportBounds()));
+    };
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
+  function start(event: PointerEvent<HTMLDivElement>, direction?: ResizeDirection) {
+    if (
+      event.button !== 0 ||
+      (!direction && (event.target as Element).closest("button, input, [role=combobox]"))
+    )
+      return;
+    event.preventDefault();
+    gesture.current = { x: event.clientX, y: event.clientY, rect, direction };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
   return {
     element,
-    position,
-    resetPosition: () => setPosition(null),
-    onPointerDown: (event: PointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0 || (event.target as Element).closest("button")) return;
-      const rect = element.current?.getBoundingClientRect();
-      if (!rect) return;
-      drag.current = { x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
-      event.currentTarget.setPointerCapture(event.pointerId);
-    },
+    rect,
+    start,
     onPointerMove: (event: PointerEvent<HTMLDivElement>) => {
-      const origin = drag.current;
-      if (origin)
-        setPosition(
-          clamp(origin.left + event.clientX - origin.x, origin.top + event.clientY - origin.y),
-        );
+      const origin = gesture.current;
+      if (!origin) return;
+      const dx = event.clientX - origin.x,
+        dy = event.clientY - origin.y;
+      setRect(
+        origin.direction
+          ? resizePanel(origin.rect, origin.direction, dx, dy, viewportBounds())
+          : fitPanel(
+              { ...origin.rect, left: origin.rect.left + dx, top: origin.rect.top + dy },
+              viewportBounds(),
+            ),
+      );
     },
     onPointerUp: () => {
-      drag.current = null;
+      gesture.current = null;
     },
   };
 }

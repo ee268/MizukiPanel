@@ -72,10 +72,11 @@ export function ArticleEditor({
 }: ArticleEditorProps) {
   const vditorRef = useRef<VditorBodyEditorHandle>(null);
   const [aiContext, setAiContext] = useState<AiWritingContext | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiOpenRevision, setAiOpenRevision] = useState(0);
   useEffect(() => {
     setAiContext(null);
+    setAiOpen(false);
     setAiError("");
   }, [projectRoot, article?.id]);
   const fontMode = useEditorFontMode(projectRoot);
@@ -203,7 +204,7 @@ export function ArticleEditor({
                         });
                         if (context) {
                           setAiContext((existing) => existing ?? context!);
-                          setAiOpenRevision((value) => value + 1);
+                          setAiOpen(true);
                         }
                       } catch (cause) {
                         setAiError(cause instanceof Error ? cause.message : "无法读取当前正文。");
@@ -247,7 +248,8 @@ export function ArticleEditor({
           <AiWritingPanel
             initialContext={aiContext}
             currentBody={vditorBody(source)}
-            openRevision={aiOpenRevision}
+            open={aiOpen}
+            onClose={() => setAiOpen(false)}
             getContext={() => {
               let context: AiWritingContext | undefined;
               flushSync(() => {

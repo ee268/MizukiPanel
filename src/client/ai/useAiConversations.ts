@@ -96,7 +96,10 @@ export function useAiConversations({
           ? session.settings.openaiModel
           : session.settings.anthropicModel;
     if (!key || !model.trim()) {
-      update(id, (item) => ({ ...item, error: "请在连接设置中填写模型 ID 和本次会话 API Key。" }));
+      update(id, (item) => ({
+        ...item,
+        error: "请在“设置 → 文章编辑 → AI 辅助写作”填写模型 ID 和本次会话 API Key。",
+      }));
       return false;
     }
     if (
