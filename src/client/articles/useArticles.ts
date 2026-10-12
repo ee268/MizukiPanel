@@ -15,6 +15,7 @@ import type { LocalDraft } from "./local-drafts";
 import type { CreationFields, CreationPreview } from "./creation-types";
 import { useLiveProjectReport } from "../workspace/WorkspaceSessionProvider";
 import { sessionLifecycle } from "../auth/session-lifecycle";
+import { useArticleDeleteTarget } from "./useArticleDeleteTarget";
 
 const ARTICLES_PER_PAGE = 10;
 
@@ -45,7 +46,7 @@ export function useArticles() {
   const [busy, setBusy] = useState(false);
   const [createOpen, setCreateOpen] = useState(params.has("new"));
   const [renameOpen, setRenameOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const deletion = useArticleDeleteTarget(article ? articleProjectKey : projectKey);
   const listScrollPosition = useRef(0);
   const shouldRestoreListScroll = useRef(false);
   const selectedIdRef = useRef(selectedId);
@@ -524,32 +525,33 @@ export function useArticles() {
     }
   }
 
-  async function removeArticle() {
-    if (!article) {
-      return;
-    }
-
-    if (dirty && !window.confirm("当前文章有未保存的修改，删除后将放弃这些修改。确定继续吗？")) {
-      return;
-    }
-
+  async function removeArticle(recycle: boolean) {
+    const target = deletion.target;
+    if (!target?.version || deletion.loading || busy || report?.readOnly) return;
     setBusy(true);
-    await drafts.pause();
-    setError("");
+    deletion.setError("");
     try {
+      if (target.id === article?.id) await drafts.pause();
       await api(
         "/api/article",
-        json("DELETE", { id: article.id, version: article.version, projectKey: articleProjectKey }),
+        json("DELETE", {
+          id: target.id,
+          version: target.version,
+          projectKey: target.projectKey,
+          recycle,
+        }),
       );
-      await drafts.relocate();
-      setDeleteOpen(false);
-      setArticle(null);
-      shouldRestoreListScroll.current = true;
-      setParams({});
+      await drafts.relocate(undefined, target.id, target.projectKey);
+      deletion.close();
+      if (selectedIdRef.current === target.id) {
+        setArticle(null);
+        shouldRestoreListScroll.current = true;
+        setParams({});
+      }
       await loadList();
-      setNotice("文章已移入回收目录");
+      setNotice(recycle ? "文章已移入回收站" : "文章已永久删除");
     } catch (cause) {
-      setError(errorMessage(cause, "删除失败"));
+      deletion.setError(errorMessage(cause, "删除失败"));
     } finally {
       setBusy(false);
     }
@@ -582,7 +584,7 @@ export function useArticles() {
     busy,
     createOpen,
     renameOpen,
-    deleteOpen,
+    deletion,
     selectedId,
     tutorialOpen,
     pagedArticles,
@@ -596,7 +598,6 @@ export function useArticles() {
     setNotice,
     setCreateOpen,
     setRenameOpen,
-    setDeleteOpen,
     choose,
     openTutorial,
     retryArticle,

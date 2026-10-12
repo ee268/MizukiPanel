@@ -164,6 +164,10 @@ export function useAiConversations({
       });
       if (abort.signal.aborted || requests.current.get(id) !== abort) return false;
       const messageId = crypto.randomUUID();
+      const after = intent === "edit" ? result.text : result.body;
+      const changed =
+        typeof after === "string" &&
+        after.replace(/\r\n?/g, "\n") !== context.body.replace(/\r\n?/g, "\n");
       update(id, (item) => ({
         ...item,
         read: true,
@@ -179,18 +183,18 @@ export function useAiConversations({
             model,
             provider: session.settings.provider,
             truncated: result.truncated,
+            ...(changed && intent === "chat" ? { body: after } : {}),
           },
         ],
-        edit:
-          intent === "edit"
-            ? {
-                context,
-                after: result.text,
-                messageId,
-                applied: false,
-                truncated: result.truncated,
-              }
-            : item.edit,
+        edit: changed
+          ? {
+              context,
+              after: after!,
+              messageId,
+              applied: false,
+              truncated: result.truncated,
+            }
+          : item.edit,
       }));
       return true;
     } catch (cause) {
@@ -300,7 +304,11 @@ export function useAiConversations({
         ...item,
         edit: item.edit ? { ...item.edit, after } : null,
         messages: item.messages.map((message) =>
-          message.id === item.edit?.messageId ? { ...message, content: after } : message,
+          message.id === item.edit?.messageId
+            ? message.body !== undefined
+              ? { ...message, body: after }
+              : { ...message, content: after }
+            : message,
         ),
       })),
   };

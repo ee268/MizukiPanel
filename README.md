@@ -36,4 +36,4 @@ pnpm test
 pnpm build
 ```
 
-连接与最近项目保存在被 Git 忽略的 `.local/workspace-history.json`，旧 `.local/workspace.json` 首次迁移后原样保留；面板设置位于 `.local/settings.json` 与 `.local/project-settings/`。访问令牌只存在于本次启动进程中。文章管理写入前会检查版本冲突，文章与媒体删除会移入本地回收目录。Astro 预览只监听 `127.0.0.1`，端口默认 4321，可按项目调整。提交、推送、独立内容同步与构建仅在“发布管理”页由用户明确触发；提交范围只包含用户勾选的受管理文件。
+连接与最近项目保存在被 Git 忽略的 `.local/workspace-history.json`，旧 `.local/workspace.json` 首次迁移后原样保留；面板设置位于 `.local/settings.json` 与 `.local/project-settings/`。访问令牌只存在于本次启动进程中。文章管理写入前会检查版本冲突，文章列表与编辑页的删除均需确认，默认移入本地回收站，也可取消勾选后永久删除；媒体删除会移入本地回收目录。Astro 预览只监听 `127.0.0.1`，端口默认 4321，可按项目调整。提交、推送、独立内容同步与构建仅在“发布管理”页由用户明确触发；提交范围只包含用户勾选的受管理文件。

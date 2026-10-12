@@ -308,14 +308,18 @@ export function useArticleDrafts(input: {
     if (!current.entries.some((entry) => entry.key === row.key && entry.revision === row.revision))
       throw new Error("恢复副本已更新或被丢弃，请刷新列表后重新选择。");
   };
-  const relocate = async (nextId?: string) => {
-    if (!input.article) return;
-    await pause();
+  const relocate = async (
+    nextId?: string,
+    articleId = input.article?.id,
+    projectKey = input.projectKey,
+  ) => {
+    if (!articleId || !projectKey) return;
+    if (articleId === input.article?.id && projectKey === input.projectKey) await pause();
     try {
-      await store.relocate(input.projectKey, input.article.id, nextId);
+      await store.relocate(projectKey, articleId, nextId);
       notifyDraft({
-        projectKey: input.projectKey,
-        articleId: input.article.id,
+        projectKey,
+        articleId,
         nextId,
         type: nextId ? "rename" : "delete",
       });

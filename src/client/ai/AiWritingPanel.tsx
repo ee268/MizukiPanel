@@ -8,7 +8,6 @@ import {
   Button,
   Divider,
   IconButton,
-  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -18,6 +17,7 @@ import {
 import AutoAwesomeOutlined from "@mui/icons-material/AutoAwesomeOutlined";
 import Close from "@mui/icons-material/Close";
 import { AiSessionControls } from "./AiSessionControls";
+import { AiModelMenu } from "./AiModelMenu";
 import { PanelResizeHandles } from "./PanelResizeHandles";
 import { useConversationScroll } from "./useConversationScroll";
 import ExpandMore from "@mui/icons-material/ExpandMore";
@@ -51,18 +51,6 @@ export default function AiWritingPanel({
     `${open}:${ai.activeId}:${ai.active.messages.length}:${ai.active.messages.at(-1)?.content ?? ""}:${ai.active.loading}:${ai.active.error}:${ai.active.edit?.applied ?? false}`,
   );
   const provider = ai.active.settings.provider;
-  const model =
-    provider === "openai" ? ai.active.settings.openaiModel : ai.active.settings.anthropicModel;
-  const models = [
-    ...new Set(
-      [
-        model,
-        ...(provider === "openai"
-          ? ai.active.settings.openaiModels
-          : ai.active.settings.anthropicModels),
-      ].filter(Boolean),
-    ),
-  ];
   const edit = ai.active.edit;
   const stale =
     edit && currentBody.replace(/\r\n?/g, "\n") !== edit.context.body.replace(/\r\n?/g, "\n");
@@ -109,28 +97,6 @@ export default function AiWritingPanel({
         <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
           {ai.active.name} · {provider === "openai" ? "OpenAI" : "Anthropic"}
         </Typography>
-        <TextField
-          select
-          size="small"
-          label="模型"
-          value={model}
-          disabled={ai.active.loading || models.length === 0}
-          sx={{ width: 210, minWidth: 0 }}
-          onChange={(event) =>
-            ai.setSettings(
-              provider === "openai"
-                ? { openaiModel: event.target.value }
-                : { anthropicModel: event.target.value },
-            )
-          }
-        >
-          {!models.length && <MenuItem value="">请先在设置页配置</MenuItem>}
-          {models.map((id) => (
-            <MenuItem key={id} value={id}>
-              {id}
-            </MenuItem>
-          ))}
-        </TextField>
       </Stack>
       <Box
         ref={scroll}
@@ -289,18 +255,17 @@ export default function AiWritingPanel({
           />
           <Stack direction="row" spacing={0.5}>
             <Button
-              disabled={disabled || ai.active.loading || !ai.active.input.trim()}
-              onClick={() => void ai.send("edit")}
-            >
-              生成修改
-            </Button>
-            <Button
               variant="contained"
               disabled={disabled || ai.active.loading || !ai.active.input.trim()}
               onClick={() => void ai.send("chat")}
             >
               发送
             </Button>
+            <AiModelMenu
+              settings={ai.active.settings}
+              disabled={disabled || ai.active.loading}
+              onChange={ai.setSettings}
+            />
           </Stack>
         </Stack>
       </Stack>

@@ -159,7 +159,15 @@ export function ArticleEditor({
               <Button startIcon={<DriveFileRenameOutline />} onClick={onRename}>
                 重命名
               </Button>
-              <Button color="error" startIcon={<DeleteOutline />} onClick={onDelete}>
+              <Button
+                color="error"
+                startIcon={<DeleteOutline />}
+                onClick={() => {
+                  flushSync(() => vditorRef.current?.flush());
+                  onDelete();
+                }}
+                disabled={busy || readOnly}
+              >
                 删除
               </Button>
             </Stack>

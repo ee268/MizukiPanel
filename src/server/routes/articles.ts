@@ -5,6 +5,7 @@ import {
   createArticle,
   createArticleFromSource,
   deleteArticle,
+  permanentlyDeleteArticle,
   listArticles,
   readArticle,
   renameArticle,
@@ -206,11 +207,26 @@ export function registerArticleRoutes(app: Hono, stateDir?: string) {
   });
 
   app.delete("/api/article", async (context) => {
-    const body = await context.req.json<{ id?: string; version?: string; projectKey?: string }>();
-    if (!body.id || !body.version) throw new ApiError(400, "删除参数不完整");
+    const body = await context.req.json<{
+      id?: string;
+      version?: string;
+      projectKey?: string;
+      recycle?: boolean;
+    }>();
+    if (
+      !body ||
+      typeof body.id !== "string" ||
+      !body.id ||
+      typeof body.version !== "string" ||
+      !body.version ||
+      (body.recycle !== undefined && typeof body.recycle !== "boolean")
+    )
+      throw new ApiError(400, "删除参数无效");
     try {
-      await deleteArticle(await boundProject(body), body.id, body.version);
-      return context.json({ ok: true });
+      const report = await boundProject(body);
+      if (body.recycle === false) await permanentlyDeleteArticle(report, body.id, body.version);
+      else await deleteArticle(report, body.id, body.version);
+      return context.json({ ok: true, recycled: body.recycle !== false });
     } catch (error) {
       mapError(error);
     }

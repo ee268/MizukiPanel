@@ -1,4 +1,5 @@
 import SearchOutlined from "@mui/icons-material/SearchOutlined";
+import DeleteOutline from "@mui/icons-material/DeleteOutlined";
 import {
   Box,
   Card,
@@ -6,12 +7,14 @@ import {
   CardContent,
   Chip,
   InputAdornment,
+  IconButton,
   MenuItem,
   Pagination,
   Paper,
   Stack,
   TextField,
   Typography,
+  Tooltip,
 } from "@mui/material";
 import type { ArticleListItem } from "../types";
 import { articleImageUrl } from "./article-image";
@@ -35,6 +38,9 @@ interface ArticleListProps {
   onFilterChange: (filter: ArticleFilter) => void;
   onPageChange: (page: number) => void;
   onSelect: (id: string) => void;
+  onDelete: (article: ArticleListItem) => void;
+  readOnly: boolean;
+  busy: boolean;
 }
 
 export function ArticleList({
@@ -47,6 +53,9 @@ export function ArticleList({
   onFilterChange,
   onPageChange,
   onSelect,
+  onDelete,
+  readOnly,
+  busy,
 }: ArticleListProps) {
   return (
     <Stack spacing={2.5}>
@@ -95,13 +104,18 @@ export function ArticleList({
             const imageUrl = articleImageUrl(item.image, item.id);
 
             return (
-              <Card data-page-motion="item" key={item.id} variant="outlined" sx={{ minWidth: 0 }}>
+              <Card
+                data-page-motion="item"
+                key={item.id}
+                variant="outlined"
+                sx={{ minWidth: 0, position: "relative" }}
+              >
                 <CardActionArea
                   onClick={() => onSelect(item.id)}
                   sx={{ height: "100%", display: "flex", alignItems: "stretch" }}
                 >
                   {imageUrl && <LazyArticleCover src={imageUrl} title={item.title} />}
-                  <CardContent sx={{ flex: 1, minWidth: 0 }}>
+                  <CardContent sx={{ flex: 1, minWidth: 0, pr: 7 }}>
                     <Stack spacing={1.25}>
                       <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
                         <Typography variant="h6" sx={{ flex: 1, minWidth: 0 }}>
@@ -131,6 +145,18 @@ export function ArticleList({
                     </Stack>
                   </CardContent>
                 </CardActionArea>
+                <Tooltip title="删除文章">
+                  <span style={{ position: "absolute", right: 12, top: 12 }}>
+                    <IconButton
+                      color="error"
+                      aria-label={`删除文章：${item.title}`}
+                      disabled={readOnly || busy}
+                      onClick={() => onDelete(item)}
+                    >
+                      <DeleteOutline />
+                    </IconButton>
+                  </span>
+                </Tooltip>
               </Card>
             );
           })}

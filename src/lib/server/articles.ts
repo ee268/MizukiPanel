@@ -10,7 +10,7 @@ import path from "node:path";
 import type { ProjectReport } from "./project";
 import { assertManagedRealPath, resolveManagedPath } from "./path-guard";
 import { defaultStateDir } from "./workspace";
-import { readManagedFile, StorageConflict, writeManagedFile } from "./storage";
+import { readManagedFile, removeManagedFile, StorageConflict, writeManagedFile } from "./storage";
 import { validateArticleBody, type SourceIslandEdit } from "./article-body-validation";
 import {
   articleFields,
@@ -429,4 +429,9 @@ export async function deleteArticle(
   const target = path.join(trashDir(), randomUUID() + "-" + path.basename(id));
   await transfer(report, id, version, target, true);
   return target;
+}
+
+export async function permanentlyDeleteArticle(report: ProjectReport, id: string, version: string) {
+  const { root } = writable(report);
+  await removeManagedFile(root, relativePost(report, id), version);
 }

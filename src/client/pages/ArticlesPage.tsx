@@ -3,6 +3,7 @@ import { Alert, Box, Button, Container, Paper, Snackbar, Stack, Typography } fro
 import { useNoticeDuration } from "../settings/useNoticeDuration";
 import { useNavigate } from "react-router-dom";
 import { ArticleDialogs } from "../articles/ArticleDialogs";
+import { ArticleDeleteDialog } from "../articles/ArticleDeleteDialog";
 import { ArticleLoading } from "../articles/ArticleLoading";
 import { ArticleList } from "../articles/ArticleList";
 import { ArticlePageHeader } from "../articles/ArticlePageHeader";
@@ -156,7 +157,9 @@ export default function ArticlesPage() {
                       navigate(`/preview?path=${encodeURIComponent(path)}`);
                     }}
                     onRename={() => articles.setRenameOpen(true)}
-                    onDelete={() => articles.setDeleteOpen(true)}
+                    onDelete={() => {
+                      if (articles.article) void articles.deletion.open(articles.article);
+                    }}
                     onSaveFrontmatter={articles.saveFrontmatter}
                     onSaveDocument={articles.saveDocument}
                     onSaveBody={articles.saveBody}
@@ -177,6 +180,9 @@ export default function ArticlesPage() {
             onFilterChange={articles.setFilter}
             onPageChange={articles.setPage}
             onSelect={articles.choose}
+            onDelete={(item) => void articles.deletion.open(item)}
+            readOnly={!articles.report || Boolean(articles.report.readOnly)}
+            busy={articles.busy}
           />
         )}
       </Stack>
@@ -186,15 +192,24 @@ export default function ArticlesPage() {
         busy={articles.busy}
         createOpen={articles.createOpen}
         renameOpen={articles.renameOpen}
-        deleteOpen={articles.deleteOpen}
         onCreateOpenChange={articles.setCreateOpen}
         onRenameOpenChange={articles.setRenameOpen}
-        onDeleteOpenChange={articles.setDeleteOpen}
         onCreate={articles.createArticle}
         readOnly={Boolean(articles.report?.readOnly)}
         onRename={articles.renameArticle}
-        onDelete={articles.removeArticle}
       />
+      {articles.deletion.target && (
+        <ArticleDeleteDialog
+          target={articles.deletion.target}
+          loading={articles.deletion.loading}
+          error={articles.deletion.error}
+          busy={articles.busy}
+          readOnly={Boolean(articles.report?.readOnly)}
+          dirty={articles.dirty && articles.deletion.target.id === articles.article?.id}
+          onClose={articles.deletion.close}
+          onDelete={(recycle) => void articles.removeArticle(recycle)}
+        />
+      )}
       <Snackbar
         open={Boolean(articles.notice)}
         autoHideDuration={noticeDuration}

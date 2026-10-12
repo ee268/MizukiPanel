@@ -86,6 +86,7 @@ export function configuredAiModels(settings: AiWritingSettings): string[] {
 export interface AiWritingResult {
   text: string;
   truncated: boolean;
+  body?: string;
 }
 export interface AiWritingContext {
   body: string;

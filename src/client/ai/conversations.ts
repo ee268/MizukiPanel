@@ -6,6 +6,7 @@ export interface WritingMessage extends AiChatMessage {
   intent: "read" | "chat" | "edit";
   failed?: boolean;
   truncated?: boolean;
+  body?: string;
 }
 export interface WritingSession {
   id: string;
@@ -45,9 +46,12 @@ export function conversationHistory(messages: WritingMessage[]): AiChatMessage[]
     .filter((item) => !item.failed)
     .slice(-20)
     .reverse()) {
-    if (length + message.content.length > 60000) break;
-    result.unshift({ role: message.role, content: message.content });
-    length += message.content.length;
+    const content = message.body
+      ? JSON.stringify({ reply: message.content, body: message.body })
+      : message.content;
+    if (length + content.length > 60000) break;
+    result.unshift({ role: message.role, content });
+    length += content.length;
   }
   while (result[0]?.role === "assistant") result.shift();
   return result;

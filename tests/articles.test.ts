@@ -15,6 +15,7 @@ import {
 import {
   createArticle,
   deleteArticle,
+  permanentlyDeleteArticle,
   listArticles,
   readArticle,
   renameArticle,
@@ -209,6 +210,15 @@ it("writes external mode directly to content repository posts", async () => {
     "<Widget />",
   );
   expect(existsSync(path.join(report.root, "src/content/posts/external.mdx"))).toBe(false);
+  const article = await readArticle(report, "external.mdx");
+  await expect(permanentlyDeleteArticle(report, "external.mdx", "stale")).rejects.toBeInstanceOf(
+    StorageConflict,
+  );
+  await expect(
+    permanentlyDeleteArticle({ ...report, readOnly: true }, "external.mdx", article.version),
+  ).rejects.toBeInstanceOf(ArticleValidationError);
+  await permanentlyDeleteArticle(report, "external.mdx", article.version);
+  expect(existsSync(path.join(report.contentRoot!, "posts/external.mdx"))).toBe(false);
 });
 
 it.skipIf(!existsSync(realPost))(
