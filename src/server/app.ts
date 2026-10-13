@@ -7,6 +7,9 @@ import { registerSecurityMiddleware, authorizeSession } from "./middleware";
 import { PanelSessions } from "../lib/server/panel-sessions";
 import { registerArticleRoutes } from "./routes/articles";
 import { registerAiWritingRoutes } from "./routes/ai-writing";
+import { registerAiConversationRoutes } from "./routes/ai-conversations";
+import { registerAiVaultRoutes } from "./routes/ai-vault";
+import type { AiVault } from "../lib/server/ai-vault";
 import { registerAuthRoutes } from "./routes/auth";
 import { registerConfigRoutes } from "./routes/configs";
 import { registerFeatureRoutes } from "./routes/features";
@@ -16,6 +19,7 @@ import { registerPreviewRoutes } from "./routes/preview";
 import { registerPublishRoutes } from "./routes/publish";
 import { registerWorkspaceRoutes } from "./routes/workspace";
 import { registerSettingsRoutes } from "./routes/settings";
+import { registerPersonalSettingsRoutes } from "./routes/personal-settings";
 import { registerMaintenanceRoutes } from "./routes/maintenance";
 import { defaultStateDir } from "../lib/server/workspace";
 import { workspaceSession, serializeWorkspaceMutation } from "../lib/server/workspace-session";
@@ -26,6 +30,7 @@ export interface AppOptions {
   clientRoot?: string;
   stateDir?: string;
   sessions?: PanelSessions;
+  aiVault?: AiVault;
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -46,7 +51,16 @@ export function createApp(options: AppOptions = {}) {
   app.use("/api/*", (context, next) =>
     withWorkspaceState(stateDir, async () => {
       const route = context.req.path;
-      if (route.startsWith("/api/auth/") || route === "/api/session") return next();
+      if (
+        route.startsWith("/api/auth/") ||
+        route === "/api/session" ||
+        route === "/api/ai/credentials" ||
+        route === "/api/ai/credentials/backup" ||
+        route === "/api/settings/personal" ||
+        route === "/api/settings/personal/initialize" ||
+        route === "/api/settings/personal/recover"
+      )
+        return next();
       const work = async () => {
         if (!["GET", "HEAD"].includes(context.req.method)) {
           const rejected = await authorizeSession(app, context);
@@ -74,9 +88,12 @@ export function createApp(options: AppOptions = {}) {
   registerAuthRoutes(app);
   registerWorkspaceRoutes(app, stateDir);
   registerSettingsRoutes(app, stateDir);
+  registerPersonalSettingsRoutes(app, stateDir, options.aiVault);
   registerMaintenanceRoutes(app, stateDir);
   registerArticleRoutes(app, stateDir);
-  registerAiWritingRoutes(app);
+  registerAiWritingRoutes(app, options.aiVault);
+  registerAiConversationRoutes(app, stateDir, options.aiVault);
+  registerAiVaultRoutes(app, options.aiVault);
   registerConfigRoutes(app);
   registerFeatureRoutes(app);
   registerMediaRoutes(app, stateDir);
@@ -98,7 +115,14 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.use("/assets/*", serveStatic({ root: "./dist" }));
-  app.get("/favicon.ico", serveStatic({ path: "./dist/favicon.ico" }));
+  for (const fileName of [
+    "favicon.ico",
+    "favicon.svg",
+    "mizuki-panel-logo.svg",
+    "mizuki-panel-logo-dark.svg",
+  ]) {
+    app.get(`/${fileName}`, serveStatic({ path: path.join(clientRoot, fileName) }));
+  }
   app.get("*", async (context) =>
     context.html(await readFile(path.join(clientRoot, "index.html"), "utf8")),
   );

@@ -131,7 +131,7 @@ function HistoryResults({ history, loading, error, page, onPage, onCommit }: His
         <Typography color="text.secondary">
           {history.query
             ? `查询结果 · 共 ${history.total} 条`
-            : `当前分支 · 共 ${history.total} 条`}
+            : `当前分支 · 最近 ${history.total} 条`}
         </Typography>
       </Stack>
       <List disablePadding sx={{ maxHeight: { xs: 440, lg: 560 }, overflow: "auto" }}>
@@ -176,15 +176,17 @@ function HistoryResults({ history, loading, error, page, onPage, onCommit }: His
           </ListItemButton>
         ))}
       </List>
-      <Stack sx={{ p: 2, alignItems: "center" }}>
-        <Pagination
-          size="small"
-          count={Math.ceil(history.total / history.pageSize)}
-          page={page}
-          onChange={(_, next) => onPage(next)}
-          aria-label="提交历史分页"
-        />
-      </Stack>
+      {history.total > history.pageSize && (
+        <Stack sx={{ p: 2, alignItems: "center" }}>
+          <Pagination
+            size="small"
+            count={Math.ceil(history.total / history.pageSize)}
+            page={page}
+            onChange={(_, next) => onPage(next)}
+            aria-label="提交历史分页"
+          />
+        </Stack>
+      )}
     </Box>
   );
 }

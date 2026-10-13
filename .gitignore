@@ -7,3 +7,4 @@ coverage/
 .env
 .env.*
 !.env.example
+ai-credentials.dpapi.json*

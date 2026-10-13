@@ -4,6 +4,8 @@ import { projectRuntime, appendLog, redact } from "./runtime";
 import { git, assertRepository, ref } from "./git";
 import type { ProjectReport } from "../project";
 import { PublishError } from "./errors";
+const RECENT_HISTORY_LIMIT = 100;
+const SEARCH_PAGE_SIZE = 20;
 function validateSha(sha: string) {
   if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(sha)) throw new PublishError("提交标识无效");
   return sha;
@@ -20,17 +22,30 @@ export async function publishHistory(
     throw new PublishError("查询内容不能超过 200 个字符或包含控制字符");
   await assertRepository(report);
   const anchor = head ? validateSha(head) : await ref(report, ["rev-parse", "--verify", "HEAD"]);
-  if (!anchor) return { commits: [], total: 0, page: 1, pageSize: 20, head: null, query };
+  if (!anchor)
+    return {
+      commits: [],
+      total: 0,
+      page: 1,
+      pageSize: query ? SEARCH_PAGE_SIZE : RECENT_HISTORY_LIMIT,
+      head: null,
+      query,
+    };
   if (query) return searchHistory(report, anchor, page, query);
-  const total = Number((await git(report, ["rev-list", "--count", anchor])).trim());
+  const total = Number(
+    (
+      await git(report, ["rev-list", "--count", `--max-count=${RECENT_HISTORY_LIMIT}`, anchor])
+    ).trim(),
+  );
+  const offset = (page - 1) * RECENT_HISTORY_LIMIT;
   const raw = await git(report, [
     "log",
     anchor,
     "--date-order",
     "-z",
     "--format=%H%x00%an%x00%ae%x00%aI%x00%s%x00%P%x00%D",
-    `--skip=${(page - 1) * 20}`,
-    "-20",
+    `--skip=${offset}`,
+    `--max-count=${Math.max(0, total - offset)}`,
   ]);
   const fields = raw.split("\0"),
     commits: PublishHistory["commits"] = [];
@@ -48,9 +63,9 @@ export async function publishHistory(
   }
   appendLog(
     projectRuntime(report),
-    `已读取提交历史第 ${page} 页：${commits.length} / ${total} 条。`,
+    `已读取当前分支最近 ${total} 条提交：显示 ${commits.length} 条。`,
   );
-  return { commits, total, page, pageSize: 20, head: anchor, query };
+  return { commits, total, page, pageSize: RECENT_HISTORY_LIMIT, head: anchor, query };
 }
 async function searchHistory(
   report: ProjectReport,
@@ -100,7 +115,7 @@ async function searchHistory(
         if (
           [sha, author, email, message].some((value) => value.toLocaleLowerCase().includes(needle))
         ) {
-          if (total >= (page - 1) * 20 && commits.length < 20)
+          if (total >= (page - 1) * SEARCH_PAGE_SIZE && commits.length < SEARCH_PAGE_SIZE)
             commits.push({
               sha,
               author,
@@ -138,7 +153,7 @@ async function searchHistory(
     runtime,
     `查询完成：找到 ${total} 条匹配记录，第 ${page} 页显示 ${commits.length} 条。`,
   );
-  return { commits, total, page, pageSize: 20, head: anchor, query };
+  return { commits, total, page, pageSize: SEARCH_PAGE_SIZE, head: anchor, query };
 }
 export async function publishCommitDetail(
   report: ProjectReport,

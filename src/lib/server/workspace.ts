@@ -12,7 +12,15 @@ function stateFile(stateDir: string): string {
 }
 
 export function defaultStateDir(): string {
-  return workspaceStateDirectory() ?? path.resolve(process.cwd(), ".local");
+  const state = workspaceStateDirectory();
+  if (state) return state;
+  // Tests must never fall back to the running panel's storage.
+  if (process.env.VITEST) {
+    const isolated = process.env.MIZUKI_PANEL_TEST_STATE_DIR;
+    if (!isolated) throw new Error("测试状态目录尚未初始化。");
+    return isolated;
+  }
+  return path.resolve(process.cwd(), ".local");
 }
 
 export async function readWorkspacePath(stateDir = defaultStateDir()): Promise<string | null> {

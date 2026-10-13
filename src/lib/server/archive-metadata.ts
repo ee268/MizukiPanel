@@ -18,6 +18,8 @@ export interface ArchiveMetadata extends ArchiveContext {
   digest: string;
   bytes: number;
   directory: boolean;
+  /** Article and its AI sessions are stored as one integrity-checked recycle bundle. */
+  articleBundle?: true;
 }
 export const archiveHash = (input: string) => createHash("sha256").update(input).digest("hex");
 export const canonicalPath = (input: string) =>
@@ -55,7 +57,7 @@ export async function archiveSnapshot(filename: string) {
   return { digest: hash.digest("hex"), bytes, directory };
 }
 
-export async function recordArchive(
+export async function createArchiveMetadata(
   payload: string,
   kind: ArchiveMetadata["kind"],
   root: string,
@@ -80,6 +82,17 @@ export async function recordArchive(
     relative: relative.replace(/\\/g, "/"),
     ...(await archiveSnapshot(payload)),
   };
+  return metadata;
+}
+
+export async function recordArchive(
+  payload: string,
+  kind: ArchiveMetadata["kind"],
+  root: string,
+  relative: string,
+  context: ArchiveContext,
+): Promise<ArchiveMetadata> {
+  const metadata = await createArchiveMetadata(payload, kind, root, relative, context);
   // Finish indexing before replacing/deleting the original. Failure aborts that operation.
   await writeFile(payload + ".meta.json", JSON.stringify(metadata, null, 2) + "\n", {
     flag: "wx",

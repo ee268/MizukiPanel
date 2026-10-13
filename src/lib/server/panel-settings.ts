@@ -21,13 +21,14 @@ export async function settingsProjectKey(root: string): Promise<string> {
     .update(process.platform === "win32" ? canonical.toLowerCase() : canonical)
     .digest("hex");
 }
-function relativeFile(scope: "machine" | "project", key?: string): string {
+function relativeFile(scope: SettingsScope, key?: string): string {
+  if (scope === "browser") return "personal-settings.json";
   if (scope === "machine") return "settings.json";
   if (!key || !/^[a-f0-9]{64}$/.test(key)) throw new SettingsValidationError("项目标识无效。");
   return `project-settings/${key}.json`;
 }
 export async function readPanelSettings(
-  scope: "machine" | "project",
+  scope: SettingsScope,
   key?: string,
   stateDir = defaultStateDir(),
 ): Promise<SettingsSnapshot> {
@@ -45,7 +46,7 @@ export async function readPanelSettings(
 }
 export async function savePanelSettings(
   input: {
-    scope: "machine" | "project";
+    scope: SettingsScope;
     group: string;
     fields: unknown;
     version: string | null;
@@ -57,7 +58,7 @@ export async function savePanelSettings(
 }
 export async function savePanelSettingsGroups(
   input: {
-    scope: "machine" | "project";
+    scope: SettingsScope;
     groups: Record<string, unknown>;
     version: string | null;
     projectKey?: string;

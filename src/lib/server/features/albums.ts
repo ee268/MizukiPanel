@@ -7,7 +7,7 @@ import { readdir } from "node:fs/promises";
 import { assertManagedRealPath, resolveManagedPath } from "../path-guard";
 import { readManagedFile, StorageConflict, writeManagedFile } from "../storage";
 import { validateUrl } from "./validation";
-import { copyToTrash } from "./storage";
+import { moveToRecycleBin } from "../recycle-bin";
 function albumId(id: string) {
   const value = id.trim();
   if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value))
@@ -112,11 +112,14 @@ export async function deleteAlbum(report: ProjectReport, id: string, version: st
   const relative = `${place.albums}/${id}`;
   const info = await readManagedFile(place.root, `${relative}/info.json`);
   if (info.version !== version) throw new StorageConflict("相册信息已变化，请重新加载");
-  return copyToTrash(
-    await assertManagedRealPath(place.root, relative),
-    id,
-    report,
+  return moveToRecycleBin(
     place.root,
     relative,
+    "features",
+    {
+      domain: "feature",
+      projectRoot: report.root,
+    },
+    { version, versionFile: `${relative}/info.json` },
   );
 }

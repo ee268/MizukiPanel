@@ -26,8 +26,13 @@ import { useAiConversations } from "./useAiConversations";
 import { AiComparison } from "./AiComparison";
 import { useFloatingPanel } from "./useFloatingPanel";
 import { ContentLoading } from "../components/ContentLoading";
+import { AiMessageBubble } from "./AiMessageBubble";
+import { useSiteIdentity } from "../hooks/useSiteIdentity";
+import { AiFrontmatterComparison } from "./AiFrontmatterComparison";
+import type { FrontmatterEntry } from "../../shared/article";
+import { frontmatterFingerprint, type AiFrontmatterChange } from "../../shared/ai-frontmatter";
 export default function AiWritingPanel({
-  initialContext,
+  articleId,
   getContext,
   currentBody,
   title,
@@ -35,8 +40,10 @@ export default function AiWritingPanel({
   open,
   onClose,
   onApply,
+  currentFrontmatter = [],
+  onApplyFrontmatter,
 }: {
-  initialContext: AiWritingContext;
+  articleId: string;
   getContext: () => AiWritingContext;
   currentBody: string;
   title: string;
@@ -44,14 +51,29 @@ export default function AiWritingPanel({
   open: boolean;
   onClose: () => void;
   onApply: (text: string, context: AiWritingContext) => void;
+  currentFrontmatter?: FrontmatterEntry[];
+  onApplyFrontmatter?: (changes: AiFrontmatterChange[], before: FrontmatterEntry[]) => void;
 }) {
-  const ai = useAiConversations({ initialContext, getContext, title, disabled, onApply });
+  const ai = useAiConversations({
+    articleId,
+    getContext,
+    title,
+    disabled,
+    onApply,
+    onApplyFrontmatter,
+  });
+  const unavailable = disabled || !ai.persistence.ready;
+  const identity = useSiteIdentity();
   const floating = useFloatingPanel();
   const { scroll, content } = useConversationScroll(
     `${open}:${ai.activeId}:${ai.active.messages.length}:${ai.active.messages.at(-1)?.content ?? ""}:${ai.active.loading}:${ai.active.error}:${ai.active.edit?.applied ?? false}`,
   );
   const provider = ai.active.settings.provider;
   const edit = ai.active.edit;
+  const metadataEdit = ai.active.frontmatterEdit;
+  const metadataStale =
+    metadataEdit &&
+    frontmatterFingerprint(currentFrontmatter) !== frontmatterFingerprint(metadataEdit.before);
   const stale =
     edit && currentBody.replace(/\r\n?/g, "\n") !== edit.context.body.replace(/\r\n?/g, "\n");
   if (!open) return null;
@@ -97,6 +119,15 @@ export default function AiWritingPanel({
         <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
           {ai.active.name} · {provider === "openai" ? "OpenAI" : "Anthropic"}
         </Typography>
+        {ai.persistence.ready && (
+          <Typography variant="caption" color="text.secondary">
+            {ai.persistence.saving
+              ? "正在保存会话"
+              : ai.persistence.error
+                ? "会话未保存"
+                : "会话已保存"}
+          </Typography>
+        )}
       </Stack>
       <Box
         ref={scroll}
@@ -111,55 +142,30 @@ export default function AiWritingPanel({
       >
         <Stack ref={content} spacing={2}>
           <Typography variant="caption" color="text.secondary">
-            每次发送读取当前正文；Frontmatter 不参与。新会话先阅读文章。会话仅保留在当前页面内存中。
+            可阅读或修改正文及
+            Frontmatter；密码和密钥字段不参与。会话按文章保存在本机，自动恢复上次会话。
           </Typography>
-          {!ai.active.read && !ai.active.loading && (
-            <Button onClick={() => void ai.read()} disabled={disabled}>
-              读取当前文章
-            </Button>
+          {!ai.persistence.ready && !ai.persistence.error && (
+            <ContentLoading
+              heading="正在恢复 AI 会话"
+              description="正在读取该文章的本机会话记录"
+              size="compact"
+            />
           )}
-          <Stack spacing={1.5} aria-label="AI 对话记录">
+          {ai.persistence.error && (
+            <Alert severity="warning" action={<Button onClick={ai.persistence.retry}>重试</Button>}>
+              {ai.persistence.error}
+            </Alert>
+          )}
+          <Stack spacing={1.5} aria-label="AI 对话记录" sx={{ minWidth: 0 }}>
             {ai.active.messages.map((message) => (
-              <Box
-                key={message.id}
-                sx={{
-                  p: 1.5,
-                  borderRadius: 1.5,
-                  bgcolor: message.role === "user" ? "action.hover" : "background.default",
-                  border: 1,
-                  borderColor: "divider",
-                  ml: message.role === "user" ? 3 : 0,
-                  mr: message.role === "assistant" ? 3 : 0,
-                }}
-              >
-                <Typography variant="caption" color="text.secondary">
-                  {message.role === "user" ? "你" : `${message.provider} · ${message.model}`}
-                  {message.failed ? " · 未完成" : ""}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{ mt: 0.5, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
-                >
-                  {message.role === "assistant" && message.intent === "edit"
-                    ? "已生成正文修改，查看下方前后对比后采用。"
-                    : message.content}
-                </Typography>
-                {message.truncated && (
-                  <Typography variant="caption" color="warning.main">
-                    输出达到上限，内容可能不完整。
-                  </Typography>
-                )}
-              </Box>
+              <AiMessageBubble key={message.id} message={message} userAvatar={identity.avatarUrl} />
             ))}
           </Stack>
           {ai.active.error && <Alert severity="error">{ai.active.error}</Alert>}
           {ai.active.loading && (
             <>
-              <ContentLoading
-                heading="正在与 AI 协作"
-                description="你仍可以编辑正文"
-                size="compact"
-              />
+              <ContentLoading heading="正在与 AI 协作" description={ai.stage} size="compact" />
               <Button onClick={() => ai.cancel(ai.activeId)}>取消请求</Button>
             </>
           )}
@@ -215,6 +221,46 @@ export default function AiWritingPanel({
               </Button>
             </Stack>
           )}
+          {metadataEdit && (
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle2">
+                Frontmatter 修改 · {metadataEdit.changes.length} 个字段
+              </Typography>
+              <AiFrontmatterComparison
+                before={metadataEdit.before}
+                changes={metadataEdit.changes}
+              />
+              {metadataEdit.truncated && (
+                <Alert severity="warning">
+                  输出不完整，不能采用 Frontmatter 修改，请重新生成。
+                </Alert>
+              )}
+              {metadataStale && !metadataEdit.applied && (
+                <Alert severity="warning">
+                  Frontmatter 草稿已变化，请重新生成，避免覆盖当前字段。
+                </Alert>
+              )}
+              {metadataEdit.applied && (
+                <Alert severity="success">
+                  已采用到 Frontmatter 草稿，确认后在 Frontmatter 页面保存。
+                </Alert>
+              )}
+              <Button
+                variant="contained"
+                disabled={
+                  unavailable ||
+                  ai.active.loading ||
+                  !ai.canApplyFrontmatter ||
+                  Boolean(metadataStale) ||
+                  metadataEdit.applied ||
+                  metadataEdit.truncated
+                }
+                onClick={ai.applyFrontmatter}
+              >
+                采用 Frontmatter 修改
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </Box>
       <Divider />
@@ -226,7 +272,7 @@ export default function AiWritingPanel({
           minRows={2}
           maxRows={4}
           value={ai.active.input}
-          disabled={disabled || ai.active.loading}
+          disabled={unavailable || ai.active.loading}
           onChange={(event) => ai.setInput(event.target.value)}
           onKeyDown={(event) => {
             if (
@@ -248,24 +294,25 @@ export default function AiWritingPanel({
           <AiSessionControls
             sessions={ai.sessions}
             activeId={ai.activeId}
-            disabled={disabled}
+            disabled={unavailable}
             create={ai.create}
             remove={ai.remove}
             select={ai.setActiveId}
+            rename={ai.rename}
           />
           <Stack direction="row" spacing={0.5}>
+            <AiModelMenu
+              settings={ai.active.settings}
+              disabled={unavailable || ai.active.loading}
+              onChange={ai.setSettings}
+            />
             <Button
               variant="contained"
-              disabled={disabled || ai.active.loading || !ai.active.input.trim()}
+              disabled={unavailable || ai.active.loading || !ai.active.input.trim()}
               onClick={() => void ai.send("chat")}
             >
               发送
             </Button>
-            <AiModelMenu
-              settings={ai.active.settings}
-              disabled={disabled || ai.active.loading}
-              onChange={ai.setSettings}
-            />
           </Stack>
         </Stack>
       </Stack>

@@ -26,7 +26,7 @@ it("uses the current defaults without writing a new profile and migrates the old
   const storage = memory();
   expect(readPersonalSettings(storage).document.values.appearance).toMatchObject({
     mode: "system",
-    hue: 240,
+    hue: 200,
     fontSize: 14,
   });
   expect(storage.data.size).toBe(0);
@@ -90,7 +90,7 @@ it("validates all changed groups before one write and preserves invalid input in
   const recovered = readPersonalSettings(storage);
   expect(recovered.document.values.appearance).toMatchObject({
     mode: "dark",
-    hue: 240,
+    hue: 200,
     fontSize: 14,
   });
   expect(recovered.warnings).toHaveLength(2);

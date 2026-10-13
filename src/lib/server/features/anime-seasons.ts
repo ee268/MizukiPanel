@@ -8,7 +8,7 @@ import { assertManagedRealPath, resolveManagedPath } from "../path-guard";
 import { readManagedFile, StorageConflict, writeManagedFile } from "../storage";
 import { animeSeasonAuthor, removeAnimeSeasonFlags } from "../anime-season-format";
 import { groupAnimeSeasons } from "../../../shared/anime-seasons";
-import { copyToTrash } from "./storage";
+import { moveToRecycleBin } from "../recycle-bin";
 function seasonId(id: string): string {
   const normalized = id.replace(/\\/g, "/").replace(/^\/+/, "");
   if (!/^\d{4}\/(1|4|7|10)月\.md$/.test(normalized))
@@ -80,11 +80,14 @@ export async function deleteAnimeSeason(report: ProjectReport, id: string, versi
   const relative = `${place.animes}/${id}`;
   const current = await readManagedFile(place.root, relative);
   if (current.version !== version) throw new StorageConflict("季度内容已变化，请重新加载");
-  return copyToTrash(
-    await assertManagedRealPath(place.root, relative),
-    path.basename(id),
-    report,
+  return moveToRecycleBin(
     place.root,
     relative,
+    "features",
+    {
+      domain: "feature",
+      projectRoot: report.root,
+    },
+    { version },
   );
 }

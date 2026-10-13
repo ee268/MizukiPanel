@@ -2,6 +2,18 @@ import { expect, it } from "vitest";
 import { fitPanel, resizeDirections, resizePanel } from "../src/client/ai/panel-geometry";
 const bounds = { left: 8, top: 73, right: 1272, bottom: 892 };
 const rect = { left: 400, top: 200, width: 440, height: 500 };
+it("recovers from temporarily collapsed viewports without retaining invalid panel dimensions", () => {
+  expect(fitPanel({ ...rect, width: -16, height: 8 }, bounds)).toEqual({
+    left: 400,
+    top: 200,
+    width: 320,
+    height: 360,
+  });
+  expect(fitPanel(rect, { left: 8, top: 8, right: -8, bottom: 0 })).toEqual(rect);
+  const narrow = fitPanel(rect, { left: 8, top: 73, right: 20, bottom: 85 });
+  expect(narrow).toMatchObject({ width: 12, height: 12 });
+  expect(fitPanel(narrow, bounds)).toMatchObject({ width: 320, height: 360 });
+});
 it("resizes every edge and corner while anchoring the opposite edges", () => {
   for (const direction of resizeDirections) {
     const next = resizePanel(rect, direction, 30, 40, bounds);

@@ -1,34 +1,11 @@
-import type { AiChatMessage, AiWritingContext, AiWritingSettings } from "../../shared/ai-writing";
-export interface WritingMessage extends AiChatMessage {
-  id: string;
-  model: string;
-  provider: AiWritingSettings["provider"];
-  intent: "read" | "chat" | "edit";
-  failed?: boolean;
-  truncated?: boolean;
-  body?: string;
-}
-export interface WritingSession {
-  id: string;
-  name: string;
-  settings: AiWritingSettings;
-  messages: WritingMessage[];
-  input: string;
-  read: boolean;
-  loading: boolean;
-  error: string;
-  edit: {
-    context: AiWritingContext;
-    after: string;
-    messageId: string;
-    applied: boolean;
-    truncated: boolean;
-  } | null;
-}
+import type { AiChatMessage, AiWritingSettings } from "../../shared/ai-writing";
+import type { WritingMessage, WritingSession } from "../../shared/ai-conversations";
+export type { WritingMessage, WritingSession } from "../../shared/ai-conversations";
 export function createWritingSession(settings: AiWritingSettings, index: number): WritingSession {
   return {
     id: crypto.randomUUID(),
     name: `会话 ${index}`,
+    named: false,
     settings: { ...settings },
     messages: [],
     input: "",
@@ -43,12 +20,10 @@ export function conversationHistory(messages: WritingMessage[]): AiChatMessage[]
   const result: AiChatMessage[] = [];
   let length = 0;
   for (const message of messages
-    .filter((item) => !item.failed)
+    .filter((item) => !item.failed && item.intent !== "read")
     .slice(-20)
     .reverse()) {
-    const content = message.body
-      ? JSON.stringify({ reply: message.content, body: message.body })
-      : message.content;
+    const content = message.content;
     if (length + content.length > 60000) break;
     result.unshift({ role: message.role, content });
     length += content.length;

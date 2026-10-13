@@ -46,7 +46,7 @@ export function SettingsCard({
               severity="warning"
               action={<Button onClick={() => controller.reset(group)}>重新载入</Button>}
             >
-              本组已在其他位置（其他标签页、快捷入口或导航操作）修改。草稿已保留，请重新载入后保存。
+              本组已在其他浏览器、标签页或快捷入口修改。草稿已保留，请重新载入后保存。
             </Alert>
           )}
           {controller.drafts[group].error && (

@@ -1,22 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { recordArchive, archiveSnapshot } from "./archive-metadata";
-import { constants } from "node:fs";
-import {
-  copyFile,
-  link,
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  readdir,
-  rm,
-  stat,
-  unlink,
-} from "node:fs/promises";
+import { moveToRecycleBin } from "./recycle-bin";
+import { link, lstat, mkdir, open, readFile, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import type { ProjectReport } from "./project";
 import { assertManagedRealPath, resolveManagedPath } from "./path-guard";
-import { defaultStateDir } from "./workspace";
 import { validateArticleId } from "./articles";
 import { encodeMediaPath } from "../../shared/media-settings";
 import { MediaError, projectMediaTarget } from "./media-paths";
@@ -388,26 +375,8 @@ export async function deleteMedia(
     scope === "public" ? `${base.images}/${mediaPath}` : `${base.posts}/${mediaPath}`;
   const source = await assertManagedRealPath(base.root, relative);
   if (!(await lstat(source)).isFile()) throw new MediaError("媒体目标不是普通文件");
-  const trash = path.join(
-    defaultStateDir(),
-    "trash",
-    "media",
-    randomUUID() + "-" + path.basename(mediaPath),
-  );
-  await mkdir(path.dirname(trash), { recursive: true });
-  await copyFile(source, trash, constants.COPYFILE_EXCL);
-  try {
-    const metadata = await recordArchive(trash, "trash", base.root, relative, {
-      domain: "media",
-      projectRoot: report.root,
-    });
-    if ((await archiveSnapshot(source)).digest !== metadata.digest)
-      throw new MediaError("媒体在回收期间发生变化，请重试。");
-    await unlink(source);
-  } catch (error) {
-    await rm(trash, { force: true });
-    await rm(trash + ".meta.json", { force: true });
-    throw error;
-  }
-  return trash;
+  return moveToRecycleBin(base.root, relative, "media", {
+    domain: "media",
+    projectRoot: report.root,
+  });
 }

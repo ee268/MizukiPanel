@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api, json } from "../api";
-import { useAiCredential } from "./useAiCredential";
+import { useAiCredential, useAiVaultState } from "./useAiCredential";
 import type { AiModel, AiWritingSettings } from "../../shared/ai-writing";
 export function useAiModels(settings: AiWritingSettings) {
   const key = useAiCredential(settings.provider);
+  const vault = useAiVaultState();
+  const saved = vault.saved(settings.provider);
   const [models, setModels] = useState<AiModel[]>([]),
     [loading, setLoading] = useState(false),
     [error, setError] = useState("");
@@ -15,11 +17,11 @@ export function useAiModels(settings: AiWritingSettings) {
     request.current?.abort();
     request.current = null;
     return () => request.current?.abort();
-  }, [settings.provider, settings.openaiBaseUrl, settings.anthropicBaseUrl, key]);
+  }, [settings.provider, settings.openaiBaseUrl, settings.anthropicBaseUrl, key, saved]);
   async function fetchModels() {
     if (request.current) return;
-    if (!key) {
-      setError("请先填写本次会话的 API Key。");
+    if (!vault.available(settings.provider)) {
+      setError("请先填写或保存 API Key。");
       return;
     }
     const abort = new AbortController();
@@ -35,12 +37,14 @@ export function useAiModels(settings: AiWritingSettings) {
             anthropicBaseUrl: settings.anthropicBaseUrl,
           },
           apiKey: key,
+          useSavedKey: !key && saved,
         }),
         signal: abort.signal,
       });
       if (!abort.signal.aborted) {
         setModels(result.models);
         if (!result.models.length) setError("上游未返回模型，可手动添加模型 ID。");
+        return result.models;
       }
     } catch (cause) {
       if (!abort.signal.aborted)

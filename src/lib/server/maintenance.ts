@@ -36,6 +36,13 @@ import { FEATURE_DATA } from "./features";
 import { createArticleFromSource, saveArticleSource, validateArticleCreation } from "./articles";
 import { workspacePreviewTask } from "./preview";
 import { workspacePublishTask } from "./publish";
+import { RECYCLE_DIRECTORY, RECYCLE_CATEGORIES } from "./recycle-bin";
+import { AiVault, aiVault, aiVaultFileName } from "./ai-vault";
+import {
+  assertConversationRecoveryAvailable,
+  restoreArticleConversations,
+  validateArticleBundle,
+} from "./article-conversation-recovery";
 
 export class MaintenanceError extends Error {}
 interface Entry {
@@ -71,6 +78,11 @@ function metadataOf(raw: string, kind: "backup" | "trash"): ArchiveMetadata {
     !Number.isSafeInteger(value.bytes) ||
     value.bytes < 0 ||
     typeof value.directory !== "boolean" ||
+    (value.articleBundle !== undefined &&
+      (value.articleBundle !== true ||
+        value.domain !== "article" ||
+        kind !== "trash" ||
+        !value.directory)) ||
     !(
       value.projectKey === null ||
       (typeof value.projectKey === "string" && /^[a-f0-9]{64}$/.test(value.projectKey))
@@ -132,7 +144,13 @@ export class MaintenanceStore {
         throw new MaintenanceError("设置来自其他面板目录。");
       const key = report ? await settingsProjectKey(report.root) : null;
       if (
-        !(metadata.relative === "settings.json" && metadata.projectKey === null) &&
+        !(
+          ["settings.json", "personal-settings.json", `secure/${aiVaultFileName}`].includes(
+            metadata.relative,
+          ) &&
+          metadata.projectKey === null &&
+          !metadata.directory
+        ) &&
         !(
           key &&
           metadata.projectKey === key &&
@@ -158,7 +176,7 @@ export class MaintenanceStore {
       allowed =
         r.startsWith(local ? "src/content/posts/" : "posts/") &&
         /\.(md|mdx)$/.test(r) &&
-        !metadata.directory;
+        (!metadata.directory || metadata.articleBundle === true);
     if (metadata.domain === "config")
       allowed =
         CONFIGS.some(
@@ -229,6 +247,7 @@ export class MaintenanceStore {
         warnings.push(`${relative}：${(error as Error).message}`);
         return;
       }
+      const recordedNames = new Set(names.map((name) => name.name));
       for (const name of names.sort((a, b) => a.name.localeCompare(b.name))) {
         if (paths.length >= 2000)
           throw new MaintenanceError("恢复项超过 2000 个，请先在状态目录中手动归档。");
@@ -238,6 +257,19 @@ export class MaintenanceStore {
           continue;
         }
         if (name.name.endsWith(".meta.json")) continue;
+        if (
+          kind === "trash" &&
+          depth === 0 &&
+          (!name.isDirectory() ||
+            !RECYCLE_CATEGORIES.includes(name.name as (typeof RECYCLE_CATEGORIES)[number]))
+        ) {
+          warnings.push(`${nested} 不属于回收站分类，未计入统计。`);
+          continue;
+        }
+        if (kind === "trash" && depth > 0 && !recordedNames.has(name.name + ".meta.json")) {
+          warnings.push(`${nested} 缺少回收记录，未计入统计。`);
+          continue;
+        }
         if (name.isDirectory() && (kind === "backup" || depth === 0)) {
           if (depth >= 4) {
             warnings.push(`${nested} 超过目录扫描深度，已保留。`);
@@ -248,7 +280,7 @@ export class MaintenanceStore {
       }
     };
     await walk("backups", "backup", 0);
-    await walk("trash", "trash", 0);
+    await walk(RECYCLE_DIRECTORY, "trash", 0);
     const entries: Entry[] = [];
     for (const { relative, kind } of paths) {
       const payload = await this.safe(relative);
@@ -272,6 +304,7 @@ export class MaintenanceStore {
           snapshot.directory !== metadata.directory
         )
           throw new MaintenanceError("恢复内容已改变，与元数据不符，已保护。");
+        if (metadata.articleBundle) await validateArticleBundle(payload);
         reason = "";
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") reason = (error as Error).message;
@@ -307,6 +340,14 @@ export class MaintenanceStore {
           const destination = await this.target(metadata, report);
           if (kind === "trash" && (await this.targetVersion(destination)) !== null)
             throw new MaintenanceError("原路径已存在，回收项不会覆盖现有内容。");
+          if (metadata.articleBundle) {
+            const prefix = report!.mode === "external" ? "posts/" : "src/content/posts/";
+            await assertConversationRecoveryAvailable(
+              this.stateDir,
+              report!.root,
+              metadata.relative.slice(prefix.length),
+            );
+          }
           item.restorable = true;
         } catch (error) {
           item.reason = (error as Error).message;
@@ -393,6 +434,11 @@ export class MaintenanceStore {
       throw new MaintenanceError(entry?.item.reason ?? "恢复项不存在。");
     const destination = await this.target(entry.metadata, report);
     const version = await this.targetVersion(destination);
+    if (
+      entry.metadata.relative === `secure/${aiVaultFileName}` &&
+      entry.metadata.domain === "settings"
+    )
+      await new AiVault(entry.payload).status();
     return {
       ...this.lease(
         {
@@ -423,8 +469,30 @@ export class MaintenanceStore {
     const target = await this.target(metadata, report);
     if ((await this.targetVersion(target)) !== lease.targetVersion)
       throw new StorageConflict("原文件自预览后已改变，请重新预览。");
-    if (metadata.domain === "settings") {
-      const scope = metadata.projectKey ? "project" : "machine";
+    if (metadata.domain === "settings" && metadata.relative === `secure/${aiVaultFileName}`) {
+      // Verify that this Windows account can decrypt before replacing the current ciphertext.
+      const recovery = await new AiVault(entry.payload).recoverySource();
+      const current = await readPanelSettings("browser", undefined, this.stateDir);
+      if (current.readOnly)
+        throw new MaintenanceError("本机偏好不可写，请先处理设置警告，未恢复 AI 配置。");
+      await writeManagedFile(
+        this.stateDir,
+        metadata.relative,
+        recovery.source,
+        lease.targetVersion ?? null,
+        path.join(this.stateDir, "backups", "settings"),
+        { domain: "settings" },
+      );
+      await savePanelSettingsGroups(
+        { scope: "browser", groups: { ai: { ...recovery.settings } }, version: current.version },
+        this.stateDir,
+      );
+    } else if (metadata.domain === "settings") {
+      const scope = metadata.projectKey
+        ? "project"
+        : metadata.relative === "personal-settings.json"
+          ? "browser"
+          : "machine";
       const snapshot = parseSettings(await readFile(entry.payload, "utf8"), scope);
       if (snapshot.readOnly || snapshot.warnings.length)
         throw new SettingsValidationError("备份设置无效或版本不兼容，原文件未修改。");
@@ -432,6 +500,18 @@ export class MaintenanceStore {
       let validated = emptyDocument(scope);
       for (const [group, fields] of Object.entries(snapshot.document.values))
         validated = patchSettings(validated, scope, group, fields, "restore");
+      if (scope === "browser") {
+        const vault = aiVault(this.stateDir);
+        const keys = await vault.keys();
+        if (keys.some((key) => JSON.stringify(validated.values).includes(key)))
+          throw new MaintenanceError("偏好备份含密钥，不能以明文恢复。");
+        const status = await vault.status();
+        if (
+          status.version &&
+          JSON.stringify(status.settings) !== JSON.stringify(validated.values.ai)
+        )
+          await vault.save({ version: status.version, settings: validated.values.ai, keys: {} });
+      }
       await savePanelSettingsGroups(
         {
           scope,
@@ -444,11 +524,25 @@ export class MaintenanceStore {
     } else if (metadata.domain === "article") {
       const prefix = report!.mode === "external" ? "posts/" : "src/content/posts/";
       const id = metadata.relative.slice(prefix.length);
-      const source = await readFile(entry.payload, "utf8");
-      if (lease.targetVersion === null) {
-        await validateArticleCreation(report!, id, source);
-        await createArticleFromSource(report!, id, source);
-      } else await saveArticleSource(report!, id, source, lease.targetVersion!);
+      if (metadata.articleBundle) {
+        await restoreArticleConversations(
+          this.stateDir,
+          report!.root,
+          id,
+          entry.payload,
+          metadata.digest,
+          async (source) => {
+            await validateArticleCreation(report!, id, source);
+            await createArticleFromSource(report!, id, source);
+          },
+        );
+      } else {
+        const source = await readFile(entry.payload, "utf8");
+        if (lease.targetVersion === null) {
+          await validateArticleCreation(report!, id, source);
+          await createArticleFromSource(report!, id, source);
+        } else await saveArticleSource(report!, id, source, lease.targetVersion!);
+      }
     } else if (metadata.kind === "backup") {
       const bytes = await readFile(entry.payload);
       if (bytes.length > 20 * 1024 * 1024 || !Buffer.from(bytes.toString("utf8")).equals(bytes))

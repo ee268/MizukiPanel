@@ -1,6 +1,7 @@
 import RefreshOutlined from "@mui/icons-material/RefreshOutlined";
+import MenuBookOutlined from "@mui/icons-material/MenuBookOutlined";
 import { Alert, Box, Button, Container, Stack, Typography } from "@mui/material";
-import { DashboardActivityPanels } from "../components/DashboardActivityPanels";
+import { ContributionGraph, DashboardActivityPanels } from "../components/DashboardActivityPanels";
 import { DashboardCharts } from "../components/DashboardCharts";
 import { DashboardMetrics } from "../workspace/DashboardMetrics";
 import { useWorkspace } from "../workspace/useWorkspace";
@@ -24,9 +25,39 @@ export default function WorkspacePage() {
       <Stack spacing={3}>
         <Box data-page-motion="heading">
           <Typography variant="h4">项目工作区</Typography>
-          <Typography color="text.secondary" sx={{ mt: 1 }}>
-            连接本机 Mizuki 项目，查看文章与提交活动概览。
-          </Typography>
+          <Stack
+            direction="row"
+            useFlexGap
+            spacing={1.5}
+            sx={{ mt: 1, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}
+          >
+            <Typography color="text.secondary" sx={{ flex: "1 1 260px" }}>
+              连接本机 Mizuki 项目，查看文章与提交活动概览。
+            </Typography>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+              <Button
+                size="small"
+                startIcon={<MenuBookOutlined />}
+                href="https://docs.mizuki.mysqil.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ flexShrink: 0 }}
+              >
+                Mizuki 文档
+              </Button>
+              {data?.report && (
+                <Button
+                  size="small"
+                  startIcon={<RefreshOutlined />}
+                  onClick={workspace.reload}
+                  disabled={loading}
+                  sx={{ flexShrink: 0 }}
+                >
+                  刷新数据
+                </Button>
+              )}
+            </Stack>
+          </Stack>
         </Box>
 
         <WorkspaceConnection
@@ -53,29 +84,9 @@ export default function WorkspacePage() {
               </Alert>
             ))}
 
-            <Stack
-              direction="row"
-              spacing={2}
-              sx={{ alignItems: "center", justifyContent: "space-between" }}
-            >
-              <Box>
-                <Typography variant="h5">数据总览</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  汇总当前内容和 Mizuki 项目仓库最近一年的活动。
-                </Typography>
-              </Box>
-              <Button
-                size="small"
-                startIcon={<RefreshOutlined />}
-                onClick={workspace.reload}
-                disabled={loading}
-              >
-                刷新数据
-              </Button>
-            </Stack>
-
             {dashboardError && <Alert severity="error">{dashboardError}</Alert>}
             {!dashboardError && <DashboardMetrics dashboard={dashboard} loading={loading} />}
+            {dashboard && <ContributionGraph git={dashboard.git} />}
             {dashboard && <DashboardCharts articles={dashboard.articles} />}
             {dashboard && (
               <DashboardActivityPanels dashboard={dashboard} recentProjects={recentProjectsPanel} />

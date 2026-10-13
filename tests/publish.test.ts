@@ -4,6 +4,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, expect, it } from "vitest";
 import type { ProjectReport } from "../src/lib/server/project";
+import { aiVault } from "../src/lib/server/ai-vault";
+import { defaultAiWritingSettings } from "../src/shared/ai-writing";
+import {
+  assertNoOutgoingApiKeys,
+  assertNoStagedApiKeys,
+} from "../src/lib/server/publish/credentials";
 import {
   commitSelected,
   publishCommitDetail,
@@ -57,6 +63,51 @@ afterEach(async () => {
   for (const directory of directories.splice(0))
     await rm(directory, { recursive: true, force: true });
 });
+
+it.skipIf(process.platform !== "win32")(
+  "blocks custom saved keys in commits, messages and outgoing history without logging them",
+  async () => {
+    const { root, report } = await fixture();
+    const vault = aiVault();
+    const prior = await vault.status();
+    const secret = "custom-provider-fixture-" + Date.now();
+    const saved = await vault.save({
+      version: prior.version,
+      settings: defaultAiWritingSettings,
+      keys: { openai: secret },
+    });
+    try {
+      await writeFile(path.join(root, "README.md"), `# Accidental secret\n${secret}\n`);
+      await expect(
+        commitSelected(report, ["README.md"], "chore(test): accidental secret"),
+      ).rejects.toThrow("疑似 API Key");
+      expect(git(root, "diff", "--cached", "--name-only")).toBe("");
+      await writeFile(path.join(root, "README.md"), "# Safe\n");
+      await expect(commitSelected(report, ["README.md"], `chore(test): ${secret}`)).rejects.toThrow(
+        "疑似密钥",
+      );
+      await writeFile(path.join(root, "README.md"), `# Terminal commit\n${secret}\n`);
+      git(root, "add", ".");
+      git(root, "commit", "-m", "chore(test): terminal commit");
+      await expect(
+        assertNoOutgoingApiKeys(report, git(root, "rev-parse", "HEAD"), "origin"),
+      ).rejects.toThrow("停止推送");
+      expect(JSON.stringify(publishOperationStatus(report))).not.toContain(secret);
+      await writeFile(path.join(root, "copied-vault.json"), await readFile(vault.file));
+      git(root, "add", "copied-vault.json");
+      await expect(assertNoStagedApiKeys(report, ["copied-vault.json"])).rejects.toThrow(
+        "密钥存储文件",
+      );
+    } finally {
+      await vault.save({
+        version: saved.version,
+        settings: defaultAiWritingSettings,
+        keys: { openai: "" },
+      });
+    }
+  },
+  20000,
+);
 async function waitForOperation(report: ProjectReport) {
   for (let index = 0; index < 200; index++) {
     const status = publishOperationStatus(report);
@@ -115,13 +166,14 @@ it("stages all selected changes with git add . from the project root, honoring i
   expect(publishOperationStatus(report).logs.join("\n")).toContain('$ git "add" "."');
 });
 
-it("paginates a fixed history snapshot and reads full commit details without modifying Git", async () => {
+it("lists recent commits from a fixed snapshot and reads full commit details without modifying Git", async () => {
   const { root, report } = await fixture();
   for (let index = 0; index < 23; index++)
     git(root, "commit", "--allow-empty", "-m", `docs: history ${index}`);
   const first = await publishHistory(report);
   expect(first.total).toBe(24);
-  expect(first.commits).toHaveLength(20);
+  expect(first.commits).toHaveLength(24);
+  expect(first.pageSize).toBe(100);
   expect(first.commits[0]).toMatchObject({
     sha: first.head,
     subject: "docs: history 22",
@@ -129,17 +181,37 @@ it("paginates a fixed history snapshot and reads full commit details without mod
   });
   const before = git(root, "status", "--porcelain");
   git(root, "commit", "--allow-empty", "-m", "docs: later commit");
-  const second = await publishHistory(report, 2, first.head!);
+  const second = await publishHistory(report, 1, first.head!);
   expect(second.total).toBe(24);
-  expect(second.commits).toHaveLength(4);
+  expect(second.commits).toHaveLength(24);
   expect(second.commits.some((c) => c.subject === "docs: later commit")).toBe(false);
   const initial = second.commits.at(-1)!;
   const detail = await publishCommitDetail(report, initial.sha);
   expect(detail.message).toBe("chore(test): initialize fixture");
   expect(detail.diff).toContain("README.md");
   expect(git(root, "status", "--porcelain")).toBe(before);
-  expect(publishOperationStatus(report).logs.join("\n")).toContain("已读取提交历史第 2 页");
+  expect(publishOperationStatus(report).logs.join("\n")).toContain("已读取当前分支最近 24 条提交");
 }, 20000);
+
+it("caps the default list at the latest 100 commits while searches still include older commits", async () => {
+  const { root, report } = await fixture();
+  const initial = git(root, "rev-parse", "HEAD");
+  const tree = git(root, "rev-parse", "HEAD^{tree}");
+  let head = initial;
+  for (let index = 0; index < 105; index++)
+    head = git(root, "commit-tree", tree, "-p", head, "-m", `docs: recent ${index}`);
+  git(root, "update-ref", "HEAD", head);
+  const history = await publishHistory(report);
+  expect(history.total).toBe(100);
+  expect(history.commits).toHaveLength(100);
+  expect(history.commits[0].subject).toBe("docs: recent 104");
+  expect(history.commits.at(-1)!.subject).toBe("docs: recent 5");
+  expect((await publishHistory(report, 2, history.head!)).commits).toEqual([]);
+  const older = await publishHistory(report, 1, history.head!, "initialize");
+  expect(older.total).toBe(1);
+  expect(older.commits[0].sha).toBe(initial);
+  expect(older.pageSize).toBe(20);
+}, 30000);
 
 it("shows fetch and push remotes, upstream counts and the current branch, redacting credentials", async () => {
   const { root, report } = await fixture();

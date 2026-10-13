@@ -3,6 +3,9 @@ import type { ArticleRecord } from "../types";
 import { usePersonalSettings } from "../settings/PersonalSettingsProvider";
 import type { FrontmatterRow } from "./types";
 import { useSessionRecovery } from "../auth/useSessionRecovery";
+import { sessionLifecycle } from "../auth/session-lifecycle";
+import { autosaveOnExit } from "../../shared/article-autosave";
+import { frontmatterChanged } from "./article-draft";
 import {
   draftError,
   draftKey,
@@ -77,8 +80,20 @@ export function useArticleDrafts(input: {
     save: async () => {
       const row = exitSnapshot();
       if (!row) return;
-      if (!saved.drafts.enabled)
+      if (!saved.drafts.enabled) {
+        const current = latest.current;
+        const scope = saved.articleAutosave.scope;
+        if (
+          sessionLifecycle.getState().exit?.reason === "logout" &&
+          autosaveOnExit(saved.articleAutosave) &&
+          current.article &&
+          (scope === "both" ||
+            (scope === "body" && !frontmatterChanged(current.frontmatter, current.article)) ||
+            (scope === "frontmatter" && current.source === current.article.source))
+        )
+          return;
         throw new Error("本地草稿自动保存已关闭，请下载未保存内容后登录。");
+      }
       await writer.checkpoint(row);
     },
   });

@@ -24,7 +24,7 @@ function contributionDateLabel(date: string, count: number): string {
   return `${year}年${month}月${day}日 · ${count} 次提交`;
 }
 
-function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
+export function ContributionGraph({ git }: { git: DashboardOverview["git"] }) {
   const theme = useTheme();
   const calendar = contributionCalendar(git.activity);
   const emptyColor = theme.palette.mode === "dark" ? "#30343d" : "#e4e8ef";
@@ -281,7 +281,6 @@ export function DashboardActivityPanels({
 }) {
   return (
     <Stack spacing={2}>
-      <ContributionGraph git={dashboard.git} />
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 7 }}>
           <RecentArticles articles={dashboard.articles} />

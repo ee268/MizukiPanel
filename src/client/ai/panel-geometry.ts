@@ -13,8 +13,11 @@ export interface PanelBounds {
 export const resizeDirections = ["n", "ne", "e", "se", "s", "sw", "w", "nw"] as const;
 export type ResizeDirection = (typeof resizeDirections)[number];
 export function fitPanel(rect: PanelRect, bounds: PanelBounds): PanelRect {
-  const width = Math.min(rect.width, bounds.right - bounds.left);
-  const height = Math.min(rect.height, bounds.bottom - bounds.top);
+  const availableWidth = bounds.right - bounds.left,
+    availableHeight = bounds.bottom - bounds.top;
+  if (availableWidth <= 0 || availableHeight <= 0) return rect;
+  const width = Math.min(Math.max(rect.width, Math.min(320, availableWidth)), availableWidth);
+  const height = Math.min(Math.max(rect.height, Math.min(360, availableHeight)), availableHeight);
   return {
     width,
     height,

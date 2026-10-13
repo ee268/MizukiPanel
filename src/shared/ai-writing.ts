@@ -1,5 +1,12 @@
 import { containsApiCredential } from "./api-credentials";
+import type { FrontmatterEntry } from "./article";
+import type { AiFrontmatterChange } from "./ai-frontmatter";
+export type AiEditTarget = "body" | "frontmatter" | "both";
 export type AiProvider = "openai" | "anthropic";
+export const defaultAiBaseUrls: Record<AiProvider, string> = {
+  openai: "https://api.openai.com/v1",
+  anthropic: "https://api.anthropic.com",
+};
 export interface AiWritingSettings {
   provider: AiProvider;
   openaiBaseUrl: string;
@@ -13,14 +20,14 @@ export interface AiWritingSettings {
 }
 export const defaultAiWritingSettings: AiWritingSettings = {
   provider: "openai",
-  openaiBaseUrl: "https://api.openai.com/v1",
-  anthropicBaseUrl: "https://api.anthropic.com",
+  openaiBaseUrl: "",
+  anthropicBaseUrl: "",
   openaiModel: "",
   anthropicModel: "",
   openaiModels: [],
   anthropicModels: [],
   systemPrompt:
-    "你是文章协作助手。先理解当前文章，再根据用户要求讨论或修改。保留代码、链接、图片、HTML、MDX 和模板语法；不编造事实或引用，不修改 Frontmatter。",
+    "你是文章协作助手。无关聊天无需读取文章；阅读、分析或编辑请求才读取最新草稿。直接回答问题，不额外输出阅读确认。按用户明确要求编辑正文或 Frontmatter，保留未涉及的内容、代码、链接、图片、HTML、MDX 和模板语法，不编造事实或引用，不处理密码和密钥字段。",
   maxTokens: 2048,
 };
 export const aiWritingActions = [
@@ -55,12 +62,19 @@ export type AiWritingAction = (typeof aiWritingActions)[number]["id"];
 export interface AiWritingRequest {
   settings: AiWritingSettings;
   apiKey: string;
+  useSavedKey?: boolean;
   action: AiWritingAction;
   instruction: string;
   title: string;
   context: string;
   selection: string;
-  conversation?: { intent: "read" | "chat" | "edit"; messages: AiChatMessage[] };
+  frontmatter?: FrontmatterEntry[];
+  conversation?: {
+    intent: "read" | "chat" | "edit" | "route" | "analyze" | "title";
+    messages: AiChatMessage[];
+    generateTitle?: boolean;
+    editTarget?: AiEditTarget;
+  };
 }
 export interface AiChatMessage {
   role: "user" | "assistant";
@@ -87,17 +101,24 @@ export interface AiWritingResult {
   text: string;
   truncated: boolean;
   body?: string;
+  frontmatter?: AiFrontmatterChange[];
+  editTarget?: AiEditTarget;
+  needsArticle?: boolean;
+  needsEdit?: boolean;
+  sessionTitle?: string;
 }
 export interface AiWritingContext {
   body: string;
   selection: string;
   canInsert: boolean;
+  frontmatter?: FrontmatterEntry[];
 }
 export type AiWritingApply = "append" | "replace" | "selection";
 
 export function validAiBaseUrl(value: unknown): value is string {
   if (typeof value !== "string" || value.length > 2048 || containsApiCredential(value))
     return false;
+  if (value === "") return true;
   try {
     const url = new URL(value);
     return (
@@ -113,7 +134,9 @@ export function validAiBaseUrl(value: unknown): value is string {
   }
 }
 export function aiWritingEndpoint(settings: AiWritingSettings): URL {
-  const base = settings.provider === "openai" ? settings.openaiBaseUrl : settings.anthropicBaseUrl;
+  const base =
+    (settings.provider === "openai" ? settings.openaiBaseUrl : settings.anthropicBaseUrl) ||
+    defaultAiBaseUrls[settings.provider];
   if (!validAiBaseUrl(base))
     throw new Error("BaseURL 必须是 HTTPS 或本机 HTTP 地址，且不能含账号、密钥参数或片段。");
   const url = new URL(base);

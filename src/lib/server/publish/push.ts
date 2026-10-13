@@ -4,6 +4,7 @@ import { git, ref } from "./git";
 import { publishOverview } from "./overview";
 import type { ProjectReport } from "../project";
 import { PublishError } from "./errors";
+import { assertNoOutgoingApiKeys } from "./credentials";
 export async function pushCurrentBranch(
   report: ProjectReport,
   stateDir?: string,
@@ -35,6 +36,8 @@ export async function pushCurrentBranch(
     if (!remote || remote === "." || remote.startsWith("-") || !merge?.startsWith("refs/heads/"))
       throw new PublishError("当前分支没有有效的远程上游目标");
     await git(report, ["check-ref-format", merge]);
+    appendLog(runtime, "正在检查待推送历史中的敏感数据…");
+    await assertNoOutgoingApiKeys(report, overview.head!, remote);
     appendLog(runtime, `推送目标：${overview.branch} → ${overview.upstream}`);
     await git(report, ["push", "--porcelain", remote, `${overview.head}:${merge}`], {
       timeout: 120000,

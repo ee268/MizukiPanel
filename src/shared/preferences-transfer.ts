@@ -14,7 +14,7 @@ export interface PreferenceBundle {
   scopes: Partial<Record<SettingsScope, PreferenceGroups>>;
 }
 export const scopeLabels: Record<SettingsScope, string> = {
-  browser: "浏览器",
+  browser: "界面与编辑偏好",
   machine: "本机",
   project: "项目",
 };
@@ -25,6 +25,7 @@ export const groupLabels: Record<string, string> = {
   editor: "编辑器",
   ai: "AI 辅助写作",
   drafts: "草稿保存",
+  articleAutosave: "文章自动保存",
   logs: "运行日志",
   workspace: "工作区",
   maintenance: "备份保留",
@@ -111,6 +112,12 @@ export function preferenceDiff(before: PreferenceGroups, after: PreferenceGroups
   );
 }
 const fieldLabels: Record<string, Record<string, string>> = {
+  articleAutosave: {
+    enabled: "启用文章自动保存",
+    scope: "自动保存范围",
+    trigger: "自动保存时机",
+    intervalSeconds: "自动保存间隔（秒）",
+  },
   bangumi: {
     baseUrl: "Bangumi BaseURL",
     followProjectBaseUrl: "跟随季度追番 BaseURL",

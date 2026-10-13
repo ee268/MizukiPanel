@@ -37,7 +37,9 @@ it.each(["openai", "anthropic"] as const)(
       await generateAiWriting({ ...input, settings: { ...input.settings, provider } }),
     ).toEqual({ text: "已润色，保留组件和模板。", body, truncated: false });
     const sent = JSON.parse(fetcher.mock.calls[0][1].body);
-    expect(provider === "openai" ? sent.messages[0].content : sent.system).toContain("自动判断");
+    expect(provider === "openai" ? sent.messages[0].content : sent.system).toContain(
+      "不要输出阅读总结",
+    );
     expect(sent.messages.at(-1).content).toContain(original);
   },
 );
@@ -94,7 +96,7 @@ it("blocks escaped credentials after parsing and marks truncated but valid propo
   );
   expect(await generateAiWriting(input)).toEqual({ text: "说明", body: "新正文", truncated: true });
 });
-it("keeps proposed bodies in conversation history and includes them in the history size limit", () => {
+it("keeps article bodies and hidden reading turns out of request-routing history", () => {
   const message: WritingMessage = {
     id: "one",
     role: "assistant",
@@ -107,7 +109,10 @@ it("keeps proposed bodies in conversation history and includes them in the histo
   const user = { ...message, role: "user" as const, body: undefined, content: "要求" };
   expect(conversationHistory([user, message])).toEqual([
     { role: "user", content: "要求" },
-    { role: "assistant", content: JSON.stringify({ reply: "修改说明", body: "完整建议正文" }) },
+    { role: "assistant", content: "修改说明" },
   ]);
-  expect(conversationHistory([user, { ...message, body: "x".repeat(60000) }])).toEqual([]);
+  expect(conversationHistory([user, { ...message, body: "x".repeat(60000) }])).toHaveLength(2);
+  expect(conversationHistory([user, { ...message, intent: "read" }])).toEqual([
+    { role: "user", content: "要求" },
+  ]);
 });

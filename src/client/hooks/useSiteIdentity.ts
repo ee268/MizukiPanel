@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { api } from "../api";
-import { SITE_IDENTITY_CHANGED_EVENT } from "../shared/site-identity";
+import { SITE_IDENTITY_CHANGED_EVENT, SiteIdentityContext } from "../shared/site-identity";
 import type { SiteIdentity } from "../types";
 
 const fallbackIdentity: SiteIdentity = {
@@ -9,6 +9,7 @@ const fallbackIdentity: SiteIdentity = {
 };
 
 export function useSiteIdentity(): SiteIdentity {
+  const sharedIdentity = useContext(SiteIdentityContext);
   const [identity, setIdentity] = useState<SiteIdentity>(fallbackIdentity);
 
   const loadIdentity = useCallback(async () => {
@@ -20,6 +21,7 @@ export function useSiteIdentity(): SiteIdentity {
   }, []);
 
   useEffect(() => {
+    if (sharedIdentity) return;
     const refresh = () => void loadIdentity();
 
     refresh();
@@ -30,7 +32,7 @@ export function useSiteIdentity(): SiteIdentity {
       window.removeEventListener(SITE_IDENTITY_CHANGED_EVENT, refresh);
       window.clearInterval(timer);
     };
-  }, [loadIdentity]);
+  }, [loadIdentity, sharedIdentity]);
 
-  return identity;
+  return sharedIdentity ?? identity;
 }

@@ -79,6 +79,42 @@ async function fixture(mode: "local" | "external" = "local") {
   const run = <T>(work: () => T) => withWorkspaceState(state, work);
   return { root, site, state, report, store, run };
 }
+it("counts only indexed resources in the dedicated recycle directory and ignores legacy/test debris", async () => {
+  const { state, site, report, store, run } = await fixture();
+  const legacy = path.join(state, "trash/features");
+  await mkdir(legacy, { recursive: true });
+  await writeFile(path.join(legacy, "old-season.md"), "old test payload");
+  await recordArchive(
+    path.join(legacy, "old-season.md"),
+    "trash",
+    site,
+    "src/content/animes/2027/1月.md",
+    {
+      domain: "feature",
+      projectRoot: site,
+    },
+  );
+  const recycle = path.join(state, "recycle-bin/articles");
+  await mkdir(recycle, { recursive: true });
+  await writeFile(path.join(recycle, "untracked.md"), "not recycled");
+  await writeFile(path.join(recycle, "orphan.md.meta.json"), "{}");
+  expect(
+    (await store.inventory(report)).items.filter((item) => item.kind === "trash"),
+  ).toHaveLength(0);
+  await run(() =>
+    createArticle(report, "a.md", { title: "A", published: "2026-10-10", draft: true }, "original"),
+  );
+  const original = await readArticle(report, "a.md");
+  await run(() => saveArticleSource(report, "a.md", original.source + "changed", original.version));
+  const latest = await readArticle(report, "a.md");
+  await run(() => deleteArticle(report, "a.md", latest.version));
+  const inventory = await store.inventory(report);
+  expect(inventory.items.filter((item) => item.kind === "trash")).toHaveLength(1);
+  expect(inventory.items.filter((item) => item.kind === "backup")).toHaveLength(1);
+  expect(inventory.totals.trash).toBe(Buffer.byteLength(latest.source));
+  expect(inventory.warnings.some((warning) => warning.includes("缺少回收记录"))).toBe(true);
+  expect(await readFile(path.join(legacy, "old-season.md"), "utf8")).toBe("old test payload");
+});
 for (const mode of ["local", "external"] as const)
   it(`indexes article backups and restores the correct ${mode} project with a new recovery point`, async () => {
     const { state, report, store, run } = await fixture(mode);
@@ -214,7 +250,7 @@ it("manually clears only selected older points, always protecting the latest poi
 it("isolates backup and recycle cleanup previews and rejects IDs from the other kind", async () => {
   const { state, site, store } = await fixture();
   await settingsBackups(state);
-  const trash = path.join(state, "trash/articles");
+  const trash = path.join(state, "recycle-bin/articles");
   await mkdir(trash, { recursive: true });
   for (let i = 0; i < 3; i++) {
     const file = path.join(trash, `${i}.md`);
@@ -358,7 +394,7 @@ it("protects recovery points while tasks run, including project settings without
 });
 it("rejects tampered payloads and paths outside allowed resources, skips symlinked archives", async () => {
   const { state, site, report, store } = await fixture();
-  const root = path.join(state, "trash/media");
+  const root = path.join(state, "recycle-bin/media");
   await mkdir(root, { recursive: true });
   const payload = path.join(root, "image.png");
   await writeFile(payload, "abc");

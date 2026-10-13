@@ -13,6 +13,7 @@ import {
 import { NavLink } from "react-router-dom";
 import type { SiteIdentity } from "../types";
 import ThemeSettings from "../components/ThemeSettings";
+import PanelLogo from "../components/PanelLogo";
 
 interface AppHeaderProps {
   drawerWidth: number;
@@ -26,16 +27,14 @@ export default function AppHeader({ drawerWidth, identity, onOpenMenu, onLogout 
 
   return (
     <>
-      <Box
-        component="img"
-        src="/mizuki-panel-logo.svg"
-        alt="MizukiPanel"
+      <PanelLogo
         sx={{
           position: "fixed",
-          top: 8,
-          left: { xs: 56, md: 16 },
+          top: { xs: 28, sm: 32 },
+          left: { xs: 64, md: 20 },
           width: { xs: 150, sm: 190 },
-          height: 48,
+          height: 30,
+          transform: "translateY(-50%)",
           display: "block",
           objectFit: "contain",
           bgcolor: "transparent",

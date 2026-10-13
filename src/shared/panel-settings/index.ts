@@ -1,4 +1,5 @@
 import { defaultArticleFrontmatter, validTemplateField } from "./article-template";
+import type { ArticleAutosaveSettings } from "../article-autosave";
 import { validMediaFolder } from "../media-settings";
 import {
   defaultAiWritingSettings,
@@ -18,6 +19,7 @@ import {
   type BangumiProjectBaseUrl,
 } from "../bangumi-settings";
 export const settingsSchemaVersion = 1;
+export const defaultPanelHue = 200;
 export type SettingsScope = "browser" | "machine" | "project";
 export interface AppearanceSettings {
   mode: "light" | "dark" | "system";
@@ -36,6 +38,7 @@ export interface PersonalSettings {
   navigation: NavigationSettings;
   notifications: { duration: number };
   editor: EditorSettings;
+  articleAutosave: ArticleAutosaveSettings;
   ai: AiWritingSettings;
   drafts: { enabled: boolean; delay: number };
   logs: { autoScroll: boolean; fontSize: number };
@@ -111,7 +114,7 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
   browser: {
     appearance: {
       mode: choice("system", ["light", "dark", "system"]),
-      hue: number(240, 0, 360),
+      hue: number(defaultPanelHue, 0, 360),
       font: choice("panel", ["panel", "system"]),
       fontSize: number(14, 12, 20),
     },
@@ -123,6 +126,12 @@ const definitions: Record<SettingsScope, Record<string, Record<string, Field>>> 
     },
     notifications: { duration: number(3500, 2000, 10000) },
     drafts: { enabled: flag(true), delay: number(2000, 1000, 10000) },
+    articleAutosave: {
+      enabled: flag(false),
+      scope: choice("both", ["body", "frontmatter", "both"]),
+      trigger: choice("exit", ["exit", "interval", "both"]),
+      intervalSeconds: number(60, 15, 3600),
+    },
     logs: { autoScroll: flag(true), fontSize: number(12, 10, 24) },
     ai: {
       provider: choice(defaultAiWritingSettings.provider, ["openai", "anthropic"]),

@@ -9,3 +9,7 @@ export function useAiCredential(provider: AiProvider) {
     () => "",
   );
 }
+export function useAiVaultState() {
+  useSyncExternalStore(aiCredentials.subscribe, aiCredentials.revision, () => 0);
+  return aiCredentials;
+}

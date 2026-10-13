@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
+import { flushSync } from "react-dom";
 import { api, json } from "../api";
 import { errorMessage } from "../shared/errors";
 import type { ArticleListItem, ArticleRecord, ProjectReport } from "../types";
@@ -14,8 +15,14 @@ import { useArticleDrafts } from "./useArticleDrafts";
 import type { LocalDraft } from "./local-drafts";
 import type { CreationFields, CreationPreview } from "./creation-types";
 import { useLiveProjectReport } from "../workspace/WorkspaceSessionProvider";
-import { sessionLifecycle } from "../auth/session-lifecycle";
 import { useArticleDeleteTarget } from "./useArticleDeleteTarget";
+import {
+  ArticleAutoSaver,
+  articleDraftDirty,
+  mergeAutosavedDraft,
+  type ArticleAutosaveDraft,
+} from "./article-autosave";
+import { useArticleAutosave } from "./useArticleAutosave";
 
 const ARTICLES_PER_PAGE = 10;
 
@@ -30,6 +37,7 @@ export function useArticles() {
   const [sourceRevision, setSourceRevision] = useState(0);
   const [articles, setArticles] = useState<ArticleListItem[]>([]);
   const [article, setArticle] = useState<ArticleRecord | null>(null);
+  const [editorVersion, setEditorVersion] = useState("");
   const [articleLoading, setArticleLoading] = useState(Boolean(selectedId));
   const [articleLoadError, setArticleLoadError] = useState("");
   const [articleLoadAttempt, setArticleLoadAttempt] = useState(0);
@@ -43,7 +51,13 @@ export function useArticles() {
   const [page, setPage] = useState(1);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const [autosaving, setAutosaving] = useState(false);
+  const busyRef = useRef(false);
+  const setBusy = useCallback((value: boolean) => {
+    busyRef.current = value;
+    setBusyState(value);
+  }, []);
   const [createOpen, setCreateOpen] = useState(params.has("new"));
   const [renameOpen, setRenameOpen] = useState(false);
   const deletion = useArticleDeleteTarget(article ? articleProjectKey : projectKey);
@@ -65,51 +79,87 @@ export function useArticles() {
     busy,
     readOnly: Boolean(report?.readOnly),
   });
-
-  useEffect(() => {
-    if (!dirty) {
-      return;
-    }
-
-    const preventExit = (event: BeforeUnloadEvent) => {
-      if (sessionLifecycle.canNavigate()) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", preventExit);
-    return () => window.removeEventListener("beforeunload", preventExit);
-  }, [dirty]);
-
-  useEffect(() => {
-    if (!selectedId || !dirty) {
-      return;
-    }
-
-    const confirmNavigation = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        return;
-      }
-
-      const link = target.closest("a[href]");
-      if (!link || link.getAttribute("target") === "_blank") {
-        return;
-      }
-
-      const destination = new URL(link.getAttribute("href") ?? "", window.location.href);
-      if (
-        (destination.origin !== window.location.origin ||
-          destination.pathname !== window.location.pathname) &&
-        !window.confirm("当前文章有未保存的修改，确定离开吗？")
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-
-    document.addEventListener("click", confirmNavigation, true);
-    return () => document.removeEventListener("click", confirmNavigation, true);
-  }, [selectedId, dirty]);
+  const editorFlush = useRef<(() => void) | null>(null);
+  const registerEditorFlush = useCallback((flush: (() => void) | null) => {
+    editorFlush.current = flush;
+  }, []);
+  const latestAuto = useRef({
+    draft: {
+      article,
+      projectKey: articleProjectKey,
+      source,
+      frontmatter,
+      busy,
+      readOnly: Boolean(report?.readOnly),
+    } as ArticleAutosaveDraft,
+    drafts,
+  });
+  latestAuto.current = {
+    draft: {
+      article,
+      projectKey: articleProjectKey,
+      source,
+      frontmatter,
+      busy,
+      readOnly: Boolean(report?.readOnly),
+    },
+    drafts,
+  };
+  const getAutoDraft = useCallback(
+    () => ({ ...latestAuto.current.draft, busy: busyRef.current }),
+    [],
+  );
+  const autoSaver = useRef<ArticleAutoSaver | null>(null);
+  if (!autoSaver.current)
+    autoSaver.current = new ArticleAutoSaver({
+      getDraft: getAutoDraft,
+      flush: () => editorFlush.current?.(),
+      started: () => {
+        setAutosaving(true);
+        setBusy(true);
+      },
+      finished: () => {
+        setBusy(false);
+        setAutosaving(false);
+      },
+      persist: (input, keepalive) =>
+        api("/api/article/autosave", { ...json("PUT", input), keepalive }),
+      accept: async (result, captured, input) => {
+        const latest = getAutoDraft();
+        const merged = mergeAutosavedDraft(captured, latest, result.article, input);
+        if (
+          selectedIdRef.current !== captured.article?.id ||
+          getAutoDraft().projectKey !== captured.projectKey
+        )
+          return;
+        // Retain the Vditor instance/focus/undo stack while the saved disk version advances.
+        flushSync(() => {
+          setArticle(result.article);
+          setSource(merged.source);
+          setFrontmatter(merged.frontmatter);
+          setPreviewPath(result.previewPath);
+          setError("");
+          setNotice(`文章已自动保存 ${new Date().toLocaleTimeString()}`);
+        });
+        let recoveryError = "";
+        try {
+          await latestAuto.current.drafts.clearSaved(
+            !articleDraftDirty({ ...latest, ...merged, article: result.article }),
+          );
+        } catch (cause) {
+          recoveryError = `文章已保存，但本地恢复副本清理失败：${(cause as Error).message}`;
+        }
+        await loadList();
+        if (recoveryError) setError(recoveryError);
+      },
+    });
+  const autosave = useArticleAutosave({
+    saver: autoSaver.current,
+    getDraft: getAutoDraft,
+    flush: () => editorFlush.current?.(),
+    pauseDraft: () => latestAuto.current.drafts.pause(),
+    reportError: setError,
+  });
 
   const loadList = useCallback(async () => {
     try {
@@ -161,6 +211,7 @@ export function useArticles() {
         setReport(data.report);
         setArticleProjectKey(data.projectKey);
         setArticle(data.article);
+        setEditorVersion(data.article.version);
         setFrontmatter(data.article.frontmatter.map(createFrontmatterRow));
         setSource(data.article.source);
         setPreviewPath(data.previewPath);
@@ -234,25 +285,24 @@ export function useArticles() {
   }, [selectedId, tutorialOpen]);
 
   async function openTutorial() {
-    if (dirty && !window.confirm("当前文章有未保存的修改，确定离开吗？")) return;
-    await drafts.pause();
+    if (!(await autosave.beforeLeave())) return;
     listScrollPosition.current = window.scrollY;
     window.scrollTo({ top: 0, behavior: "auto" });
+    autosave.allowNavigation();
     setParams({ tutorial: "markdown" });
   }
 
   async function choose(id: string) {
-    if (selectedId && dirty && !window.confirm("当前文章有未保存的修改，确定离开吗？")) {
-      return;
-    }
+    if (id === selectedId) return;
+    if (!(await autosave.beforeLeave())) return;
     if (!selectedId) {
       listScrollPosition.current = window.scrollY;
     }
-    await drafts.pause();
     setArticle(null);
     setArticleLoading(true);
     setArticleLoadError("");
     window.scrollTo({ top: 0, behavior: "auto" });
+    autosave.allowNavigation();
     setParams({ post: id });
   }
 
@@ -263,11 +313,9 @@ export function useArticles() {
   }
 
   async function showList() {
-    if (selectedId && dirty && !window.confirm("当前文章有未保存的修改，确定返回文章列表吗？")) {
-      return;
-    }
-    await drafts.pause();
+    if (!(await autosave.beforeLeave())) return;
     shouldRestoreListScroll.current = true;
+    autosave.allowNavigation();
     setParams({});
   }
 
@@ -283,6 +331,7 @@ export function useArticles() {
 
   function applyArticle(nextArticle: ArticleRecord, nextPreviewPath: string | null) {
     setArticle(nextArticle);
+    setEditorVersion(nextArticle.version);
     setFrontmatter(nextArticle.frontmatter.map(createFrontmatterRow));
     setSource(nextArticle.source);
     setPreviewPath(nextPreviewPath);
@@ -325,6 +374,7 @@ export function useArticles() {
       )
         return;
       setArticle(data.article);
+      setEditorVersion(data.article.version);
       setReport(data.report);
       setPreviewPath(data.previewPath);
       drafts.markRestored(row);
@@ -338,7 +388,7 @@ export function useArticles() {
   }
 
   async function saveFrontmatter() {
-    if (!article) {
+    if (!article || busyRef.current) {
       return;
     }
 
@@ -380,7 +430,7 @@ export function useArticles() {
   }
 
   async function saveDocument() {
-    if (!article) {
+    if (!article || busyRef.current) {
       return;
     }
 
@@ -418,7 +468,7 @@ export function useArticles() {
   }
 
   async function saveBody() {
-    if (!article) {
+    if (!article || busyRef.current) {
       return;
     }
 
@@ -465,6 +515,7 @@ export function useArticles() {
   }
 
   async function createArticle(fields: CreationFields, preview: CreationPreview) {
+    if (busyRef.current) return;
     setBusy(true);
     setError("");
     const payload = {
@@ -490,7 +541,7 @@ export function useArticles() {
 
   async function renameArticle(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!article) {
+    if (!article || busyRef.current) {
       return;
     }
 
@@ -516,6 +567,7 @@ export function useArticles() {
       setRenameOpen(false);
       await loadList();
       setArticle(null);
+      autosave.allowNavigation();
       setParams({ post: nextId });
       setNotice("文章已重命名");
     } catch (cause) {
@@ -527,7 +579,7 @@ export function useArticles() {
 
   async function removeArticle(recycle: boolean) {
     const target = deletion.target;
-    if (!target?.version || deletion.loading || busy || report?.readOnly) return;
+    if (!target?.version || deletion.loading || busyRef.current || report?.readOnly) return;
     setBusy(true);
     deletion.setError("");
     try {
@@ -546,6 +598,7 @@ export function useArticles() {
       if (selectedIdRef.current === target.id) {
         setArticle(null);
         shouldRestoreListScroll.current = true;
+        autosave.allowNavigation();
         setParams({});
       }
       await loadList();
@@ -561,6 +614,9 @@ export function useArticles() {
     report,
     projectKey: article ? articleProjectKey : projectKey,
     sourceRevision,
+    editorVersion,
+    autosaving,
+    registerEditorFlush,
     drafts,
     restoreDraft,
     articles,

@@ -6,6 +6,10 @@ import { afterEach, expect, it } from "vitest";
 import { createApp } from "../src/server/app";
 import { saveWorkspacePath } from "../src/lib/server/workspace";
 import { loginCookie } from "./auth-fixture";
+import { createWritingSession } from "../src/client/ai/conversations";
+import { storeConversations } from "../src/shared/ai-conversations";
+import { defaultAiWritingSettings } from "../src/shared/ai-writing";
+import { conversationFile } from "../src/lib/server/ai-conversations";
 const directories: string[] = [],
   token = process.env.PANEL_ACCESS_TOKEN;
 const origin = "http://127.0.0.1:4173";
@@ -54,13 +58,46 @@ async function fixture() {
       headers: { ...headers, "x-mizuki-workspace": workspace.version, ...overrides },
       body: JSON.stringify(body),
     });
-  return { app, headers, workspace, state, filename, source, input, remove };
+  return { app, headers, workspace, state, project, filename, source, input, remove };
 }
+it.each([true, false])(
+  "deletes article sessions through the guarded API and rejects late saves (recycle=%s)",
+  async (recycle) => {
+    const { app, headers, workspace, state, project, input, remove } = await fixture();
+    const url = origin + "/api/ai/conversations?article=one.md";
+    const session = createWritingSession(defaultAiWritingSettings, 1);
+    session.input = "保留的会话草稿";
+    const document = storeConversations([session], session.id);
+    const save = (version: string | null) =>
+      app.request(url, {
+        method: "PUT",
+        headers: { ...headers, "x-mizuki-workspace": workspace.version },
+        body: JSON.stringify({ version, document }),
+      });
+    const saved = await save(null);
+    expect(saved.status).toBe(200);
+    const { version } = await saved.json();
+    expect((await remove({ ...input, recycle })).status).toBe(200);
+    const filename = path.join(state, conversationFile(project, "one.md"));
+    expect(existsSync(filename)).toBe(false);
+    expect((await save(version)).status).toBe(404);
+    expect((await save(null)).status).toBe(404);
+    expect((await app.request(url, { headers })).status).toBe(404);
+    expect(existsSync(filename)).toBe(false);
+    if (recycle) {
+      const trash = path.join(state, "recycle-bin/articles");
+      const payload = (await readdir(trash)).find((name) => name.endsWith("-one.md"))!;
+      expect(
+        JSON.parse(await readFile(path.join(trash, payload, "conversations.json"), "utf8")),
+      ).toEqual(document);
+    }
+  },
+);
 it("defaults to recycling and records the original path for recovery", async () => {
   const { remove, state, filename, source } = await fixture();
   expect(await (await remove()).json()).toEqual({ ok: true, recycled: true });
   expect(existsSync(filename)).toBe(false);
-  const trash = path.join(state, "trash/articles"),
+  const trash = path.join(state, "recycle-bin/articles"),
     entries = await readdir(trash);
   const payload = entries.find((entry) => entry.endsWith("-one.md"))!;
   expect(await readFile(path.join(trash, payload), "utf8")).toBe(source);
@@ -74,7 +111,7 @@ it("permanently deletes only when recycling is explicitly false and leaves no re
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ ok: true, recycled: false });
   expect(existsSync(filename)).toBe(false);
-  expect(existsSync(path.join(state, "trash/articles"))).toBe(false);
+  expect(existsSync(path.join(state, "recycle-bin/articles"))).toBe(false);
   expect(existsSync(filename + ".mizuki-panel.lock")).toBe(false);
 });
 it("rejects wrong sessions, origins, project snapshots, paths, versions and invalid recycle flags", async () => {

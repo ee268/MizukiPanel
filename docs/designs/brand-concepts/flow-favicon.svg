@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="title">
+  <title id="title">MizukiPanel · 流线 M</title>
+  <defs>
+    <linearGradient id="mp-spectrum" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f0a9d0" />
+      <stop offset=".48" stop-color="#aa94e3" />
+      <stop offset="1" stop-color="#49b6df" />
+    </linearGradient>
+    <linearGradient id="mp-water" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#33c0dc" />
+      <stop offset="1" stop-color="#397bd8" />
+    </linearGradient>
+  </defs>
+  <style>svg{color:#1da5d1;--mp-secondary:url(#mp-water);--mp-fold:url(#mp-spectrum)}.panel{fill:#24272d}@media(prefers-color-scheme:dark){.panel{fill:#f0f2f6}}</style>
+  <g aria-hidden="true">
+    <path d="M17 79V29c0-7 6-9 11-4l22 24 22-24c5-5 11-3 11 4v50" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="m50 49 22-24c5-5 11-3 11 4v50" fill="none" stroke="var(--mp-secondary, currentColor)" stroke-width="17" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

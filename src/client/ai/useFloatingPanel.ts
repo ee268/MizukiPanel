@@ -13,6 +13,8 @@ function viewportBounds() {
   };
 }
 function initialRect() {
+  if (window.innerWidth < 32 || window.innerHeight < 32)
+    return { left: 560, top: 73, width: 440, height: 680 };
   const bounds = viewportBounds();
   return fitPanel(
     { left: bounds.right - 440 - 16, top: bounds.bottom - 680 - 80, width: 440, height: 680 },
@@ -31,6 +33,7 @@ export function useFloatingPanel() {
   useEffect(() => {
     const resize = () => {
       gesture.current = null;
+      if (window.innerWidth < 32 || window.innerHeight < 32) return;
       setRect((current) => fitPanel(current, viewportBounds()));
     };
     window.addEventListener("resize", resize);

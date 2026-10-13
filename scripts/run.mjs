@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { waitForApiReady } from "./dev-startup.mjs";
 
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 process.chdir(projectRoot);
@@ -40,6 +41,10 @@ if (mode === "start") {
   await import("../build-server/index.js");
 } else {
   const apiPort = port + 1;
+  if (apiPort > 65535) {
+    console.error("开发模式的 PANEL_PORT 必须小于 65535，以预留 API 端口");
+    process.exit(1);
+  }
   const viteEntry = fileURLToPath(new URL("../node_modules/vite/bin/vite.js", import.meta.url));
   const tsxEntry = fileURLToPath(new URL("../node_modules/tsx/dist/cli.mjs", import.meta.url));
   if (!existsSync(viteEntry) || !existsSync(tsxEntry)) {
@@ -47,29 +52,52 @@ if (mode === "start") {
     process.exit(1);
   }
   const environment = { ...commonEnvironment, API_PORT: String(apiPort) };
-  const api = spawn(process.execPath, [tsxEntry, "src/server/index.ts"], {
+  const api = spawn(process.execPath, ["--import", "tsx", "src/server/index.ts"], {
     cwd: projectRoot,
     env: environment,
-    stdio: "inherit",
+    stdio: ["inherit", "inherit", "inherit", "ipc"],
   });
-  const client = spawn(
-    process.execPath,
-    [viteEntry, "dev", "--host", "127.0.0.1", "--port", String(port), "--strictPort"],
-    {
-      cwd: projectRoot,
-      env: environment,
-      stdio: "inherit",
-    },
-  );
+  let client;
+  let stopping = false;
+  const startup = new AbortController();
   const stop = () => {
+    if (stopping) return;
+    stopping = true;
+    startup.abort();
     api.kill();
-    client.kill();
+    client?.kill();
   };
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  for (const child of [api, client])
-    child.on("exit", (code, signal) => {
-      if (!api.killed || !client.killed) stop();
-      process.exitCode = code ?? (signal ? 1 : 0);
+  if (process.connected) process.once("disconnect", stop);
+  const watch = (child) => {
+    child.once("error", (error) => {
+      console.error(error.message);
+      process.exitCode = 1;
+      stop();
     });
+    child.once("exit", (code, signal) => {
+      if (stopping) return;
+      process.exitCode = code ?? (signal ? 1 : 0);
+      stop();
+    });
+  };
+  watch(api);
+  try {
+    await waitForApiReady(api, startup.signal);
+    if (!stopping) {
+      client = spawn(
+        process.execPath,
+        [viteEntry, "dev", "--host", "127.0.0.1", "--port", String(port), "--strictPort"],
+        { cwd: projectRoot, env: environment, stdio: "inherit" },
+      );
+      watch(client);
+    }
+  } catch (error) {
+    if (!stopping) {
+      console.error(error.message);
+      process.exitCode = 1;
+      stop();
+    }
+  }
 }

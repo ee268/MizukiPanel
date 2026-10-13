@@ -40,7 +40,7 @@ export function AppearanceSettingsForms({ controller }: { controller: SettingsCo
           外观与导航
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-          这些偏好保存在当前浏览器中，可独立保存各组修改。
+          这些偏好保存在面板 .local 目录中，登录后跨浏览器共享；可独立保存各组修改并恢复备份。
         </Typography>
       </Box>
       <SettingsCard title="外观" group="appearance" controller={controller}>

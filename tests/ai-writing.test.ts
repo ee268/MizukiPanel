@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { generateAiWriting } from "../src/lib/server/ai-writing";
 import {
   aiWritingEndpoint,
+  aiModelsEndpoint,
   defaultAiWritingSettings,
   validAiBaseUrl,
   type AiWritingRequest,
@@ -91,6 +92,31 @@ it("uses the Anthropic protocol and returns only text blocks, with truncation fe
     max_tokens: 2048,
   });
   expect(options.body).not.toContain(key);
+});
+
+it("keeps BaseURL preferences empty and uses provider defaults only when sending requests", () => {
+  expect(defaultAiWritingSettings.openaiBaseUrl).toBe("");
+  expect(defaultAiWritingSettings.anthropicBaseUrl).toBe("");
+  expect(validAiBaseUrl("")).toBe(true);
+  expect(aiWritingEndpoint(defaultAiWritingSettings).href).toBe(
+    "https://api.openai.com/v1/chat/completions",
+  );
+  expect(aiModelsEndpoint(defaultAiWritingSettings).href).toBe("https://api.openai.com/v1/models");
+  const anthropic = { ...defaultAiWritingSettings, provider: "anthropic" as const };
+  expect(aiWritingEndpoint(anthropic).href).toBe("https://api.anthropic.com/v1/messages");
+  expect(aiModelsEndpoint(anthropic).href).toBe("https://api.anthropic.com/v1/models");
+  const saved = patchSettings(
+    emptyDocument("browser"),
+    "browser",
+    "ai",
+    {
+      openaiBaseUrl: "https://example.invalid/v1",
+    },
+    "test",
+  );
+  expect(saved.values.ai.openaiBaseUrl).toBe("https://example.invalid/v1");
+  const cleared = patchSettings(saved, "browser", "ai", { openaiBaseUrl: "" }, "test");
+  expect(cleared.values.ai.openaiBaseUrl).toBe("");
 });
 
 it("normalizes service roots, version prefixes and full endpoints without duplicating routes", () => {

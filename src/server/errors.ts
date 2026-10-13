@@ -11,10 +11,12 @@ import { WorkspacePickerError } from "../lib/server/workspace";
 import { WorkspaceError } from "../lib/server/workspace-session";
 import { MaintenanceError } from "../lib/server/maintenance";
 import { SettingsValidationError } from "../shared/panel-settings";
+import { AiVaultError } from "../lib/server/ai-vault";
+import { ConversationValidationError } from "../shared/ai-conversations";
 
 export class ApiError extends Error {
   constructor(
-    public status: 400 | 401 | 403 | 404 | 409 | 429 | 500 | 502 | 504,
+    public status: 400 | 401 | 403 | 404 | 409 | 429 | 500 | 502 | 503 | 504,
     message: string,
   ) {
     super(message);
@@ -29,6 +31,7 @@ export function mapError(error: unknown): never {
   if (error instanceof ApiError) {
     throw error;
   }
+  if (error instanceof AiVaultError) throw new ApiError(error.status, error.message);
   if (error instanceof StorageConflict) {
     throw new ApiError(409, error.message);
   }
@@ -44,7 +47,8 @@ export function mapError(error: unknown): never {
     error instanceof WorkspacePickerError ||
     error instanceof WorkspaceError ||
     error instanceof MaintenanceError ||
-    error instanceof SettingsValidationError
+    error instanceof SettingsValidationError ||
+    error instanceof ConversationValidationError
   ) {
     throw new ApiError(400, error.message);
   }

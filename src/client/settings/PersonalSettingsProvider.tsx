@@ -17,13 +17,15 @@ import {
 } from "../../shared/panel-settings";
 import {
   browserSettingsStorage,
-  PersonalConflict,
   personalSettingsKey,
   readPersonalSettings,
-  recoverPersonalSettings,
   savePersonalSettings,
   storageFailureMessage,
 } from "./personal-storage";
+import { api, ApiError, json } from "../api";
+import { sessionLifecycle } from "../auth/session-lifecycle";
+import { aiCredentials } from "../ai/credentials";
+import type { AiVaultStatus } from "../../shared/ai-vault";
 
 type Patches = Partial<Record<PersonalGroup, { fields: Record<string, unknown>; base?: unknown }>>;
 interface ContextValue {
@@ -36,6 +38,7 @@ interface ContextValue {
   quickAppearance: (fields: Partial<PersonalSettings["appearance"]>) => void;
   rememberSidebar: (collapsed: boolean) => void;
   recover: () => Promise<void>;
+  load: (signal?: AbortSignal) => Promise<void>;
 }
 const Context = createContext<ContextValue | null>(null);
 const initial = (): SettingsSnapshot =>
@@ -49,39 +52,114 @@ export function PersonalSettingsProvider({ children }: { children: ReactNode }) 
   const [previews, setPreviews] = useState<Record<string, Partial<PersonalSettings>>>({});
   const [temporary, setTemporary] = useState<Partial<PersonalSettings>>({});
   const current = useRef(snapshot);
+  const connected = useRef(false);
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   current.current = snapshot;
   const apply = useCallback((next: SettingsSnapshot) => {
     current.current = next;
     setSnapshot(next);
     setTemporary({});
+    // Cache only public display preferences for the login page. Cache failure never loses a disk save.
+    try {
+      const old = browserSettingsStorage.getItem(personalSettingsKey);
+      if (old && readPersonalSettings(browserSettingsStorage).readOnly)
+        browserSettingsStorage.setItem(
+          `${personalSettingsKey}:migration-backup:${Date.now()}`,
+          old,
+        );
+      browserSettingsStorage.setItem(personalSettingsKey, JSON.stringify(next.document));
+    } catch {
+      /* optional cache */
+    }
   }, []);
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      const epoch = sessionLifecycle.getEpoch();
+      const cached = readPersonalSettings(browserSettingsStorage);
+      const next = await api<SettingsSnapshot>("/api/settings/personal/initialize", {
+        ...json("POST", { groups: cached.readOnly ? undefined : cached.document.values }),
+        signal,
+      });
+      if (signal?.aborted || epoch !== sessionLifecycle.getEpoch()) return;
+      connected.current = true;
+      apply(next);
+      setError("");
+    },
+    [apply],
+  );
   useEffect(() => {
+    const refreshShared = () => {
+      if (
+        !connected.current ||
+        !sessionLifecycle.getState().session ||
+        sessionLifecycle.getState().exit
+      )
+        return;
+      const epoch = sessionLifecycle.getEpoch();
+      void api<SettingsSnapshot>("/api/settings/personal")
+        .then((next) => {
+          if (epoch === sessionLifecycle.getEpoch()) apply(next);
+        })
+        .catch(() => {});
+    };
     const refresh = (event: StorageEvent) => {
       if (event.key === personalSettingsKey || event.key === null) {
-        apply(readPersonalSettings(browserSettingsStorage));
-        setError("");
+        if (connected.current) refreshShared();
+        else {
+          const next = readPersonalSettings(browserSettingsStorage);
+          current.current = next;
+          setSnapshot(next);
+        }
       }
     };
     window.addEventListener("storage", refresh);
-    return () => window.removeEventListener("storage", refresh);
+    window.addEventListener("focus", refreshShared);
+    const timer = setInterval(refreshShared, 30000);
+    const unsubscribe = sessionLifecycle.subscribe(() => {
+      if (!sessionLifecycle.getState().session) connected.current = false;
+    });
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refreshShared);
+      clearInterval(timer);
+      unsubscribe();
+    };
   }, [apply]);
   const save = useCallback(
     async (patches: Patches, backup = false) => {
-      const persist = () => {
+      const persist = async () => {
         try {
-          const next = savePersonalSettings(browserSettingsStorage, patches, backup);
+          const epoch = sessionLifecycle.getEpoch();
+          if (sessionLifecycle.getState().session && !connected.current)
+            throw new Error("本机设置尚未成功载入，请重新登录或检查 .local 目录后重试。");
+          const next = !sessionLifecycle.getState().session
+            ? savePersonalSettings(browserSettingsStorage, patches, backup)
+            : await api<SettingsSnapshot>("/api/settings/personal", json("PUT", { patches }));
+          if (epoch !== sessionLifecycle.getEpoch())
+            throw new Error("登录会话已变化，请重新读取设置。");
           apply(next);
+          if (patches.ai && connected.current) {
+            const status = await api<AiVaultStatus>("/api/ai/credentials");
+            if (epoch === sessionLifecycle.getEpoch()) aiCredentials.adopt(status);
+          }
           setError("");
           return next;
         } catch (cause) {
-          if (cause instanceof PersonalConflict)
-            apply(readPersonalSettings(browserSettingsStorage));
+          if (cause instanceof ApiError && cause.status === 409) {
+            try {
+              apply(await api<SettingsSnapshot>("/api/settings/personal"));
+            } catch {
+              /* Retain input and the original conflict if refresh fails. */
+            }
+          }
           const message = storageFailureMessage(cause);
           setError(message);
           throw new Error(message);
         }
       };
-      return navigator.locks ? navigator.locks.request(personalSettingsKey, persist) : persist();
+      const result = queue.current.then(persist);
+      queue.current = result.catch(() => {});
+      return result;
     },
     [apply],
   );
@@ -113,8 +191,12 @@ export function PersonalSettingsProvider({ children }: { children: ReactNode }) 
   );
   const recover = useCallback(async () => {
     try {
-      const next = recoverPersonalSettings(browserSettingsStorage);
+      const next = await api<SettingsSnapshot>(
+        "/api/settings/personal/recover",
+        json("POST", { version: current.current.version }),
+      );
       apply(next);
+      aiCredentials.adopt(await api<AiVaultStatus>("/api/ai/credentials"));
       setError("");
     } catch (cause) {
       const message = storageFailureMessage(cause);
@@ -138,8 +220,20 @@ export function PersonalSettingsProvider({ children }: { children: ReactNode }) 
       quickAppearance,
       rememberSidebar,
       recover,
+      load,
     }),
-    [snapshot, saved, effective, error, save, preview, quickAppearance, rememberSidebar, recover],
+    [
+      snapshot,
+      saved,
+      effective,
+      error,
+      save,
+      preview,
+      quickAppearance,
+      rememberSidebar,
+      recover,
+      load,
+    ],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

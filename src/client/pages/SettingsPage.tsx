@@ -71,7 +71,7 @@ export default function SettingsPage() {
             severity="warning"
             action={<Button onClick={() => setRecoverOpen(true)}>恢复默认</Button>}
           >
-            浏览器设置已暂停写入。恢复前会保留损坏数据副本。
+            本机界面与编辑设置已暂停写入。恢复前会在 .local 中保留损坏数据副本。
           </Alert>
         )}
         {serverError && (
@@ -173,9 +173,9 @@ export default function SettingsPage() {
         onClose={() => setRecoverOpen(false)}
         aria-labelledby="settings-recover-title"
       >
-        <DialogTitle id="settings-recover-title">恢复浏览器默认设置</DialogTitle>
+        <DialogTitle id="settings-recover-title">恢复本机界面与编辑默认设置</DialogTitle>
         <DialogContent>
-          将保存原数据副本并重置当前浏览器的外观、导航、操作提示、编辑器与草稿保存偏好。文章、本地恢复副本和项目模板不受影响。
+          将在 .local 中备份原数据，并重置所有浏览器共享的界面、导航、编辑器、AI 配置与草稿保存偏好。已存密钥、文章恢复副本和项目模板保留。
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setRecoverOpen(false)}>取消</Button>

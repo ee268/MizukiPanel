@@ -9,6 +9,10 @@ import {
   type PersonalSettings,
 } from "../../shared/panel-settings";
 import { usePersonalSettings } from "./PersonalSettingsProvider";
+import { useAiVaultState } from "../ai/useAiCredential";
+import { api, json } from "../api";
+import { sessionLifecycle } from "../auth/session-lifecycle";
+import type { AiVaultStatus } from "../../shared/ai-vault";
 
 const groups = Object.keys(defaultPersonalSettings) as PersonalGroup[];
 type Drafts = {
@@ -29,12 +33,14 @@ function fields(group: PersonalGroup, value: unknown): Record<string, unknown> {
 }
 export function usePersonalDrafts() {
   const preferences = usePersonalSettings();
+  const aiVault = useAiVaultState();
   const owner = useId();
   const [drafts, setDrafts] = useState(() => makeDrafts(preferences.saved));
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
   const isDirty = (group: PersonalGroup) =>
-    groupFingerprint(drafts[group].value) !== groupFingerprint(drafts[group].base);
+    groupFingerprint(drafts[group].value) !== groupFingerprint(drafts[group].base) ||
+    (group === "ai" && aiVault.dirty());
   const isConflict = (group: PersonalGroup) =>
     groupFingerprint(drafts[group].base) !== groupFingerprint(preferences.saved[group]);
   useEffect(() => {
@@ -92,6 +98,7 @@ export function usePersonalDrafts() {
     }));
   }
   function reset(group: PersonalGroup, defaults = false) {
+    if (group === "ai") aiVault.resetDraft();
     setNotice("");
     setDrafts((current) => ({
       ...current,
@@ -106,6 +113,30 @@ export function usePersonalDrafts() {
     setSaving(true);
     setNotice("");
     try {
+      if (selected.includes("ai")) {
+        // Validate public preferences before persisting any credential change.
+        patchSettings(
+          emptyDocument("browser"),
+          "browser",
+          "ai",
+          fields("ai", drafts.ai.value),
+          "validate",
+        );
+        if (isConflict("ai")) throw new Error("AI 设置已在其他页面修改，请重新载入后保存。");
+        const changes = aiVault.pending();
+        const epoch = sessionLifecycle.getEpoch();
+        const status = await api<AiVaultStatus>(
+          "/api/ai/credentials",
+          json("PUT", {
+            version: aiVault.status().version,
+            settings: drafts.ai.value,
+            keys: changes,
+          }),
+        );
+        if (epoch !== sessionLifecycle.getEpoch() || sessionLifecycle.getState().exit)
+          throw new Error("登录会话已变化，请重新登录后检查已保存配置。");
+        aiVault.acknowledge(status, changes);
+      }
       const patches = Object.fromEntries(
         selected.map((group) => [
           group,
@@ -135,6 +166,7 @@ export function usePersonalDrafts() {
     }
   }
   function cancelAll() {
+    aiVault.resetDraft();
     setDrafts(makeDrafts(preferences.saved));
     preferences.preview(owner, null);
   }

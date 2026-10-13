@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 100" role="img" aria-labelledby="title">
+  <title id="title">MizukiPanel · MP 连字</title>
+  <defs>
+    <linearGradient id="mp-spectrum" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f0a9d0" />
+      <stop offset=".48" stop-color="#aa94e3" />
+      <stop offset="1" stop-color="#49b6df" />
+    </linearGradient>
+    <linearGradient id="mp-water" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#33c0dc" />
+      <stop offset="1" stop-color="#397bd8" />
+    </linearGradient>
+  </defs>
+  <style>svg{color:#1da5d1;--mp-secondary:url(#mp-water);--mp-fold:url(#mp-spectrum)}.panel{fill:#24272d}@media(prefers-color-scheme:dark){.panel{fill:#f0f2f6}}</style>
+  <g aria-hidden="true">
+    <path fill="currentColor" d="M11 84V24c0-7 7-10 12-5l24 23 24-23c5-5 12-2 12 5v60H68V45L47 64 26 45v39Z" />
+    <path fill="var(--mp-secondary, currentColor)" d="M57 13h18c15 0 24 10 24 24S90 61 75 61H57V46h18c5 0 9-3 9-9s-4-9-9-9H57Z" />
+  </g>
+  <text x="113" y="66" font-family="Georgia,serif" font-size="47" letter-spacing="-1.6" font-weight="700" fill="currentColor">
+    <tspan>Mizuki</tspan>
+    <tspan class="panel" font-weight="400" font-family="Segoe UI,Arial,sans-serif">Panel</tspan>
+  </text>
+</svg>

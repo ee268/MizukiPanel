@@ -9,6 +9,8 @@ import { useProjectTemplate } from "./useProjectTemplate";
 import { useScopedSettings } from "./useScopedSettings";
 import { useWorkspaceSession } from "../workspace/WorkspaceSessionProvider";
 import { useSessionRecovery } from "../auth/useSessionRecovery";
+import { aiCredentials } from "../ai/credentials";
+import type { AiVaultStatus } from "../../shared/ai-vault";
 
 export function useSettingsController() {
   const [serverError, setServerError] = useState("");
@@ -186,7 +188,7 @@ export function useSettingsController() {
     return () => abort.abort();
   }, [reload, workspace.data?.version]);
   const warnings = [
-    ...preferences.snapshot.warnings.map((warning) => `浏览器偏好：${warning}`),
+    ...preferences.snapshot.warnings.map((warning) => `本机偏好：${warning}`),
     ...(overview?.warnings ?? []),
     ...(overview?.machine.warnings ?? []).map((warning) => `本机面板：${warning}`),
     ...(overview?.project?.settings.warnings ?? []).map((warning) => `当前项目：${warning}`),
@@ -212,7 +214,14 @@ export function useSettingsController() {
     reload,
     warnings,
     refreshWorkspace,
-    reloadSettings: () => setReload((value) => value + 1),
+    reloadSettings: () => {
+      setReload((value) => value + 1);
+      void preferences
+        .load()
+        .then(() => api<AiVaultStatus>("/api/ai/credentials"))
+        .then((status) => aiCredentials.adopt(status))
+        .catch((cause: Error) => setServerError(cause.message));
+    },
     maintenanceRevision: `${workspace.data?.version}:${workspace.data?.report?.readOnly}:${reload}`,
   };
 }

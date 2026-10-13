@@ -13,4 +13,5 @@ const app = createApp();
 
 serve({ fetch: app.fetch, hostname: "127.0.0.1", port }, () => {
   console.log(`MizukiPanel API: http://127.0.0.1:${port}`);
+  if (process.send && process.connected) process.send({ type: "mizuki-panel:api-ready" });
 });

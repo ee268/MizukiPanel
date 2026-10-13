@@ -15,6 +15,7 @@ import { usePersonalSettings } from "./PersonalSettingsProvider";
 import { SettingsCard, type SettingsController } from "./SettingsCard";
 import "../articles/editor-fonts.css";
 import { DraftSettingsForm } from "./DraftSettingsForm";
+import { ArticleAutosaveSettingsForm } from "./ArticleAutosaveSettingsForm";
 import { SettingsModule } from "./SettingsModule";
 import { ContentLoading } from "../components/ContentLoading";
 const EditorPreview = lazy(() => import("./EditorPreview"));
@@ -67,7 +68,8 @@ export function EditorSettingsForms({
           文章编辑
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-          显示与草稿保存偏好属于当前浏览器，新文章模板属于当前项目；不会改动现有文章或站点字体配置。
+          显示、自动保存与草稿偏好保存在面板 .local
+          中，新文章模板属于当前项目；文章恢复副本仍保存在当前浏览器中。
         </Typography>
       </Box>
       <SettingsCard title="编辑器" group="editor" controller={controller}>
@@ -207,6 +209,7 @@ export function EditorSettingsForms({
           </Typography>
         </Stack>
       </SettingsCard>
+      <ArticleAutosaveSettingsForm controller={controller} />
       <DraftSettingsForm controller={controller} />
       <SettingsModule label="AI 辅助写作" estimatedHeight={820}>
         <Suspense

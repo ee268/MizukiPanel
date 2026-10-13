@@ -101,7 +101,7 @@ export function ProjectTemplateForm({
         </Stack>
         {!base && (
           <Alert severity="info">
-            连接项目后可设置模板；浏览器显示偏好和本地草稿设置仍可使用。
+            连接项目后可设置模板；本机显示偏好和草稿保存设置仍可使用。
           </Alert>
         )}
         {controller.conflict && (

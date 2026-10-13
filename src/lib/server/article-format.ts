@@ -164,7 +164,7 @@ export function frontmatterEntries(data: Record<string, unknown>): FrontmatterEn
   }));
 }
 
-function dataFromEntries(entries: FrontmatterEntry[]): Record<string, unknown> {
+export function dataFromEntries(entries: FrontmatterEntry[]): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   for (const [index, entry] of entries.entries()) {
     const key = entry.key.trim();

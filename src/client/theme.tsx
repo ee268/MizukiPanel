@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import { PersonalSettingsProvider, usePersonalSettings } from "./settings/PersonalSettingsProvider";
 import { panelFontFamilies } from "./font-families";
+import { defaultPanelHue } from "../shared/panel-settings";
 
 export type PanelColorMode = "light" | "dark" | "system";
 
@@ -17,7 +18,7 @@ interface PanelThemeContextValue extends PanelThemeSettings {
   reset: () => void;
 }
 
-export const defaultPanelTheme: PanelThemeSettings = { hue: 240, mode: "system" };
+export const defaultPanelTheme: PanelThemeSettings = { hue: defaultPanelHue, mode: "system" };
 
 export function normalizeHue(value: number): number {
   if (!Number.isFinite(value)) return defaultPanelTheme.hue;

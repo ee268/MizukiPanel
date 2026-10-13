@@ -6,6 +6,9 @@ import { createApp } from "../src/server/app";
 import { saveWorkspacePath } from "../src/lib/server/workspace";
 import { defaultAiWritingSettings } from "../src/shared/ai-writing";
 import { loginCookie } from "./auth-fixture";
+import { AiVault, aiVaultFileName } from "../src/lib/server/ai-vault";
+import { createWritingSession } from "../src/client/ai/conversations";
+import { storeConversations } from "../src/shared/ai-conversations";
 
 const directories: string[] = [];
 const originalToken = process.env.PANEL_ACCESS_TOKEN;
@@ -18,7 +21,7 @@ afterEach(async () => {
   for (const directory of directories.splice(0))
     await rm(directory, { recursive: true, force: true });
 });
-async function fixture() {
+async function fixture(secure = false) {
   const root = await mkdtemp(path.join(tmpdir(), "mizuki-ai-route-"));
   directories.push(root);
   const project = path.join(root, "project"),
@@ -38,7 +41,8 @@ async function fixture() {
   await writeFile(articlePath, source);
   await saveWorkspacePath(project, stateDir);
   process.env.PANEL_ACCESS_TOKEN = "ai-test";
-  const app = createApp({ expectedOrigin: origin, stateDir });
+  const vault = secure ? new AiVault(path.join(root, "secure", aiVaultFileName)) : undefined;
+  const app = createApp({ expectedOrigin: origin, stateDir, aiVault: vault });
   const headers = {
     cookie: await loginCookie(app, "ai-test"),
     origin,
@@ -60,8 +64,105 @@ async function fixture() {
       headers: { ...headers, "x-mizuki-workspace": workspace.version, ...overrides },
       body: JSON.stringify(body),
     });
-  return { app, headers, workspace, input, post, articlePath, source, stateDir };
+  return { app, headers, workspace, input, post, articlePath, source, stateDir, vault };
 }
+it("persists article sessions behind login, origin and workspace guards, without keys or upstream calls", async () => {
+  const { app, headers, workspace, input } = await fixture();
+  const url = origin + "/api/ai/conversations?article=one.md";
+  const session = createWritingSession(input.settings, 1),
+    document = storeConversations([session], session.id);
+  const save = (body: unknown, changes: Record<string, string> = {}) =>
+    app.request(url, {
+      method: "PUT",
+      headers: { ...headers, "x-mizuki-workspace": workspace.version, ...changes },
+      body: JSON.stringify(body),
+    });
+  expect((await app.request(url)).status).toBe(401);
+  expect((await save({ version: null, document }, { origin: "http://wrong.invalid" })).status).toBe(
+    403,
+  );
+  expect((await save({ version: null, document }, { "x-mizuki-workspace": "old" })).status).toBe(
+    409,
+  );
+  const saved = await save({ version: null, document });
+  expect(saved.status).toBe(200);
+  expect(saved.headers.get("cache-control")).toBe("no-store");
+  const data = await saved.json();
+  expect((await (await app.request(url, { headers })).json()).document).toEqual(document);
+  expect((await save({ version: null, document })).status).toBe(409);
+  expect((await save({ version: data.version })).status).toBe(400);
+  expect(
+    (
+      await save({
+        version: data.version,
+        document: {
+          ...document,
+          sessions: [
+            {
+              ...document.sessions[0],
+              settings: { ...document.sessions[0].settings, apiKey: key },
+            },
+          ],
+        },
+      })
+    ).status,
+  ).toBe(400);
+});
+it.skipIf(process.platform !== "win32")(
+  "protects vault endpoints, returns only status, and uses saved keys for model and writing requests",
+  async () => {
+    const { app, headers, input, post, vault, workspace } = await fixture(true);
+    const save = (body: unknown, changes: Record<string, string> = {}) =>
+      app.request(origin + "/api/ai/credentials", {
+        method: "PUT",
+        headers: { ...headers, ...changes },
+        body: JSON.stringify(body),
+      });
+    expect((await app.request(origin + "/api/ai/credentials")).status).toBe(401);
+    const body = { version: null, settings: input.settings, keys: { openai: key } };
+    expect((await save(body, { origin: "http://wrong.invalid" })).status).toBe(403);
+    expect((await save(body, { cookie: "" })).status).toBe(401);
+    const response = await save(body);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const saved = await response.json();
+    expect(saved.saved.openai).toBe(true);
+    expect(JSON.stringify(saved)).not.toContain(key);
+    const get = await app.request(origin + "/api/ai/credentials", { headers });
+    expect(get.headers.get("cache-control")).toBe("no-store");
+    expect(await get.text()).not.toContain(key);
+    expect(await readFile(vault!.file, "utf8")).not.toContain(key);
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "安全建议" }, finish_reason: "stop" }],
+        }),
+      ),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    const writing = await post({ ...input, apiKey: "", useSavedKey: true });
+    expect(writing.status).toBe(200);
+    expect(fetcher.mock.calls[0][1].headers.Authorization).toBe(`Bearer ${key}`);
+    fetcher.mockResolvedValue(new Response(JSON.stringify({ data: [{ id: "test-model" }] })));
+    const models = await app.request(origin + "/api/ai/models", {
+      method: "POST",
+      headers: { ...headers, "x-mizuki-workspace": workspace.version },
+      body: JSON.stringify({ settings: input.settings, apiKey: "", useSavedKey: true }),
+    });
+    expect(models.status).toBe(200);
+    expect(await models.text()).not.toContain(key);
+    const cleared = await save({
+      version: saved.version,
+      settings: input.settings,
+      keys: { openai: "" },
+    });
+    expect((await cleared.json()).saved.openai).toBe(false);
+    fetcher.mockClear();
+    expect((await post({ ...input, apiKey: "", useSavedKey: true })).status).toBe(400);
+    expect(fetcher).not.toHaveBeenCalled();
+  },
+  20000,
+);
 it("requires a session, matching origin and current workspace before sending credentials", async () => {
   const { post } = await fixture();
   const fetcher = vi.fn();

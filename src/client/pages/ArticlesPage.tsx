@@ -135,12 +135,15 @@ export default function ArticlesPage() {
                   <ArticleEditor
                     article={articles.article}
                     sourceRevision={articles.sourceRevision}
+                    editorVersion={articles.editorVersion}
+                    registerEditorFlush={articles.registerEditorFlush}
                     projectRoot={articles.report?.root ?? ""}
                     previewPath={articles.previewPath}
                     frontmatter={articles.frontmatter}
                     source={articles.source}
                     mode={articles.mode}
                     busy={articles.busy}
+                    autosaving={articles.autosaving}
                     dirty={articles.dirty}
                     sourceDirty={articles.sourceDirty}
                     readOnly={Boolean(articles.report?.readOnly)}
@@ -148,12 +151,6 @@ export default function ArticlesPage() {
                     onSourceChange={articles.setSource}
                     onModeChange={articles.setMode}
                     onPreview={(path) => {
-                      if (
-                        articles.dirty &&
-                        !window.confirm("当前文章有未保存的修改，确定离开并查看Mizuki预览吗？")
-                      ) {
-                        return;
-                      }
                       navigate(`/preview?path=${encodeURIComponent(path)}`);
                     }}
                     onRename={() => articles.setRenameOpen(true)}

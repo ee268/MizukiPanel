@@ -3,16 +3,41 @@ import { bodyLimit } from "hono/body-limit";
 import { AiWritingError, generateAiWriting } from "../../lib/server/ai-writing";
 import { currentProject } from "../project";
 import { listAiModels } from "../../lib/server/ai-models";
+import { aiVault, AiVaultError, type AiVault } from "../../lib/server/ai-vault";
 
-export function registerAiWritingRoutes(app: Hono) {
-  app.post("/api/article/ai-writing", bodyLimit({ maxSize: 512 * 1024 }), async (context) => {
+async function withSavedKey(input: unknown, vault?: AiVault) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const value = input as {
+    settings?: { provider?: unknown };
+    apiKey?: unknown;
+    useSavedKey?: unknown;
+  };
+  const provider = value.settings?.provider;
+  if (
+    value.useSavedKey !== true ||
+    value.apiKey ||
+    (provider !== "openai" && provider !== "anthropic")
+  )
+    return input;
+  try {
+    return { ...value, apiKey: await (vault ?? aiVault()).key(provider) };
+  } catch (cause) {
+    throw new AiWritingError(
+      503,
+      cause instanceof AiVaultError ? cause.message : "无法读取已保存密钥。",
+    );
+  }
+}
+
+export function registerAiWritingRoutes(app: Hono, vault?: AiVault) {
+  app.post("/api/article/ai-writing", bodyLimit({ maxSize: 1024 * 1024 }), async (context) => {
     try {
       const report = await currentProject();
       if (report.readOnly || report.mode === "blocked")
         return context.json({ message: "当前工作区不可编辑。" }, 403, {
           "cache-control": "no-store",
         });
-      const input: unknown = await context.req.json();
+      const input = await withSavedKey(await context.req.json(), vault);
       return context.json(await generateAiWriting(input, context.req.raw.signal), 200, {
         "cache-control": "no-store",
       });
@@ -29,7 +54,10 @@ export function registerAiWritingRoutes(app: Hono) {
   app.post("/api/ai/models", bodyLimit({ maxSize: 32 * 1024 }), async (context) => {
     try {
       return context.json(
-        await listAiModels(await context.req.json(), context.req.raw.signal),
+        await listAiModels(
+          await withSavedKey(await context.req.json(), vault),
+          context.req.raw.signal,
+        ),
         200,
         { "cache-control": "no-store" },
       );

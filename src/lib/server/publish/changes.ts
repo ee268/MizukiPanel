@@ -6,7 +6,7 @@ import { projectRuntime, appendLog, begin, finish } from "./runtime";
 import { git, changesFor, ref, pathInside, normalizeGitPath, MAX_DIFF_BYTES } from "./git";
 import type { ProjectReport } from "../project";
 import { PublishError } from "./errors";
-import { assertNoStagedApiKeys } from "./credentials";
+import { assertNoStagedApiKeys, containsSensitiveValue, savedSensitiveKeys } from "./credentials";
 import { containsApiCredential } from "../../../shared/api-credentials";
 function findSelected(report: ProjectReport, changes: PublishChange[], selected: string[]) {
   if (
@@ -92,6 +92,9 @@ export async function commitSelected(
     hadHead = false;
   try {
     const subject = validateCommitMessage(message);
+    const keys = await savedSensitiveKeys();
+    if (containsSensitiveValue(subject, keys))
+      throw new PublishError("提交说明含有疑似密钥，已取消提交。");
     const changes = await changesFor(report);
     if (changes.some((c) => c.staged)) throw new PublishError("暂存区已有内容；请先处理现有暂存项");
     if (changes.some((c) => c.conflict)) throw new PublishError("仓库存在未解决的合并冲突");
@@ -114,7 +117,7 @@ export async function commitSelected(
     )
       .split("\0")
       .filter(Boolean);
-    await assertNoStagedApiKeys(report, stagedFiles);
+    await assertNoStagedApiKeys(report, stagedFiles, keys);
     await git(report, ["commit", "-m", subject], { timeout: 60_000, output: true });
     added = false;
     const sha = (await git(report, ["rev-parse", "HEAD"])).trim();

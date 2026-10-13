@@ -1,7 +1,12 @@
 import type { ArticleListItem } from "../../shared/article";
+import type { ArticleAutosaveRequest } from "../../shared/article-autosave";
 export type { ArticleListItem } from "../../shared/article";
-import { randomUUID } from "node:crypto";
-import { recordArchive } from "./archive-metadata";
+import { moveToRecycleBin } from "./recycle-bin";
+import { existingConversationFile, withConversationFile } from "./ai-conversations";
+import {
+  permanentlyRemoveArticleConversations,
+  recycleArticleWithConversations,
+} from "./article-conversation-recovery";
 import { validatePostPath } from "../../shared/panel-settings/article-template";
 import { slug as githubSlug } from "github-slugger";
 import { constants } from "node:fs";
@@ -56,9 +61,6 @@ function relativePost(report: ProjectReport, id: string) {
 }
 function backupDir() {
   return path.join(defaultStateDir(), "backups", "articles");
-}
-function trashDir() {
-  return path.join(defaultStateDir(), "trash", "articles");
 }
 
 async function collect(root: string, current: string, relative = ""): Promise<string[]> {
@@ -321,6 +323,28 @@ export async function saveArticleBody(
   });
 }
 
+/** Validate both selected parts against one baseline and commit one file/backup/version. */
+export async function saveArticleAutosave(report: ProjectReport, input: ArticleAutosaveRequest) {
+  const { root } = writable(report);
+  const relative = relativePost(report, input.id);
+  const current = await readManagedFile(root, relative);
+  if (current.version !== input.version)
+    throw new StorageConflict("文章已在其他位置修改，自动保存已停止，请核对最新版本。");
+  parseArticleSource(current.content);
+  let source = current.content;
+  if (input.body !== undefined) {
+    const format = input.id.toLowerCase().endsWith(".mdx") ? "mdx" : "md";
+    source = await validateArticleBody(source, input.body, format, input.sourceEdits ?? []);
+  }
+  if (input.entries !== undefined) source = patchArticleFrontmatter(source, input.entries);
+  await assertUnique(report, input.id, source, input.id);
+  if (source === current.content) return { version: input.version, backupPath: null };
+  return writeManagedFile(root, relative, source, input.version, backupDir(), {
+    domain: "article",
+    projectRoot: report.root,
+  });
+}
+
 export async function saveArticleFields(
   report: ProjectReport,
   id: string,
@@ -355,13 +379,7 @@ export async function saveArticleFrontmatter(
   });
 }
 
-async function transfer(
-  report: ProjectReport,
-  id: string,
-  version: string,
-  target: string,
-  trash = false,
-) {
+async function transfer(report: ProjectReport, id: string, version: string, target: string) {
   const { root } = writable(report);
   const source = await assertManagedRealPath(root, relativePost(report, id));
   const current = await readManagedFile(root, relativePost(report, id));
@@ -383,17 +401,11 @@ async function transfer(
     copied = true;
     const latest = await readManagedFile(root, relativePost(report, id));
     if (latest.version !== version) throw new StorageConflict("文章在操作期间发生修改");
-    if (trash)
-      await recordArchive(target, "trash", root, relativePost(report, id), {
-        domain: "article",
-        projectRoot: report.root,
-      });
     if ((await readManagedFile(root, relativePost(report, id))).version !== version)
       throw new StorageConflict("文章在操作期间发生修改");
     await unlink(source);
   } catch (error) {
     if (copied) await rm(target, { force: true });
-    if (trash) await rm(target + ".meta.json", { force: true });
     throw error;
   } finally {
     await lock.close();
@@ -425,13 +437,38 @@ export async function deleteArticle(
   id: string,
   version: string,
 ): Promise<string> {
-  writable(report);
-  const target = path.join(trashDir(), randomUUID() + "-" + path.basename(id));
-  await transfer(report, id, version, target, true);
-  return target;
+  const { root } = writable(report);
+  const relative = relativePost(report, id);
+  const stateDir = defaultStateDir();
+  return withConversationFile(stateDir, report.root, id, async (filename) => {
+    if (await existingConversationFile(filename))
+      return recycleArticleWithConversations(
+        root,
+        relative,
+        report.root,
+        stateDir,
+        filename,
+        version,
+      );
+    return moveToRecycleBin(
+      root,
+      relative,
+      "articles",
+      {
+        domain: "article",
+        projectRoot: report.root,
+      },
+      { version, stateDir },
+    );
+  });
 }
 
 export async function permanentlyDeleteArticle(report: ProjectReport, id: string, version: string) {
   const { root } = writable(report);
-  await removeManagedFile(root, relativePost(report, id), version);
+  const relative = relativePost(report, id);
+  await withConversationFile(defaultStateDir(), report.root, id, (filename) =>
+    permanentlyRemoveArticleConversations(filename, () =>
+      removeManagedFile(root, relative, version),
+    ),
+  );
 }

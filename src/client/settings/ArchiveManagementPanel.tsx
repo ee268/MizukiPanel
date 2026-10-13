@@ -99,6 +99,17 @@ export function ArchiveManagementPanel({
           <Typography variant="h6" component="h3">
             {title}
           </Typography>
+          {kind === "trash" && (
+            <Typography color="text.secondary">
+              仅统计移入回收站的文件和文件夹；文件夹计为一项，保存备份不计入。
+            </Typography>
+          )}
+          {kind === "backup" && (
+            <Typography color="text.secondary">
+              包括 .local 中的界面与编辑偏好、项目设置及 AI 加密备份。AI 备份仅保存密文，需使用原
+              Windows 账户恢复。
+            </Typography>
+          )}
           {inventory && (
             <Typography color="text.secondary">
               共 {ownedItems.length} 项 · 占用{" "}

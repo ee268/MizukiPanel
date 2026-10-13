@@ -1,6 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { constants } from "node:fs";
-import { copyFile, lstat, mkdir, readFile, readdir, rm, stat, unlink } from "node:fs/promises";
+import { lstat, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import ts from "typescript";
 import {
@@ -18,7 +16,7 @@ import {
   mediaProjectRoots,
   projectMediaTarget,
 } from "./media-paths";
-import { archiveSnapshot, recordArchive } from "./archive-metadata";
+import { moveToRecycleBin } from "./recycle-bin";
 import { defaultStateDir } from "./workspace";
 
 async function outputDirectories(root: string) {
@@ -226,21 +224,14 @@ export async function deleteProjectImage(
     throw new MediaError(`图片仍有 ${item.referencedBy.length} 处引用，请先移除引用。`);
   const target = await assertProjectMediaLocation(report, absolute);
   if (!(await lstat(target.filename)).isFile()) throw new MediaError("图片目标不是普通文件。");
-  const trash = path.join(stateDir, "trash/media", randomUUID() + "-" + path.basename(absolute));
-  await mkdir(path.dirname(trash), { recursive: true });
-  await copyFile(target.filename, trash, constants.COPYFILE_EXCL);
-  try {
-    const metadata = await recordArchive(trash, "trash", target.root, target.relative, {
+  return moveToRecycleBin(
+    target.root,
+    target.relative,
+    "media",
+    {
       domain: "media",
       projectRoot: report.root,
-    });
-    if ((await archiveSnapshot(target.filename)).digest !== metadata.digest)
-      throw new MediaError("图片在回收时发生变化，请重试。");
-    await unlink(target.filename);
-  } catch (error) {
-    await rm(trash, { force: true });
-    await rm(trash + ".meta.json", { force: true });
-    throw error;
-  }
-  return trash;
+    },
+    { stateDir },
+  );
 }

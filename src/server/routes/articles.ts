@@ -1,4 +1,6 @@
 import type { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import type { ArticleAutosaveRequest } from "../../shared/article-autosave";
 import type { FrontmatterEntry } from "../../lib/server/article-format";
 import {
   articlePreviewPath,
@@ -12,6 +14,7 @@ import {
   saveArticleFrontmatter,
   saveArticleBody,
   saveArticleSource,
+  saveArticleAutosave,
 } from "../../lib/server/articles";
 import type { SourceIslandEdit } from "../../lib/server/article-body-validation";
 import { ApiError, mapError } from "../errors";
@@ -187,6 +190,44 @@ export function registerArticleRoutes(app: Hono, stateDir?: string) {
     } catch (error) {
       mapError(error);
     }
+  });
+
+  app.put("/api/article/autosave", bodyLimit({ maxSize: 4 * 1024 * 1024 }), async (context) => {
+    const body = await context.req.json<ArticleAutosaveRequest>().catch(() => null);
+    if (
+      !body ||
+      typeof body.id !== "string" ||
+      !body.id ||
+      typeof body.version !== "string" ||
+      !body.version ||
+      typeof body.projectKey !== "string" ||
+      !body.projectKey ||
+      (body.body === undefined && body.entries === undefined) ||
+      (body.body !== undefined && typeof body.body !== "string") ||
+      (body.entries !== undefined && !Array.isArray(body.entries)) ||
+      (body.entries !== undefined &&
+        !body.entries.every(
+          (entry) =>
+            entry &&
+            typeof entry.key === "string" &&
+            typeof entry.value === "string" &&
+            (entry.originalKey === undefined || typeof entry.originalKey === "string") &&
+            Object.keys(entry).every((key) => ["key", "value", "originalKey"].includes(key)),
+        )) ||
+      (body.sourceEdits !== undefined &&
+        (!Array.isArray(body.sourceEdits) || body.body === undefined)) ||
+      Object.keys(body).some(
+        (key) => !["id", "version", "projectKey", "body", "entries", "sourceEdits"].includes(key),
+      )
+    )
+      throw new ApiError(400, "自动保存参数无效。");
+    const report = await boundProject(body);
+    await saveArticleAutosave(report, body);
+    const article = await readArticle(report, body.id);
+    return context.json({
+      article,
+      previewPath: article.error ? null : articlePreviewPath(article),
+    });
   });
 
   app.post("/api/article/rename", async (context) => {

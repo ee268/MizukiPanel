@@ -19,11 +19,21 @@ import { collectSourceIslandEdits } from "../../lib/articles/source-island-edits
 import "./editor-fonts.css";
 import { useSessionRecovery } from "../auth/useSessionRecovery";
 import { vditorBody } from "./vditor-source";
+import AutoAwesomeOutlined from "@mui/icons-material/AutoAwesomeOutlined";
+import {
+  publicFrontmatter,
+  frontmatterFingerprint,
+  mergeAiFrontmatterChanges,
+} from "../../shared/ai-frontmatter";
+import { patchArticleFrontmatter } from "../../lib/server/article-format";
+import { createFrontmatterRow } from "./types";
 const AiWritingPanel = lazy(() => import("../ai/AiWritingPanel"));
 
 interface ArticleEditorProps {
   onLoadEnd?: () => void;
   sourceRevision?: number;
+  editorVersion?: string;
+  registerEditorFlush?: (flush: (() => void) | null) => void;
   temporary?: boolean;
   article: ArticleRecord | null;
   projectRoot: string;
@@ -32,6 +42,7 @@ interface ArticleEditorProps {
   source: string;
   mode: ArticleEditorMode;
   busy: boolean;
+  autosaving?: boolean;
   readOnly: boolean;
   dirty: boolean;
   sourceDirty: boolean;
@@ -49,6 +60,8 @@ interface ArticleEditorProps {
 export function ArticleEditor({
   onLoadEnd,
   sourceRevision,
+  editorVersion,
+  registerEditorFlush,
   temporary = false,
   article,
   projectRoot,
@@ -57,6 +70,7 @@ export function ArticleEditor({
   source,
   mode,
   busy,
+  autosaving = false,
   readOnly,
   dirty,
   sourceDirty,
@@ -71,13 +85,15 @@ export function ArticleEditor({
   onSaveBody,
 }: ArticleEditorProps) {
   const vditorRef = useRef<VditorBodyEditorHandle>(null);
-  const [aiContext, setAiContext] = useState<AiWritingContext | null>(null);
-  const [aiOpen, setAiOpen] = useState(false);
-  const [aiError, setAiError] = useState("");
   useEffect(() => {
-    setAiContext(null);
+    registerEditorFlush?.(() => flushSync(() => vditorRef.current?.flush()));
+    return () => registerEditorFlush?.(null);
+  }, [registerEditorFlush]);
+  const [aiMounted, setAiMounted] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  useEffect(() => {
+    setAiMounted(false);
     setAiOpen(false);
-    setAiError("");
   }, [projectRoot, article?.id]);
   const fontMode = useEditorFontMode(projectRoot);
   const activeMode = article?.error ? "frontmatter" : mode;
@@ -124,11 +140,6 @@ export function ArticleEditor({
   if (!article) return <ArticleLoading />;
   return (
     <Stack spacing={2} onKeyDownCapture={handleSaveShortcut}>
-      {aiError && (
-        <Alert severity="error" onClose={() => setAiError("")}>
-          {aiError}
-        </Alert>
-      )}
       <Paper variant="outlined" sx={{ overflow: "clip" }}>
         <Stack
           direction={{ xs: "column", sm: "row" }}
@@ -151,6 +162,18 @@ export function ArticleEditor({
           </Box>
           {!temporary && (
             <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+              {activeMode === "frontmatter" && (
+                <Button
+                  startIcon={<AutoAwesomeOutlined />}
+                  disabled={busy || readOnly || Boolean(article.error)}
+                  onClick={() => {
+                    setAiMounted(true);
+                    setAiOpen(true);
+                  }}
+                >
+                  AI 写作
+                </Button>
+              )}
               {previewPath && (
                 <Button startIcon={<OpenInNewOutlined />} onClick={() => onPreview(previewPath)}>
                   Mizuki预览
@@ -189,11 +212,11 @@ export function ArticleEditor({
         {!article.error && (
           <Box hidden={activeMode !== "visual"}>
             <VditorBodyEditor
-              key={`${projectRoot}:${article.id}:${article.version}`}
+              key={`${projectRoot}:${article.id}:${editorVersion || article.version}`}
               ref={vditorRef}
-              article={article}
+              article={{ ...article, version: editorVersion || article.version }}
               source={source}
-              busy={busy}
+              busy={busy && !autosaving}
               readOnly={readOnly}
               fontMode={fontMode}
               showSave={!temporary}
@@ -205,18 +228,8 @@ export function ArticleEditor({
                 temporary
                   ? undefined
                   : () => {
-                      try {
-                        let context: AiWritingContext | undefined;
-                        flushSync(() => {
-                          context = vditorRef.current?.captureWritingContext();
-                        });
-                        if (context) {
-                          setAiContext((existing) => existing ?? context!);
-                          setAiOpen(true);
-                        }
-                      } catch (cause) {
-                        setAiError(cause instanceof Error ? cause.message : "无法读取当前正文。");
-                      }
+                      setAiMounted(true);
+                      setAiOpen(true);
                     }
               }
               onLoadEnd={onLoadEnd}
@@ -243,7 +256,7 @@ export function ArticleEditor({
               <FrontmatterEditor
                 fontMode={fontMode}
                 rows={frontmatter}
-                busy={busy}
+                busy={busy && !autosaving}
                 readOnly={readOnly}
                 onChange={onFrontmatterChange}
                 onSave={onSaveFrontmatter}
@@ -251,11 +264,13 @@ export function ArticleEditor({
             </>
           ))}
       </Paper>
-      {aiContext && (
+      {aiMounted && (
         <Suspense fallback={null}>
           <AiWritingPanel
-            initialContext={aiContext}
+            key={`${projectRoot}:${article.id}`}
+            articleId={article.id}
             currentBody={vditorBody(source)}
+            currentFrontmatter={publicFrontmatter(frontmatter.filter((e) => e.key.trim()))}
             open={aiOpen}
             onClose={() => setAiOpen(false)}
             getContext={() => {
@@ -263,8 +278,10 @@ export function ArticleEditor({
               flushSync(() => {
                 context = vditorRef.current?.captureWritingContext();
               });
-              if (!context) throw new Error("编辑器尚未就绪。");
-              return context;
+              return {
+                ...(context ?? { body: vditorBody(source), selection: "", canInsert: false }),
+                frontmatter: publicFrontmatter(frontmatter.filter((e) => e.key.trim())),
+              };
             }}
             title={article.title}
             disabled={busy || readOnly || Boolean(article.error)}
@@ -278,6 +295,30 @@ export function ArticleEditor({
                 throw new Error("建议中含有疑似 API Key，已阻止写入。");
               if (!vditorRef.current) throw new Error("编辑器尚未就绪。");
               flushSync(() => vditorRef.current!.applyWriting(text, "replace", context));
+            }}
+            onApplyFrontmatter={(changes, before) => {
+              if (busy || readOnly) throw new Error("当前文章不可编辑。");
+              if (
+                frontmatterFingerprint(frontmatter.filter((e) => e.key.trim())) !==
+                frontmatterFingerprint(before)
+              )
+                throw new Error("Frontmatter 草稿已变化，请重新生成修改。");
+              const raw = JSON.stringify(changes);
+              if (
+                containsApiCredential(raw) ||
+                [aiCredentials.get("openai"), aiCredentials.get("anthropic")].some(
+                  (key) => key && raw.includes(key),
+                )
+              )
+                throw new Error("字段建议包含疑似 API Key，已阻止采用。");
+              const merged = mergeAiFrontmatterChanges(frontmatter, changes);
+              patchArticleFrontmatter(source, merged);
+              onFrontmatterChange(
+                merged.map((entry) => {
+                  const row = frontmatter.find((r) => r.key === entry.key);
+                  return row ? { ...row, ...entry } : createFrontmatterRow(entry);
+                }),
+              );
             }}
           />
         </Suspense>
